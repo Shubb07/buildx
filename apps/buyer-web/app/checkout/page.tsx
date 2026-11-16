@@ -1,27 +1,38 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { buyerDeliveryPhrase, checkGstin, useApiClient, useSelectedLocation } from '@sthiva/web-core';
+import { buyerDeliveryPhrase, checkGstin, useApiClient, useLocationSelector, useSelectedLocation } from '@sthiva/web-core';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { EmptyState, ErrorNote, PageHead, SummaryRow } from '@/components/account/AccountUI';
 import { useCart, clearCart } from '@/lib/cart';
-import { quoteCart, placeOrder, savedGst, type Quote } from '@/lib/orders';
+import { checkoutPrefill, forgetAddress, quoteCart, placeOrder, type Quote, type SavedAddress } from '@/lib/orders';
 import { rupees } from '@/lib/format';
 
 const LABELS = ['Site', 'Home', 'Office', 'Warehouse'];
 
-function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+// One step of checkout. Finished steps fold into a short summary with a Change button.
+function Step({ n, title, open, done, summary, onEdit, children }: {
+  n: number; title: string; open: boolean; done: boolean; summary?: React.ReactNode; onEdit: () => void; children: React.ReactNode;
+}) {
   return (
-    <section className="card p-5 sm:p-6">
+    <section className="card p-5 sm:p-6" aria-labelledby={`step-${n}`}>
       <div className="flex items-center gap-3">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink font-mono text-[13px] text-lime">{n}</span>
-        <h2 className="font-display text-xl font-semibold tracking-tight">{title}</h2>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] ${done && !open ? 'bg-lime text-ink' : open ? 'bg-ink text-lime' : 'bg-sand-3 text-stone'}`}>
+          {done && !open ? <span className="material-symbols-outlined text-[18px]" aria-hidden="true">check</span> : n}
+        </span>
+        <h2 id={`step-${n}`} className={`font-display text-xl font-semibold tracking-tight ${open || done ? '' : 'text-stone'}`}>{title}</h2>
+        {!open && done && (
+          <button type="button" onClick={onEdit} className="ml-auto text-[14px] font-semibold text-cobalt hover:underline" aria-label={`Change: ${title}`}>
+            Change
+          </button>
+        )}
       </div>
-      <div className="mt-5">{children}</div>
+      {open ? <div className="mt-5">{children}</div> : done && summary ? <div className="mt-3 pl-11 text-[15px]">{summary}</div> : null}
     </section>
   );
 }
@@ -43,8 +54,48 @@ function CheckoutForm() {
   const [wantGst, setWantGst] = useState(false);
   const [gstin, setGstin] = useState('');
   const [gstName, setGstName] = useState('');
+  // Step being filled in (finished steps fold into a summary)
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Addresses remembered from earlier orders (newest first), the chosen one, or 'new'
+  const [saved, setSaved] = useState<SavedAddress[]>([]);
+  const [chosen, setChosen] = useState<string>('new');
+  const { state: pinState, submitPincode } = useLocationSelector();
+  const [pinInput, setPinInput] = useState('');
+  const [editingPin, setEditingPin] = useState(false);
+
+  const pickSaved = (a: SavedAddress) => {
+    setChosen(a._id);
+    setLabel(a.label);
+    setFullAddress(a.fullAddress);
+    setContactPhone(a.contactPhone);
+    // Prices and delivery follow the site PIN, so the saved address brings its PIN along
+    if (a.pincode && a.pincode !== location?.pincode) submitPincode(a.pincode);
+  };
+  const pickNew = () => {
+    setChosen('new');
+    setFullAddress('');
+  };
+  const forget = (id: string) => {
+    forgetAddress(client, id).then((list) => {
+      setSaved(list);
+      if (chosen === id) pickNew();
+    }).catch(() => undefined);
+  };
+  const checkPin = () => {
+    if (pinInput.length !== 6) return;
+    submitPincode(pinInput);
+    setEditingPin(false);
+  };
+
   useEffect(() => {
-    savedGst(client).then((g) => { if (g) { setGstin(g.gstin); setGstName(g.businessName); } }).catch(() => undefined);
+    checkoutPrefill(client).then(({ gst, addresses }) => {
+      if (gst) { setGstin(gst.gstin); setGstName(gst.businessName); }
+      setSaved(addresses);
+      // Start with the last address used for this site (or the last one used at all)
+      const first = addresses.find((a) => a.pincode && a.pincode === location?.pincode) ?? addresses[0];
+      if (first) pickSaved(first);
+    }).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client]);
   const gstCheck = gstin.length === 15 ? checkGstin(gstin) : null;
   const gstReady = !wantGst || (gstCheck?.ok === true && gstName.trim().length >= 2);
@@ -77,14 +128,24 @@ function CheckoutForm() {
     );
   }
 
+  const pinCheck = pinState.phase === 'result' ? pinState.check : null;
+  const pinProblem = pinCheck && pinCheck.status !== 'serviceable' && pinCheck.status !== 'not-serviceable' ? pinCheck.message : null;
+  const phoneOk = /^[6-9]\d{9}$/.test(contactPhone);
+  const addressReady = fullAddress.trim().length >= 5 && phoneOk && !!location?.pincode;
+  const stepOneHint = addressReady ? null
+    : !location?.pincode ? 'Enter the site PIN code so we can check delivery and price it.'
+    : fullAddress.trim().length < 5 ? 'Write the full delivery address.'
+    : 'Enter a 10-digit mobile number for the person on site.';
+
   // Out of area is allowed (Sthiva finds a supplier); any other not-serviceable answer blocks the order
   const notServiceable = quote.status === 'success' && quote.data.delivery !== null && !quote.data.delivery.serviceable && !quote.data.outOfArea;
   const canPlace =
-    !placing && quote.status === 'success' && !notServiceable && quote.data.deliveryPricing?.status !== 'UNPRICED' && fullAddress.trim().length >= 5 && /^[6-9]\d{9}$/.test(contactPhone) && gstReady;
+    !placing && quote.status === 'success' && !notServiceable && quote.data.deliveryPricing?.status !== 'UNPRICED' && addressReady && gstReady;
 
   async function handlePlaceOrder(e: React.FormEvent) {
     e.preventDefault();
-    if (quote.status !== 'success') return;
+    // Enter in an earlier step's field must not place the order
+    if (quote.status !== 'success' || step !== 3 || !canPlace) return;
     setPlaceError(null);
     setPlacing(true);
     try {
@@ -110,60 +171,120 @@ function CheckoutForm() {
   return (
     <form onSubmit={handlePlaceOrder} className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
       <div className="flex flex-col gap-4">
-        <Step n={1} title="Delivery address">
-          <fieldset>
-            <legend className="text-[14px] font-medium text-stone">Save this address as</legend>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {LABELS.map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => setLabel(l)}
-                  aria-pressed={label === l}
-                  className={`h-11 rounded-full border px-4 text-[14px] font-medium transition-colors ${
-                    label === l ? 'border-ink bg-ink text-sand' : 'border-sand-4 bg-sand hover:border-ink'
-                  }`}
-                >
-                  {l}
+        <Step
+          n={1}
+          title="Delivery address"
+          open={step === 1}
+          done={addressReady}
+          onEdit={() => setStep(1)}
+          summary={
+            <>
+              <p className="font-semibold">{label}{location?.pincode && <span className="font-normal text-stone"> · PIN <span className="font-mono text-ink">{location.pincode}</span></span>}</p>
+              <p className="text-stone">{fullAddress}</p>
+              <p className="mt-1 font-mono text-[14px]">+91 {contactPhone}</p>
+            </>
+          }
+        >
+          {saved.length > 0 && (
+            <fieldset className="mb-5">
+              <legend className="text-[14px] font-medium text-stone">Your addresses</legend>
+              <div className="mt-2 flex flex-col gap-2">
+                {saved.map((a) => (
+                  <div key={a._id} className={`flex items-start gap-3 rounded-xl border p-4 transition-colors ${chosen === a._id ? 'border-ink bg-sand' : 'border-sand-4 hover:border-ink'}`}>
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                      <input type="radio" name="saved-address" checked={chosen === a._id} onChange={() => pickSaved(a)} className="mt-1 h-4 w-4 accent-ink" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold">{a.label}{a.pincode && <span className="font-normal text-stone"> · PIN <span className="font-mono">{a.pincode}</span></span>}</span>
+                        <span className="block text-[14px] text-stone">{a.fullAddress}</span>
+                        <span className="block font-mono text-[13px] text-stone">+91 {a.contactPhone}</span>
+                      </span>
+                    </label>
+                    <button type="button" onClick={() => forget(a._id)} className="text-[13px] text-stone hover:text-error" aria-label={`Remove saved address: ${a.fullAddress}`}>
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors ${chosen === 'new' ? 'border-ink bg-sand' : 'border-sand-4 hover:border-ink'}`}>
+                  <input type="radio" name="saved-address" checked={chosen === 'new'} onChange={pickNew} className="h-4 w-4 accent-ink" />
+                  <span className="font-semibold">A new address</span>
+                </label>
+              </div>
+            </fieldset>
+          )}
+
+          {chosen === 'new' && (
+            <>
+              <fieldset>
+                <legend className="text-[14px] font-medium text-stone">Save this address as</legend>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {LABELS.map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => setLabel(l)}
+                      aria-pressed={label === l}
+                      className={`h-11 rounded-full border px-4 text-[14px] font-medium transition-colors ${
+                        label === l ? 'border-ink bg-ink text-sand' : 'border-sand-4 bg-sand hover:border-ink'
+                      }`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <label className="mt-5 flex flex-col gap-2">
+                <span className="text-[14px] font-medium text-stone">Full address</span>
+                <textarea
+                  rows={3}
+                  value={fullAddress}
+                  onChange={(e) => setFullAddress(e.target.value)}
+                  placeholder="Plot or house no., street, area, landmark, city"
+                  autoComplete="street-address"
+                  className="field resize-none"
+                />
+              </label>
+            </>
+          )}
+
+          {/* Site PIN: the same saved PIN as the rest of the site; prices and delivery follow it */}
+          <div className="mt-5 flex flex-col gap-2">
+            <span className="text-[14px] font-medium text-stone">Site PIN code</span>
+            {location && !editingPin && pinState.phase !== 'checking' ? (
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px]">
+                <span className="material-symbols-outlined text-[18px] text-stone" aria-hidden="true">location_on</span>
+                <span className="font-mono font-semibold">{location.pincode}</span>
+                <span className="text-stone">{location.label}</span>
+                <button type="button" onClick={() => { setPinInput(''); setEditingPin(true); }} className="text-[14px] font-semibold text-cobalt hover:underline">Change</button>
+              </p>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); checkPin(); } }}
+                  inputMode="numeric"
+                  autoComplete="postal-code"
+                  placeholder="6-digit PIN"
+                  aria-label="Site PIN code"
+                  className="field w-40 font-mono"
+                />
+                <button type="button" disabled={pinInput.length !== 6 || pinState.phase === 'checking'} onClick={checkPin} className="btn-ink px-5">
+                  {pinState.phase === 'checking' ? 'Checking' : 'Check'}
                 </button>
-              ))}
-            </div>
-          </fieldset>
+              </div>
+            )}
+            {pinProblem && <p role="alert" className="text-[14px] text-error">{pinProblem}</p>}
+          </div>
 
           <label className="mt-5 flex flex-col gap-2">
-            <span className="text-[14px] font-medium text-stone">Full address</span>
-            <textarea
-              required
-              rows={3}
-              value={fullAddress}
-              onChange={(e) => setFullAddress(e.target.value)}
-              placeholder="Plot or house no., street, area, landmark, city"
-              autoComplete="street-address"
-              className="field resize-none"
-            />
-          </label>
-
-          {location?.pincode ? (
-            <p className="mt-3 flex items-center gap-1.5 text-[14px] text-stone">
-              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">location_on</span>
-              Delivering to PIN <span className="font-mono text-ink">{location.pincode}</span> ({location.label})
-            </p>
-          ) : (
-            <p className="mt-3 text-[14px] text-stone">Tip: set your site PIN on the home page so we can check delivery before you order.</p>
-          )}
-        </Step>
-
-        <Step n={2} title="Contact on site">
-          <label className="flex flex-col gap-2">
             <span className="text-[14px] font-medium text-stone">Mobile number to call on delivery</span>
             <div className="flex items-center gap-2 rounded-xl border border-sand-4 bg-sand-2 pl-4 transition-[border-color,box-shadow] focus-within:border-ink focus-within:shadow-[0_0_0_4px_rgba(243,184,6,0.55)]">
               <span className="font-mono text-[15px] text-stone">+91</span>
               <input
-                required
                 type="tel"
                 inputMode="numeric"
                 autoComplete="tel-national"
-                pattern="[6-9][0-9]{9}"
                 maxLength={10}
                 value={contactPhone}
                 onChange={(e) => setContactPhone(e.target.value.replace(/\D/g, ''))}
@@ -171,20 +292,55 @@ function CheckoutForm() {
               />
             </div>
           </label>
+
+          {stepOneHint && <p className="mt-4 text-[14px] text-stone">{stepOneHint}</p>}
+          <button type="button" disabled={!addressReady} onClick={() => setStep(2)} className="btn-ink mt-6 w-full py-4 sm:w-auto sm:px-8">
+            Continue
+          </button>
         </Step>
 
-        <Step n={3} title="Payment">
-          <div className="flex items-center gap-4 rounded-xl border-2 border-ink bg-sand p-4">
-            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-lime text-ink">
-              <span className="material-symbols-outlined" aria-hidden="true">payments</span>
-            </span>
-            <div>
-              <p className="font-semibold">Cash on delivery</p>
-              <p className="text-[14px] text-stone">Pay when the materials reach your site.</p>
-            </div>
-          </div>
+        <Step
+          n={2}
+          title="Check your order"
+          open={step === 2}
+          done={step > 2}
+          onEdit={() => setStep(2)}
+          summary={
+            quote.status === 'success' ? (
+              <p className="text-stone">
+                {quote.data.items.length} item{quote.data.items.length === 1 ? '' : 's'}
+                {wantGst && gstCheck?.ok ? `, GST invoice to ${gstName.trim()}` : ''}
+              </p>
+            ) : null
+          }
+        >
+          {quote.status === 'loading' && <div className="skeleton h-24" role="status" aria-label="Pricing your cart" />}
+          {quote.status === 'error' && <p role="alert" className="text-[15px] text-error">{quote.message}</p>}
+          {quote.status === 'success' && (
+            <>
+              <ul className="flex flex-col divide-y divide-sand-4 rounded-xl border border-sand-4">
+                {quote.data.items.map((item) => (
+                  <li key={item.productId} className="flex items-start justify-between gap-4 p-4 text-[15px]">
+                    <span className="min-w-0">
+                      <span className="block font-semibold">{item.name}</span>
+                      <span className="block text-[14px] text-stone">
+                        <span className="font-mono text-ink">{item.quantity}</span> {item.unit.toLowerCase()} × {rupees.format(item.pricePerUnit)}
+                        {item.pricePerUnit < item.listPrice && <span className="text-tertiary"> (bulk price)</span>}
+                      </span>
+                      {!item.inStock && <span className="block text-[13px] text-error">Only {item.stockQuantity} left</span>}
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums">{rupees.format(item.lineTotal)}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/cart" className="mt-3 inline-flex items-center gap-1 text-[14px] font-medium text-cobalt hover:underline">
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
+                Change quantities in the cart
+              </Link>
+            </>
+          )}
 
-          <label className="mt-5 flex cursor-pointer items-start gap-3">
+          <label className="mt-6 flex cursor-pointer items-start gap-3">
             <input type="checkbox" checked={wantGst} onChange={(e) => setWantGst(e.target.checked)} className="mt-1 h-5 w-5 accent-ink" />
             <span>
               <span className="block font-semibold">I need a GST invoice</span>
@@ -213,6 +369,27 @@ function CheckoutForm() {
               </label>
             </div>
           )}
+
+          <button type="button" disabled={quote.status !== 'success' || !gstReady} onClick={() => setStep(3)} className="btn-ink mt-6 w-full py-4 sm:w-auto sm:px-8">
+            Continue
+          </button>
+        </Step>
+
+        <Step n={3} title="Pay and place order" open={step === 3} done={false} onEdit={() => setStep(3)}>
+          <div className="flex items-center gap-4 rounded-xl border-2 border-ink bg-sand p-4">
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-lime text-ink">
+              <span className="material-symbols-outlined" aria-hidden="true">payments</span>
+            </span>
+            <div>
+              <p className="font-semibold">Cash on delivery</p>
+              <p className="text-[14px] text-stone">Pay when the materials reach your site.</p>
+            </div>
+          </div>
+          {/* Phones: the summary sits below, so the button is here too */}
+          {placeError && <p role="alert" className="mt-4 text-[14px] text-error lg:hidden">{placeError}</p>}
+          <button type="submit" disabled={!canPlace} className="btn-lime mt-5 w-full py-4 text-[16px] lg:hidden">
+            {placing ? 'Placing order' : `Place order${quote.status === 'success' ? ` · ${rupees.format(quote.data.total)}` : ''}`}
+          </button>
         </Step>
       </div>
 
@@ -286,9 +463,10 @@ function CheckoutForm() {
             </>
           )}
 
-          {placeError && <p role="alert" className="mt-4 text-[14px] text-signal-red">{placeError}</p>}
+          {placeError && <p role="alert" className="mt-4 hidden text-[14px] text-signal-red lg:block">{placeError}</p>}
+          {step !== 3 && <p className="mt-6 hidden text-center text-[14px] text-stone-light lg:block">Finish the steps on the left to place your order.</p>}
 
-          <button type="submit" disabled={!canPlace} className="btn-lime mt-6 w-full py-4 text-[16px]">
+          <button type="submit" disabled={!canPlace || step !== 3} className="btn-lime mt-6 hidden w-full py-4 text-[16px] lg:inline-flex">
             {placing ? (
               <>
                 <span className="material-symbols-outlined animate-spin text-[20px]" aria-hidden="true">progress_activity</span>

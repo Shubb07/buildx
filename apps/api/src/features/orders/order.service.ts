@@ -364,6 +364,9 @@ export async function createOrder(params: {
       );
       return created.toObject() as LeanOrder;
     });
+    // Remember the delivery address (newest first, 5 kept) so the next checkout is one tap
+    await rememberAddress(buyerId, input.deliveryAddress, destination?.pincode)
+      .catch((err: Error) => logger.warn('[orders] could not remember address', { error: err?.message }));
     // Remember the GSTIN for the next order (prefilled at checkout)
     if (input.buyerGst) {
       await User.updateOne({ _id: buyerId }, { $set: { gstNumber: input.buyerGst.gstin, gstBusinessName: input.buyerGst.businessName } })
@@ -378,6 +381,28 @@ export async function createOrder(params: {
     }
     throw err;
   }
+}
+
+const SAVED_ADDRESSES = 5;
+
+/** Moves this address to the top of the buyer's saved addresses (same text and PIN = same address). */
+async function rememberAddress(buyerId: string | Types.ObjectId, a: CreateOrderInput['deliveryAddress'], pincode?: string) {
+  const fullAddress = a.fullAddress.trim();
+  const pin = pincode ?? a.pincode;
+  await User.updateOne({ _id: buyerId }, { $pull: { addresses: { fullAddress, ...(pin ? { pincode: pin } : {}) } } });
+  await User.updateOne({ _id: buyerId }, {
+    $push: {
+      addresses: {
+        $each: [{
+          label: a.label, fullAddress, contactPhone: a.contactPhone, lastUsedAt: new Date(),
+          ...(pin ? { pincode: pin } : {}),
+          ...(typeof a.lat === 'number' && typeof a.lng === 'number' ? { lat: a.lat, lng: a.lng } : {}),
+        }],
+        $position: 0,
+        $slice: SAVED_ADDRESSES,
+      },
+    },
+  });
 }
 
 // ─── Status transitions ─────────────────────────────────────────────────────

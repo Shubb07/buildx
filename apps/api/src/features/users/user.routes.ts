@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { isValidObjectId } from 'mongoose';
 import { z } from 'zod';
 import { requireAuth } from '../../shared/middleware/auth.middleware';
 import { validate } from '../../shared/middleware/validate.middleware';
@@ -65,6 +66,19 @@ router.post('/me/addresses', requireAuth, validate(addressSchema), async (req, r
       { new: true, select: 'addresses' }
     ).lean();
     res.status(201).json(ok(user?.addresses));
+  } catch (err) { next(err); }
+});
+
+// DELETE /users/me/addresses/:id: forget a saved delivery address
+router.delete('/me/addresses/:id', requireAuth, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.id)) throw AppError.badRequest('Invalid address ID');
+    const user = await User.findByIdAndUpdate(
+      req.auth!.userId,
+      { $pull: { addresses: { _id: req.params.id } } },
+      { new: true, select: 'addresses' }
+    ).lean();
+    res.json(ok(user?.addresses ?? []));
   } catch (err) { next(err); }
 });
 

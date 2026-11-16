@@ -140,11 +140,30 @@ export async function cancelBuyerOrder(client: ApiClient, id: string, reason?: s
   return client.request(`/orders/${id}/cancel`, { method: 'POST', auth: true, envelope: true, schema: orderSchema, body: { reason } });
 }
 
-// GSTIN remembered from the buyer's last GST invoice order (GET /users/me), to prefill checkout
-export async function savedGst(client: ApiClient): Promise<{ gstin: string; businessName: string } | null> {
+const savedAddressSchema = z.object({
+  _id: z.string(), label: z.string(), fullAddress: z.string(), contactPhone: z.string(), pincode: z.string().optional(),
+}).passthrough();
+export type SavedAddress = z.infer<typeof savedAddressSchema>;
+
+// Checkout prefill from the account (GET /users/me): addresses of earlier orders (newest first)
+// and the GSTIN of the last GST invoice order
+export async function checkoutPrefill(client: ApiClient): Promise<{ addresses: SavedAddress[]; gst: { gstin: string; businessName: string } | null }> {
   const me = await client.request('/users/me', {
     auth: true, envelope: true,
-    schema: z.object({ gstNumber: z.string().optional(), gstBusinessName: z.string().optional() }).passthrough(),
+    schema: z.object({
+      gstNumber: z.string().optional(), gstBusinessName: z.string().optional(),
+      addresses: z.array(z.unknown()).optional(),
+    }).passthrough(),
   });
-  return me.gstNumber ? { gstin: me.gstNumber, businessName: me.gstBusinessName ?? '' } : null;
+  // Older entries (mobile app) may lack fields: keep only usable ones
+  const addresses = (me.addresses ?? []).flatMap((a) => {
+    const r = savedAddressSchema.safeParse(a);
+    return r.success && r.data.fullAddress.trim().length >= 5 ? [{ ...r.data, contactPhone: r.data.contactPhone.slice(-10) }] : [];
+  });
+  return { addresses, gst: me.gstNumber ? { gstin: me.gstNumber, businessName: me.gstBusinessName ?? '' } : null };
+}
+
+export async function forgetAddress(client: ApiClient, id: string): Promise<SavedAddress[]> {
+  const list = await client.request(`/users/me/addresses/${id}`, { method: 'DELETE', auth: true, envelope: true, schema: z.array(z.unknown()) });
+  return list.flatMap((a) => { const r = savedAddressSchema.safeParse(a); return r.success ? [r.data] : []; });
 }

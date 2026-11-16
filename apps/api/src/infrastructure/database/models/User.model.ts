@@ -18,13 +18,17 @@ export interface IUser extends Document {
     bankName: string;
     verified: boolean;
   };
+  // Delivery addresses, newest first. Websites remember the address of each order (up to 5).
   addresses: {
+    _id?: Types.ObjectId;
     label: string;
     fullAddress: string;
-    lat: number;
-    lng: number;
+    lat?: number;
+    lng?: number;
+    pincode?: string;
     contactPhone: string;
     isDefault: boolean;
+    lastUsedAt?: Date;
   }[];
   avatarUrl?: string;
   isActive: boolean;
@@ -60,8 +64,10 @@ const userSchema = new Schema<IUser>(
         fullAddress: String,
         lat: Number,
         lng: Number,
+        pincode: String,
         contactPhone: String,
         isDefault: { type: Boolean, default: false },
+        lastUsedAt: Date,
       },
     ],
     avatarUrl: String,

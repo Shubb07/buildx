@@ -13,12 +13,14 @@ import {
 } from './supplier.controller';
 import { z } from 'zod';
 import { checkGstin } from '../../shared/gstin';
+import { HSN_RE } from '../../shared/hsn';
 import {
   listServicePincodes, addServicePincodes, removeServicePincode, previewServicePincode,
 } from '../serviceability/service-pincodes.controller';
 import { MAX_PINCODES_PER_REQUEST } from '../serviceability/serviceability.service';
 import { bulkPricingProblem } from './product-rules';
 import { supplierSearch } from '../catalog/catalog.controller';
+import { supplierInvoice } from '../invoices/invoice.controller';
 
 // Strings are format-checked per item in the controller so each bad entry gets its own reason
 const addPincodesSchema = z.object({
@@ -71,6 +73,8 @@ const productFields = {
   basePrice: z.number().positive('Price must be more than 0').max(10_000_000),
   gstRate: z.number().refine((r) => (GST_RATES as readonly number[]).includes(r), 'GST must be 0, 5, 12, 18 or 28%'),
   isGstInclusive: z.boolean(),
+  // HSN code for the GST invoice; '' clears it
+  hsn: z.union([z.literal(''), z.string().trim().regex(HSN_RE, 'An HSN code has 4, 6 or 8 digits')]),
   stockQuantity: z.number().int('Stock must be a whole number').min(0).max(10_000_000),
   minOrderQuantity: z.number().int().min(1).max(100_000),
   // Usual delivery time after accepting an order, as a range of days (woodwork can take weeks)
@@ -102,7 +106,7 @@ export const createProductSchema = z
     // A new listing is either published or kept as a draft; the server decides live vs out of stock
     status: z.enum(['DRAFT', 'ACTIVE']),
   })
-  .partial({ catalogItemId: true, brand: true, shortDescription: true, gstRate: true, isGstInclusive: true, stockQuantity: true, minOrderQuantity: true,
+  .partial({ catalogItemId: true, hsn: true, brand: true, shortDescription: true, gstRate: true, isGstInclusive: true, stockQuantity: true, minOrderQuantity: true,
     deliveryDays: true, deliveryDaysMax: true, supply: true, lowStockAlert: true, tags: true, specifications: true, images: true, bulkPricing: true, status: true })
   .strict()
   .superRefine((v, ctx) => {
@@ -134,6 +138,7 @@ router.post('/me/weekly', validate(weeklyConfirmSchema), confirmWeekly);
 router.post('/me/documents', documentUpload, uploadDocument);
 
 router.get('/me/orders', listSupplierOrders);
+router.get('/me/orders/:id/invoice', supplierInvoice);
 // Orders are offered to one supplier at a time: accept, or reject so the next supplier gets it
 const rejectSchema = z.object({ reason: z.string().trim().min(3, 'Tell us why (at least 3 characters)').max(300) });
 // deliveryDate: the date the supplier commits to (YYYY-MM-DD); optional so older app versions still work

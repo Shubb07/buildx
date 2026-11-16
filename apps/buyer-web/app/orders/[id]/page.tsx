@@ -2,7 +2,8 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useApiClient } from '@sthiva/web-core';
+import { hasInvoice, useApiClient } from '@sthiva/web-core';
+import { InvoiceDownload } from '@/components/account/InvoiceDownload';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { RequireAuth } from '@/components/auth/RequireAuth';
@@ -134,6 +135,8 @@ function OrderDetail({ id }: { id: string }) {
               </div>
             )}
           </section>
+
+          {hasInvoice(order.status) && <InvoiceDownload orderId={order._id} orderNumber={order.orderNumber} />}
 
           {cancellable && (
             <section className="card p-5 sm:p-6">

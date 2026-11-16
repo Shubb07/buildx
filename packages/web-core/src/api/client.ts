@@ -65,6 +65,8 @@ export type ApiClient = {
   request<T>(path: string, options: RequestOptions<T>): Promise<T>;
   /** Like `request`, but for paginated list endpoints that also need `meta` (total, hasNext, ...). */
   requestPage<T>(path: string, options: RequestOptions<T>): Promise<{ data: T; meta: PaginationMeta }>;
+  /** Downloads a file (e.g. an invoice PDF) with the signed-in user's token; errors as ApiClientError */
+  requestFile(path: string, options?: { timeoutMs?: number }): Promise<Blob>;
   readonly baseUrl: string;
 };
 
@@ -186,5 +188,35 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     return { data, meta: env.meta as PaginationMeta };
   }
 
-  return { request, requestPage, baseUrl };
+  async function requestFile(path: string, req: { timeoutMs?: number } = {}): Promise<Blob> {
+    const headers: Record<string, string> = {};
+    if (options.getAuthToken) {
+      const token = await options.getAuthToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    }
+    const controller = new AbortController();
+    // Files can take longer than JSON (and the API may be waking up)
+    const timer = setTimeout(() => controller.abort(), req.timeoutMs ?? Math.max(timeoutMs, 60_000));
+    let res: Response;
+    try {
+      res = await doFetch(baseUrl + (path.startsWith('/') ? path : `/${path}`), { headers, signal: controller.signal, credentials: 'omit' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: { code?: unknown; message?: unknown } } | null;
+        throw new ApiClientError(
+          typeof body?.error?.message === 'string' ? body.error.message : `Request failed (${res.status})`,
+          typeof body?.error?.code === 'string' ? body.error.code : 'HTTP_ERROR',
+          res.status
+        );
+      }
+      return await res.blob();
+    } catch (err) {
+      if (err instanceof ApiClientError) throw err;
+      if (controller.signal.aborted) throw new ApiClientError('The server took too long to respond', 'TIMEOUT', null);
+      throw new ApiClientError("Couldn't reach Sthiva. Check your connection and try again.", 'NETWORK_ERROR', null);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  return { request, requestPage, requestFile, baseUrl };
 }

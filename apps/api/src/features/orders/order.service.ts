@@ -17,6 +17,9 @@ import { activeVehicles, deliveryPoint, quoteDelivery, type DeliveryQuote, type 
 import { SupplierProfile } from '../../infrastructure/database/models/SupplierProfile.model';
 import { User } from '../../infrastructure/database/models/User.model';
 import { logger } from '../../shared/logger/logger';
+import { CatalogItem } from '../../infrastructure/database/models/CatalogItem.model';
+import { SUGGESTED_HSN } from '../../shared/hsn';
+import { DISPATCHED, issueInvoiceInBackground } from '../invoices/invoice.service';
 import { getPlatformSettings } from '../../infrastructure/database/models/PlatformSettings.model';
 import { checkSupplier, eligibleSupplierIds, notServiceable, resolveDestination, type Destination } from '../serviceability/serviceability.service';
 
@@ -200,6 +203,7 @@ function lineView(p: PricedCart['products'][number], line: PricedOrder['lines'][
     tierMinQty: line.tierMinQty ?? undefined,
     gstRate: p.gstRate,
     isGstInclusive: p.isGstInclusive,
+    ...((p as { hsn?: string }).hsn ? { hsn: (p as { hsn?: string }).hsn } : {}),
     subtotal: paiseToRupees(line.grossPaise),
     taxableValue: paiseToRupees(line.taxablePaise),
     gstAmount: paiseToRupees(line.gstPaise),
@@ -309,6 +313,7 @@ export async function createOrder(params: {
 
       const now = new Date();
       const expiresAt = await offerExpiry(now);
+      const hsnFor = await suggestedHsn(products);
       const [created] = await Order.create(
         [
           {
@@ -317,6 +322,7 @@ export async function createOrder(params: {
             supplierId,
             items: products.map((p, i) => ({
               ...lineView(p, priced.lines[i]),
+              ...(!(p as { hsn?: string }).hsn && hsnFor.get(String(p._id)) ? { hsn: hsnFor.get(String(p._id)) } : {}),
               // The supplier's side of the line, and the commission rates in force when ordered
               supplierUnitPrice: paiseToRupees(supplierPriced.lines[i].unitPricePaise),
               supplierLineTotal: paiseToRupees(supplierPriced.lines[i].totalPaise),
@@ -381,6 +387,20 @@ export async function createOrder(params: {
     }
     throw err;
   }
+}
+
+/** Catalogue HSN suggestion for listings that have no HSN of their own (productId -> code) */
+async function suggestedHsn(products: { _id: unknown; catalogItemId?: unknown; hsn?: string }[]) {
+  const ids = products.filter((p) => !p.hsn && p.catalogItemId).map((p) => p.catalogItemId);
+  const out = new Map<string, string>();
+  if (!ids.length) return out;
+  const items = await CatalogItem.find({ _id: { $in: ids } }).select('_id slug').lean();
+  const slugById = new Map(items.map((c) => [String(c._id), c.slug]));
+  for (const p of products) {
+    const code = SUGGESTED_HSN[slugById.get(String(p.catalogItemId)) ?? ''];
+    if (code) out.set(String(p._id), code);
+  }
+  return out;
 }
 
 const SAVED_ADDRESSES = 5;
@@ -461,7 +481,11 @@ export async function transitionOrder(params: {
     update,
     { new: true }
   ).lean<LeanOrder>();
-  if (order) return { order, changed: true };
+  if (order) {
+    // Goods have left the supplier: the GST invoice is issued now (once; never blocks the delivery)
+    if ((DISPATCHED as readonly string[]).includes(to)) issueInvoiceInBackground(order._id);
+    return { order, changed: true };
+  }
   return { order: await resolveFailedTransition(filter, to, mode), changed: false };
 }
 

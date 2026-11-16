@@ -22,6 +22,7 @@ export const supplierProductSchema = z
     supply: z.enum(['IN_STOCK', 'ON_ORDER']).optional(),
     gstRate: z.number().optional(),
     isGstInclusive: z.boolean().optional(),
+    hsn: z.string().optional(),
     bulkPricing: z.array(z.object({ minQty: z.number(), price: z.number() })).optional(),
     lowStockAlert: z.number().optional(),
     specifications: z.record(z.string(), z.string()).optional(),
@@ -48,6 +49,7 @@ export type ProductInput = {
   supply?: 'IN_STOCK' | 'ON_ORDER';
   gstRate?: number;
   isGstInclusive?: boolean;
+  hsn?: string;
   bulkPricing?: { minQty: number; price: number }[];
   lowStockAlert?: number;
   specifications?: Record<string, string>;

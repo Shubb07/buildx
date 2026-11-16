@@ -12,6 +12,7 @@ export interface IOrderItem {
   tierMinQty?: number;     // bulk tier applied, if any
   gstRate: number;
   isGstInclusive: boolean;
+  hsn?: string;            // HSN code at order time (listing's, else the catalogue suggestion), for the invoice
   subtotal: number;        // pricePerUnit × quantity, as listed
   taxableValue: number;
   gstAmount: number;
@@ -156,6 +157,7 @@ const orderSchema = new Schema<IOrder>(
         tierMinQty: Number,
         gstRate: { type: Number, default: 18 },
         isGstInclusive: Boolean,
+        hsn: String,
         subtotal: Number,
         taxableValue: Number,
         gstAmount: Number,

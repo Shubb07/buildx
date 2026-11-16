@@ -27,6 +27,7 @@ import { getSettings, setCommission, createVehicle, updateVehicle, updateGeneral
 import { opsBalances, opsList as settlementList, opsGet as settlementGet, opsCreate as settlementCreate, opsMarkPaid, opsCancel as settlementCancel } from '../settlements/settlement.controller';
 import { balancesQuery, settlementListQuery, createSettlementSchema, markPaidSchema, cancelSettlementSchema } from '../settlements/settlement.schemas';
 import { commissionSchema, vehicleCreateSchema, vehicleUpdateSchema, generalSettingsSchema, categoryCreateSchema, categoryUpdateSchema } from '../settings/settings.schemas';
+import { opsInvoice } from '../invoices/invoice.controller';
 
 const router = Router();
 
@@ -38,6 +39,7 @@ router.get('/summary', summary);
 
 router.get('/orders', validate(listOrdersQuery, 'query'), listOrders);
 router.get('/orders/:id', getOrder);
+router.get('/orders/:id/invoice', opsInvoice);
 router.post('/orders/:id/cancel', validate(opsCancelSchema), cancel);
 router.post('/orders/:id/unassign', validate(opsUnassignSchema), unassign);
 router.post('/orders/:id/assign', validate(opsAssignSchema), assign);

@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useApiClient } from '@sthiva/web-core';
+import { hasInvoice, useApiClient } from '@sthiva/web-core';
+import { InvoiceButton } from '../../../../components/InvoiceButton';
 import { ErrorNote, ORDER_STATUS, Pill, UNIT, rupees, shortDate } from '../../../../components/ui';
 import { errorText, opsApi, populated, useLoad, type OrderDetail, type SupplierOption } from '../../../../lib/ops';
 
@@ -299,6 +300,7 @@ export default function OrderPage() {
         <h1 className="mt-3 font-mono text-[clamp(1.75rem,5vw,2.75rem)] font-medium tracking-tight">{o.orderNumber}</h1>
         <p className="mt-2 font-display text-2xl font-bold tabular-nums text-lime">{rupees.format(o.total)}</p>
         <p className="mt-1 text-[14px] text-sand/60">Placed {shortDate.format(new Date(o.createdAt))}</p>
+        {hasInvoice(o.status) && <div className="mt-4"><InvoiceButton orderId={o._id} orderNumber={o.orderNumber} /></div>}
       </header>
 
       {o.serviceabilityCheck === 'SKIPPED_NO_PINCODE' && (

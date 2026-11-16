@@ -337,7 +337,7 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
     // Body is checked by createProductSchema (supplier.routes.ts)
     const { catalogItemId, brand, description, shortDescription, basePrice, gstRate, isGstInclusive,
       stockQuantity: givenStock, minOrderQuantity, deliveryDays, deliveryDaysMax, supply, lowStockAlert, tags, specifications, images, bulkPricing,
-      status } = req.body;
+      status, hsn } = req.body;
     // An ON_ORDER listing never runs out (the supplier orders or makes it): stock is held at ON_ORDER_STOCK
     const stockQuantity = supply === 'ON_ORDER' ? ON_ORDER_STOCK : givenStock;
     let { name, categoryId, unit } = req.body;
@@ -397,6 +397,7 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
         basePrice,
         gstRate: gstRate ?? 18,
         isGstInclusive: isGstInclusive ?? true,
+        ...(hsn ? { hsn } : {}),
         stockQuantity: stockQuantity ?? 0,
         minOrderQuantity: minOrderQuantity ?? 1,
         deliveryDays: deliveryDays ?? 2,
@@ -435,6 +436,9 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
     for (const key of editable) {
       if (req.body[key] !== undefined) update[key] = req.body[key];
     }
+    // HSN for the GST invoice: '' clears it
+    if (req.body.hsn === '') update.$unset = { hsn: '' };
+    else if (req.body.hsn !== undefined) update.hsn = req.body.hsn;
 
     const current = await Product.findOne({ _id: req.params.id, supplierId: profile._id })
       .select('status basePrice minOrderQuantity bulkPricing deliveryDays deliveryDaysMax supply').lean();

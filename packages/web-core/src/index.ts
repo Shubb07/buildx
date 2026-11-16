@@ -46,3 +46,5 @@ export { MARK, WORD_STHIVA, WORD_PARTNER, BRAND_COLORS } from './brand/paths';
 // Delivery time wording (listing ranges, confirmed dates)
 export { buyerDeliveryPhrase, buyerDeliveryRange, deliveryTimeLabel, deliveryTimePhrase, formatDeliveryDate, istDate, DELIVERY_TIME_PRESETS } from './delivery';
 export { GSTIN_RE, GST_STATES, checkGstin, gstinCheckChar, sameGstState, type GstinCheck } from './gstin';
+export { HSN_RE, SUGGESTED_HSN } from './catalog/hsn';
+export { downloadFile, hasInvoice, INVOICE_STATUSES } from './api/download';

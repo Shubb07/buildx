@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   useApiClient, catalogItems, catalogItem, deliveryTimeLabel, DELIVERY_TIME_PRESETS, matchCatalogItem, suggestedListingName, suggestedListingUnit, type CatalogItem,
+  HSN_RE, SUGGESTED_HSN,
 } from '@sthiva/web-core';
 import { useCategories } from '../lib/categories';
 import { createSupplierProduct, productErrorText, searchSthivaItems, updateSupplierProduct, type ProductInput, type SthivaItem, type SupplierProduct } from '../lib/products';
@@ -182,6 +183,8 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
   const [basePrice, setBasePrice] = useState(start ? String(start.basePrice) : '');
   const [gstRate, setGstRate] = useState<number>(start?.gstRate ?? 18);
   const [inclusive, setInclusive] = useState<boolean>(start?.isGstInclusive ?? false);
+  // HSN code printed on the GST invoice Sthiva makes in the seller's name
+  const [hsn, setHsn] = useState(start?.hsn ?? '');
   const [tiers, setTiers] = useState<{ minQty: string; price: string }[]>(
     (start?.bulkPricing ?? []).map((t) => ({ minQty: String(t.minQty), price: String(t.price) }))
   );
@@ -313,6 +316,7 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
       : Number(deliveryDaysMax) < Number(deliveryDays) ? 'The longest time must be at least the shortest' : null,
     lowStock: lowStockAlert !== '' && !isWhole(lowStockAlert) ? 'Whole number, 0 or more' : null,
     tiers: tierProblem,
+    hsn: hsn !== '' && !HSN_RE.test(hsn) ? 'An HSN code has 4, 6 or 8 digits' : null,
   };
   const problems = Object.values(fieldErrors).filter(Boolean) as string[];
   const show = (key: keyof typeof fieldErrors) => (showProblems ? fieldErrors[key] : null);
@@ -339,6 +343,8 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
       basePrice: price,
       gstRate,
       isGstInclusive: inclusive,
+      // '' clears a code saved before
+      ...(hsn !== '' || start?.hsn ? { hsn } : {}),
       bulkPricing: tierValues,
       supply,
       // On order never runs out (the server keeps it available); in stock needs a real figure
@@ -553,6 +559,26 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
               ))}
             </div>
           </fieldset>
+
+          <Field label="HSN code (for the GST invoice)" error={show('hsn')}>
+            <input
+              value={hsn}
+              onChange={(e) => { touch(); setHsn(e.target.value.replace(/\D/g, '').slice(0, 8)); }}
+              inputMode="numeric"
+              placeholder={item && SUGGESTED_HSN[item.id] ? SUGGESTED_HSN[item.id] : '4 to 8 digits'}
+              className="field max-w-[200px] font-mono"
+            />
+            {item && SUGGESTED_HSN[item.id] && hsn !== SUGGESTED_HSN[item.id] && (
+              <span className="text-[13px] text-stone">
+                Usual code for {item.name}: <span className="font-mono">{SUGGESTED_HSN[item.id]}</span>.{' '}
+                <button type="button" onClick={() => { touch(); setHsn(SUGGESTED_HSN[item.id]); }} className="font-semibold text-cobalt hover:underline">Use it</button>
+                {' '}Check with your accountant if unsure.
+              </span>
+            )}
+            {!(item && SUGGESTED_HSN[item.id]) && (
+              <span className="text-[13px] text-stone">Printed on the invoice Sthiva makes in your name. It is on your purchase bills.</span>
+            )}
+          </Field>
 
           <div className="flex flex-col gap-2">
             <span className="text-[14px] font-semibold">The price you typed</span>

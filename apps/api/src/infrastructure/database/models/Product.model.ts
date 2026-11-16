@@ -28,6 +28,7 @@ export interface IProduct extends Document {
   totalSold: number;
   isGstInclusive: boolean;
   gstRate: number;
+  hsn?: string; // HSN code printed on the GST invoice (4, 6 or 8 digits)
   deliveryDays: number;     // usual delivery time after the order is accepted: shortest, in days
   deliveryDaysMax?: number; // ...and longest (absent = same as deliveryDays)
   // IN_STOCK: the supplier has it. ON_ORDER: they get it from the company or make it (brand catalogue
@@ -88,6 +89,7 @@ const productSchema = new Schema<IProduct>(
     totalSold: { type: Number, default: 0 },
     isGstInclusive: { type: Boolean, default: true },
     gstRate: { type: Number, default: 18, min: 0, max: 40 },
+    hsn: { type: String, trim: true, match: /^(\d{4}|\d{6}|\d{8})$/ },
     deliveryDays: { type: Number, default: 2, min: 0, max: 90 },
     deliveryDaysMax: { type: Number, min: 0, max: 90 },
     supply: { type: String, enum: ['IN_STOCK', 'ON_ORDER'], default: 'IN_STOCK', index: true },

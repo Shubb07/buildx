@@ -24,6 +24,8 @@ COPY packages ./packages
 RUN npm ci --omit=dev --workspace=apps/api --ignore-scripts && npm cache clean --force
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
+# Fonts for GST invoice PDFs (Geist, SIL Open Font License)
+COPY apps/api/assets ./apps/api/assets
 
 WORKDIR /app/apps/api
 # The production logger writes to ./logs

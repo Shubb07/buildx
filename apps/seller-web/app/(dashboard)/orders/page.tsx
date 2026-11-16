@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { deliveryTimePhrase, formatDeliveryDate, istDate, useApiClient } from '@sthiva/web-core';
+import { deliveryTimePhrase, formatDeliveryDate, hasInvoice, istDate, useApiClient } from '@sthiva/web-core';
+import { InvoiceButton } from '../../../components/InvoiceButton';
 import {
   acceptSupplierOrder, rejectSupplierOrder, reportDeliveryProblem, confirmCashCollected, setSupplierDeliveryDate, useSupplierOrders, updateSupplierOrderStatus,
   type SupplierOrder, type SupplierOrderAction,
@@ -149,8 +150,12 @@ function OrderCard({ order, onDone }: { order: SupplierOrder; onDone: () => void
           </div>
           {order.buyerGst && (
             <p className="mt-3 rounded-lg bg-white/60 px-3 py-2 text-[14px]">
-              <span className="font-semibold">GST invoice needed:</span> bill {order.buyerGst.businessName}, GSTIN <span className="font-mono">{order.buyerGst.gstin}</span>
+              <span className="font-semibold">GST invoice wanted:</span> {order.buyerGst.businessName}, GSTIN <span className="font-mono">{order.buyerGst.gstin}</span>.
+              Sthiva puts this on the invoice in your name when you send the goods.
             </p>
+          )}
+          {hasInvoice(order.status) && (
+            <div className="mt-3"><InvoiceButton orderId={order._id} orderNumber={order.orderNumber} /></div>
           )}
           {order.deliveryMode && (
             <p className="mt-3 text-[13px] text-stone">

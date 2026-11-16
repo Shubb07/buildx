@@ -133,15 +133,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <span className="text-ink">{data.name}</span>
             </nav>
 
-            <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
-              {/* left: media + details */}
-              <div className="flex flex-col gap-10 lg:col-span-7">
+            {/* Phones: photos, then name, price and Add to cart, then the details. Computers: photos and
+                details on the left, the buy box sticky on the right across both rows. */}
+            <div className="grid gap-8 lg:grid-cols-12 lg:gap-x-12 lg:gap-y-10">
+              <div className="order-1 lg:order-none lg:col-span-7">
                 <ProductGallery
                   images={data.images ?? []}
                   name={data.name}
                   category={data.categoryId?.name}
                   badges={data.supplierId?.verificationStatus === 'VERIFIED' ? ['Verified supplier'] : undefined}
                 />
+              </div>
+
+              <div className="order-3 flex flex-col gap-10 lg:order-none lg:col-span-7 lg:row-start-2">
 
                 {data.description && (
                   <section aria-labelledby="about-title">
@@ -186,7 +190,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </div>
 
               {/* right: buy box */}
-              <aside className="flex flex-col gap-5 lg:sticky lg:top-[calc(var(--header-h)+24px)] lg:col-span-5 lg:self-start">
+              <aside className="order-2 flex flex-col gap-5 lg:order-none lg:sticky lg:top-[calc(var(--header-h)+24px)] lg:col-span-5 lg:col-start-8 lg:row-span-2 lg:row-start-1 lg:self-start">
                 <div>
                   {data.categoryId?.name && <p className="eyebrow text-stone">{data.categoryId.name}</p>}
                   <h1 className="mt-2 font-display text-[clamp(2rem,4vw,3rem)] font-bold leading-[0.98] tracking-tightest">{data.name}</h1>
@@ -196,6 +200,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       <span className="inline-flex items-center gap-1 font-medium text-tertiary">
                         <span className="material-symbols-outlined text-[18px]" aria-hidden="true">verified</span>
                         Verified supplier
+                      </span>
+                    )}
+                    {(data.sellerCount ?? 1) > 1 && (
+                      <span className="inline-flex items-center gap-1 text-stone">
+                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">storefront</span>
+                        {data.sellerCount} verified sellers{location?.pincode ? ` deliver to ${location.pincode}` : ' carry this'}
                       </span>
                     )}
                     {(data.totalReviews ?? 0) > 0 && (
@@ -209,21 +219,36 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
                 {/* price */}
                 <section className="rounded-2xl bg-ink p-5 text-sand sm:p-6" aria-label="Price">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-display text-4xl font-bold tabular-nums">{rupees.format(data.basePrice)}</span>
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span className="font-display text-4xl font-bold tabular-nums">{rupees.format(unitPrice)}</span>
                     <span className="text-[16px] text-stone-light">per {unit}</span>
+                    {unitPrice < data.basePrice && (
+                      <span className="text-[14px] text-stone-light">
+                        <s className="tabular-nums">{rupees.format(data.basePrice)}</s> <span className="text-lime">bulk price</span>
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 text-[13px] text-stone-light">Excluding GST and delivery, which are shown at checkout.</p>
                   {tiers.length > 0 && (
                     <div className="mt-4 border-t border-white/10 pt-4">
-                      <p className="eyebrow text-lime">Bulk prices</p>
-                      <ul className="mt-2 flex flex-col gap-1.5">
-                        {tiers.map((t) => (
-                          <li key={t.minQty} className={`flex justify-between text-[14px] ${qty >= t.minQty ? 'text-sand' : 'text-stone-light'}`}>
-                            <span>{t.minQty}+ {unit}</span>
-                            <span className="tabular-nums">{rupees.format(t.price)} / {unit}</span>
-                          </li>
-                        ))}
+                      <p className="eyebrow text-lime">Bulk prices <span className="normal-case tracking-normal text-stone-light">(tap to order that much)</span></p>
+                      <ul className="mt-2 flex flex-col gap-1">
+                        {tiers.map((t) => {
+                          const active = unitPrice === t.price && qty >= t.minQty;
+                          return (
+                            <li key={t.minQty}>
+                              <button
+                                type="button"
+                                onClick={() => setQuantity(Math.max(minQty, t.minQty))}
+                                aria-pressed={active}
+                                className={`-mx-2 flex w-[calc(100%+1rem)] justify-between rounded-lg px-2 py-1.5 text-[14px] transition-colors hover:bg-white/10 ${active ? 'bg-white/10 text-sand' : 'text-stone-light'}`}
+                              >
+                                <span>{t.minQty}+ {unit}</span>
+                                <span className="tabular-nums">{rupees.format(t.price)} / {unit}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   )}

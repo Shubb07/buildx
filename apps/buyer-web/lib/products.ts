@@ -39,6 +39,8 @@ export const productDetailSchema = z
     categoryId: categoryRefSchema.nullable().optional(),
     avgRating: z.number().optional(),
     totalReviews: z.number().optional(),
+    // Verified sellers carrying this catalogue item (serving the PIN, when given); Sthiva picks one per order
+    sellerCount: z.number().optional(),
     // Present only when a PIN was given to the API
     availability: z.object({ deliverable: z.boolean(), reason: z.string().optional() }).optional(),
   })

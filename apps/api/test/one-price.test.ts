@@ -70,6 +70,10 @@ describe('one item, one price', () => {
 
     const one = await request(app).get(api(`/products/${cheap._id}`));
     expect(one.body.basePrice).toBe(418);
+    // The product page says how many verified sellers carry the item
+    expect(one.body.sellerCount).toBe(2);
+    await seedSupplier('s3', { verificationStatus: 'PENDING' }).then((s3) => listing(s3, { basePrice: 300 }));
+    expect((await request(app).get(api(`/products/${cheap._id}`))).body.sellerCount).toBe(2);
   });
 
   it('hides categories without a commission and refuses to order them', async () => {

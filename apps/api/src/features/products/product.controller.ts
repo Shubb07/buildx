@@ -143,8 +143,19 @@ export async function getProduct(req: Request, res: Response, next: NextFunction
     const [priced] = await forBuyers([product]);
     if (!priced) return res.status(404).json({ message: 'Product not found' });
 
+    // How many verified sellers carry this catalogue item (that serve the PIN, when given). Buyers
+    // do not choose between them: Sthiva gives the order to the lowest price, nearest first.
+    const catalogItemId = (product as { catalogItemId?: unknown }).catalogItemId;
+    const sellerCount = catalogItemId
+      ? (await Product.distinct('supplierId', {
+          catalogItemId, status: 'ACTIVE',
+          supplierId: { $in: await eligibleSupplierIds(eligibility.serviceable ? destination?.pincode : undefined) },
+        })).length
+      : 1;
+
     res.json({
       ...priced,
+      sellerCount: Math.max(1, sellerCount),
       // Only present when a PIN was given: can this product be delivered there?
       ...(destination && {
         availability: {

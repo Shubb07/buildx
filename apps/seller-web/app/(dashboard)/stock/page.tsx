@@ -174,7 +174,10 @@ export default function StockPage() {
   return (
     <div className="flex flex-col gap-6 pb-24">
       <PageHead eyebrow="Inventory" title="Stock">
-        <p className="max-w-sm text-[15px] text-stone">Buyers can only order what you have. Use +10, +50 or +100 when a delivery comes in; 0 shows the listing as out of stock.</p>
+        <div className="flex max-w-sm flex-col gap-2 sm:items-end">
+          <p className="text-[15px] text-stone sm:text-right">Buyers can only order what you have. Use +10, +50 or +100 when a delivery comes in; 0 shows the listing as out of stock.</p>
+          <Link href="/bulk" className="text-[14px] font-semibold text-cobalt hover:underline">Many items? Use the Excel sheet</Link>
+        </div>
       </PageHead>
 
       <div className="flex flex-col gap-3">

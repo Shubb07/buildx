@@ -59,6 +59,7 @@ export default function WeeklyPage() {
             ? <Pill tone="done">Confirmed {data.confirmedAt ? shortDate.format(new Date(data.confirmedAt)) : ''}</Pill>
             : <Pill tone="wait">Not confirmed this week</Pill>}
           <p className="max-w-sm text-[15px] text-stone sm:text-right">You can change stock and prices any time. Every Monday, confirm the whole list here before midnight.</p>
+          <Link href="/bulk" className="text-[14px] font-semibold text-cobalt hover:underline">Or upload the Excel sheet: it counts too</Link>
         </div>
       </PageHead>
 

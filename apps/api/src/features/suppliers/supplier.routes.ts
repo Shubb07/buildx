@@ -21,6 +21,7 @@ import { MAX_PINCODES_PER_REQUEST } from '../serviceability/serviceability.servi
 import { bulkPricingProblem } from './product-rules';
 import { supplierSearch } from '../catalog/catalog.controller';
 import { supplierInvoice } from '../invoices/invoice.controller';
+import { bulkUpload, downloadSheet, uploadSheet } from './bulk';
 
 // Strings are format-checked per item in the controller so each bad entry gets its own reason
 const addPincodesSchema = z.object({
@@ -134,6 +135,9 @@ router.get('/me/analytics', getAnalytics);
 router.get('/me/settlements', supplierSettlements);
 router.get('/me/documents', myDocuments);
 router.get('/me/weekly', getWeekly);
+// Bulk price and stock by Excel (features/suppliers/bulk.ts)
+router.get('/me/bulk.xlsx', downloadSheet);
+router.post('/me/bulk', bulkUpload, uploadSheet);
 router.post('/me/weekly', validate(weeklyConfirmSchema), confirmWeekly);
 router.post('/me/documents', documentUpload, uploadDocument);
 

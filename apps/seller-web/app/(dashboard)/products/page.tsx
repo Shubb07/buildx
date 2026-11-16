@@ -213,10 +213,16 @@ function Products() {
   return (
     <div className="flex flex-col gap-6">
       <PageHead eyebrow="Catalogue" title="Your products">
-        <Link href="/products/new" className="btn-lime self-start sm:self-auto">
-          <span className="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
-          List a product
-        </Link>
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <Link href="/bulk" className="btn-ghost">
+            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">table_view</span>
+            Excel sheet
+          </Link>
+          <Link href="/products/new" className="btn-lime">
+            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
+            List a product
+          </Link>
+        </div>
       </PageHead>
 
       {savedId && (

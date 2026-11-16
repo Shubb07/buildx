@@ -179,6 +179,8 @@ export async function listSupplierOrders(req: Request, res: Response, next: Next
 
     const [orders, total] = await Promise.all([
       Order.find(filter)
+        // The driver's live position is for the buyer only
+        .select('-liveLocation')
         .populate('buyerId', 'name phone')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)

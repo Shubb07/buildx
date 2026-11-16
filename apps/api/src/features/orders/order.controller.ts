@@ -20,7 +20,8 @@ function notifySupplier(supplierProfileId: unknown, payload: Parameters<typeof n
 
 // What a buyer sees of an order: which suppliers were offered it, and why they said no, stays internal
 export function buyerView<T extends { allocation?: unknown; statusHistory?: { status: string; note?: string }[] }>(order: T) {
-  const { allocation: _internal, driverOffer: _offer, ...rest } = order as T & { driverOffer?: unknown; deliveryOtp?: string; status?: string };
+  // The driver's live position is served only by GET /orders/:id/tracking
+  const { allocation: _internal, driverOffer: _offer, liveLocation: _live, ...rest } = order as T & { driverOffer?: unknown; deliveryOtp?: string; status?: string; liveLocation?: unknown };
   // The handover code matters only until the order is delivered or cancelled
   if (rest.status === 'DELIVERED' || rest.status === 'CANCELLED') delete rest.deliveryOtp;
   const history = (order.statusHistory ?? [])

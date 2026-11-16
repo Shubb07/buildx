@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMyDeliveries, useUpdateDeliveryStatus, useConfirmCodCollected, useReportDeliveryProblem, type DeliveryOrder } from '../../../src/hooks/useDelivery';
 import { ORDER_STATUS_LABELS, type OrderStatus } from '../../../src/hooks/useOrders';
+import { useShareLocation } from '../../../src/hooks/useShareLocation';
 import { Colors } from '../../../src/constants/colors';
 import { Font } from '../../../src/constants/typography';
 import { Button, ChoiceSheet, ConfirmSheet, EmptyState, Eyebrow, Icon, Notice, ScreenHeader } from '../../../src/components/ui';
@@ -41,6 +42,8 @@ export default function DriverOrderDetail() {
   const [error, setError] = useState<string | null>(null);
 
   const order: DeliveryOrder | undefined = data?.data.find((o) => o._id === id);
+  // Live tracking: the buyer sees where you are, only from pickup until delivered
+  const sharing = useShareLocation(order?._id, !!order && (order.status === 'PICKED_UP' || order.status === 'IN_TRANSIT'));
 
   if (isLoading) {
     return (
@@ -143,6 +146,21 @@ export default function DriverOrderDetail() {
           </View>
         ) : null}
 
+        {sharing === 'sharing' ? (
+          <Notice tone="info" title="Sharing your location">
+            The buyer can see how far away you are until you mark this order delivered. Keep this screen open while you drive.
+          </Notice>
+        ) : sharing === 'denied' ? (
+          <Notice tone="warning" title="Location is off">
+            <Text style={styles.noticeText}>
+              Allow location for Sthiva Driver so the buyer can see you are coming. It is shared only during this delivery.{' '}
+              <Text style={styles.link} onPress={() => Linking.openSettings()} accessibilityRole="link">Open settings</Text>
+            </Text>
+          </Notice>
+        ) : sharing === 'unsupported' ? (
+          <Notice tone="info">Update Sthiva Driver from the Play Store so buyers can see you are on the way.</Notice>
+        ) : null}
+
         {error ? <Notice tone="error" title="Not updated" onClose={() => setError(null)}>{error}</Notice> : null}
         {notice ? <Notice tone="success" onClose={() => setNotice(null)}>{notice}</Notice> : null}
         {['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'].includes(order.status) ? (
@@ -223,6 +241,8 @@ const styles = StyleSheet.create({
   itemQty: { fontFamily: Font.monoBold, fontSize: 14, color: Colors.ink },
   note: { fontFamily: Font.regular, fontSize: 15, lineHeight: 21, color: Colors.ink, marginTop: 6 },
   time: { fontFamily: Font.regular, fontSize: 14, color: Colors.stone, marginTop: 6 },
+  noticeText: { fontFamily: Font.regular, fontSize: 14, lineHeight: 20, color: Colors.ink },
+  link: { fontFamily: Font.semiBold, textDecorationLine: 'underline', color: Colors.ink },
   code: { fontFamily: Font.monoBold, fontSize: 28, letterSpacing: 10, textAlign: 'center', height: 60, marginTop: 12, borderRadius: 16, borderWidth: 1.5, borderColor: Colors.ink, color: Colors.ink, backgroundColor: Colors.sand },
   bottom: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12, backgroundColor: Colors.sand, borderTopWidth: 1, borderTopColor: Colors.sand4 },
 });

@@ -1,5 +1,6 @@
 import { driverSettlements } from '../settlements/settlement.controller';
 import { Router } from 'express';
+import { locationSchema, postLocation } from './tracking';
 import { requireAuth, requireRole } from '../../shared/middleware/auth.middleware';
 import { validate } from '../../shared/middleware/validate.middleware';
 import { driverStatusSchema, codCollectedSchema, problemSchema } from '../orders/order.schemas';
@@ -26,6 +27,8 @@ router.post('/orders/:id/problem', validate(problemSchema), reportProblem);
 router.get('/my-orders', listMyOrders);
 router.patch('/orders/:id/status', validate(driverStatusSchema), updateDeliveryStatus);
 router.post('/orders/:id/cod', validate(codCollectedSchema), confirmCodCollected);
+// Live tracking: the assigned driver's position while the order is on the way
+router.post('/orders/:id/location', validate(locationSchema), postLocation);
 
 // Driver profile
 router.get('/me', getProfile);

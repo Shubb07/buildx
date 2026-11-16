@@ -167,3 +167,17 @@ export async function forgetAddress(client: ApiClient, id: string): Promise<Save
   const list = await client.request(`/users/me/addresses/${id}`, { method: 'DELETE', auth: true, envelope: true, schema: z.array(z.unknown()) });
   return list.flatMap((a) => { const r = savedAddressSchema.safeParse(a); return r.success ? [r.data] : []; });
 }
+
+// Live tracking (GET /orders/:id/tracking): the driver's latest position while the order is on the way
+const trackingSchema = z.object({
+  status: z.string(),
+  sharing: z.boolean(),
+  location: z.object({ lat: z.number(), lng: z.number(), accuracy: z.number().optional(), at: z.string() }).optional(),
+  distanceKm: z.number().optional(),
+  stale: z.boolean().optional(),
+});
+export type Tracking = z.infer<typeof trackingSchema>;
+
+export function fetchTracking(client: ApiClient, orderId: string): Promise<Tracking> {
+  return client.request(`/orders/${orderId}/tracking`, { auth: true, envelope: true, schema: trackingSchema, cache: 'no-store' });
+}

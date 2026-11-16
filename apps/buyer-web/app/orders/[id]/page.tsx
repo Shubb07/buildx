@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { hasInvoice, useApiClient } from '@sthiva/web-core';
 import { InvoiceDownload } from '@/components/account/InvoiceDownload';
+import { LiveTracking } from '@/components/account/LiveTracking';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { RequireAuth } from '@/components/auth/RequireAuth';
@@ -79,6 +80,9 @@ function OrderDetail({ id }: { id: string }) {
       </section>
 
       <DeliveryDateCard order={order} />
+      {(order.status === 'PICKED_UP' || order.status === 'IN_TRANSIT') && order.deliveryMode !== 'SUPPLIER' && (
+        <LiveTracking orderId={order._id} onStatusChange={load} />
+      )}
 
       {order.deliveryOtp && (
         <section className="card flex flex-col gap-2 border-2 border-ink p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">

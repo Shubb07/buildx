@@ -474,7 +474,9 @@ export async function transitionOrder(params: {
     $set: { status: to, ...set },
     $push: { statusHistory: historyEntry(to, historyRole, userId, note) },
   };
-  if (unset.length) update.$unset = Object.fromEntries(unset.map((k) => [k, '']));
+  // Delivered: live tracking stops and the driver's last position is erased (owner decision 2026-11-16)
+  const unsetAll = to === 'DELIVERED' ? [...unset, 'liveLocation'] : unset;
+  if (unsetAll.length) update.$unset = Object.fromEntries(unsetAll.map((k) => [k, '']));
 
   const order = await Order.findOneAndUpdate(
     { $and: [filter, sourceFilter(sources, mode)] },
@@ -520,6 +522,8 @@ export async function cancelOrder(params: {
           inventoryState: restock ? 'RESTORED' : 'NOT_RESTORED',
         },
         $push: { statusHistory: historyEntry('CANCELLED', historyRole, userId, reason) },
+        // Live tracking stops and the driver's last position is erased
+        $unset: { liveLocation: '' },
       },
       { new: false, session }
     ).lean<LeanOrder>();

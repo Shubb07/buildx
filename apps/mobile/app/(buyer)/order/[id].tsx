@@ -5,6 +5,7 @@ import { useOrder, ORDER_STATUS_LABELS, type Order, type OrderStatus } from '../
 import { Colors } from '../../../src/constants/colors';
 import { Font } from '../../../src/constants/typography';
 import { Button, EmptyState, Eyebrow, Icon, ScreenHeader } from '../../../src/components/ui';
+import { TrackingCard } from '../../../src/components/TrackingCard';
 
 const STATUS_STEPS: OrderStatus[] = ['CONFIRMED', 'READY_FOR_PICKUP', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED'];
 const rupees = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
@@ -109,6 +110,10 @@ export default function OrderDetailScreen() {
             </View>
           </View>
         </View>
+
+        {(order.status === 'PICKED_UP' || order.status === 'IN_TRANSIT') && (order as { deliveryMode?: string }).deliveryMode !== 'SUPPLIER' ? (
+          <TrackingCard orderId={order._id} onStatusChange={refetch} />
+        ) : null}
 
         {(order as { deliveryOtp?: string }).deliveryOtp ? (
           <View style={[styles.card, styles.codeCard]}>

@@ -26,6 +26,7 @@ import { priceLine, toPaise, PricingError } from './pricing';
 import { expireDriverOffers } from '../delivery/driver-offers';
 import { sendWeeklyReminders } from '../suppliers/weekly';
 import { sendDocumentExpiryReminders } from '../suppliers/document-expiry';
+import { clearFinishedLocations } from '../delivery/tracking';
 import { checkDeliveryDate, deliveryWindow } from './delivery-window';
 import { deliveryPoint, distanceKm } from '../delivery/delivery-pricing';
 
@@ -377,6 +378,7 @@ export function startOfferSweeper(intervalMs = 60_000): NodeJS.Timeout {
     expireDriverOffers().catch((err) => logger.error('[driver-offers] sweep failed', { error: err?.message }));
     sendWeeklyReminders().catch((err) => logger.error('[weekly] reminders failed', { error: err?.message }));
     sendDocumentExpiryReminders().catch((err) => logger.error('[documents] expiry notices failed', { error: err?.message }));
+    clearFinishedLocations().catch((err) => logger.error('[tracking] clear failed', { error: err?.message }));
   }, intervalMs);
 }
 

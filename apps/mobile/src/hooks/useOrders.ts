@@ -89,6 +89,24 @@ export function useOrder(id: string) {
   });
 }
 
+// Live tracking (GET /orders/:id/tracking): the driver's latest position while the order is on the way.
+// Checked every 15 seconds while the screen is open.
+export type OrderTracking = {
+  status: string;
+  sharing: boolean;
+  location?: { lat: number; lng: number; accuracy?: number; at: string };
+  distanceKm?: number;
+  stale?: boolean;
+};
+export function useOrderTracking(id: string, enabled: boolean) {
+  return useQuery<{ data: OrderTracking }>({
+    queryKey: ['order-tracking', id],
+    queryFn: () => api.get(`/orders/${id}/tracking`).then((r) => r.data),
+    enabled: !!id && enabled,
+    refetchInterval: 15_000,
+  });
+}
+
 // Server-priced summary (GST-inclusive/exclusive, bulk tiers) for the checkout screen
 export function useOrderQuote(items: { productId: string; quantity: number }[], enabled: boolean, deliveryPincode?: string) {
   return useQuery<{ data: OrderQuote }>({

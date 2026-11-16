@@ -117,6 +117,9 @@ export interface IOrder extends Document {
   buyerGst?: { gstin: string; businessName: string };
   confirmedAt?: Date;
   deliveredAt?: Date;
+  // Live tracking (owner decision 2026-11-16): the driver's latest position, only from pickup until
+  // delivered; never a history, and erased on delivery or cancellation (features/delivery/tracking.ts)
+  liveLocation?: { lat: number; lng: number; accuracy?: number; at: Date };
   cancelledAt?: Date;
   cancellationReason?: string;
   cancelledBy?: 'BUYER' | 'SUPPLIER' | 'OPS' | 'SYSTEM';
@@ -262,6 +265,7 @@ const orderSchema = new Schema<IOrder>(
     buyerGst: { _id: false, gstin: { type: String, uppercase: true }, businessName: { type: String, trim: true, maxlength: 120 } },
     confirmedAt: Date,
     deliveredAt: Date,
+    liveLocation: { _id: false, lat: Number, lng: Number, accuracy: Number, at: Date },
     cancelledAt: Date,
     cancellationReason: String,
     cancelledBy: { type: String, enum: ['BUYER', 'SUPPLIER', 'OPS', 'SYSTEM'] },
@@ -315,5 +319,8 @@ orderSchema.index(
   { buyerId: 1, idempotencyKey: 1 },
   { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } }
 );
+
+// Sweep for positions left on orders that are no longer on the way
+orderSchema.index({ 'liveLocation.at': 1 }, { sparse: true });
 
 export const Order = model<IOrder>('Order', orderSchema);

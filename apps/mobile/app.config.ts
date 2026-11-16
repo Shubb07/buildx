@@ -50,7 +50,25 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         }
       : config.android?.adaptiveIcon,
     permissions: [...(config.android?.permissions ?? []), 'android.permission.POST_NOTIFICATIONS'],
+    // Live tracking (owner decision 2026-11-16): only the Driver app reads location, and only while
+    // the app is open on a delivery (never in the background, so no background-location review).
+    // expo-location adds its permissions to every app it is built into, so they are removed here.
+    blockedPermissions: [
+      ...(config.android?.blockedPermissions ?? []),
+      'android.permission.ACCESS_BACKGROUND_LOCATION',
+      ...(driver ? [] : ['android.permission.ACCESS_FINE_LOCATION', 'android.permission.ACCESS_COARSE_LOCATION']),
+    ],
   },
+  plugins: [
+    ...(config.plugins ?? []),
+    ...(driver
+      ? [['expo-location', {
+          locationWhenInUsePermission: 'Sthiva Driver shares your location with the buyer only while you deliver their order, from pickup until delivered.',
+          isAndroidBackgroundLocationEnabled: false,
+          isIosBackgroundLocationEnabled: false,
+        }] as [string, Record<string, unknown>]]
+      : []),
+  ],
   owner: 'sthiva',
   runtimeVersion: { policy: 'appVersion' },
   ...(EAS_PROJECT_ID

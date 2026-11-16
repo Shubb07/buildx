@@ -17,6 +17,7 @@ import { acceptOffer, rejectOffer, setDeliveryDate } from '../orders/allocation.
 import { startDriverOffers } from '../delivery/driver-offers';
 import { supplierEarnings } from '../orders/commission';
 import { deliveryPoint, distanceKm } from '../delivery/delivery-pricing';
+import { assertGstinFree, logEntry, pushLog, reviewReasons, type LogEntry } from './verification';
 
 async function getSupplierProfile(userId: string) {
   const profile = await SupplierProfile.findOne({ userId }).lean();
@@ -43,12 +44,50 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
     if (Array.isArray(update.brands)) update.brands = [...new Set(update.brands as string[])];
     if (Array.isArray(update.categories)) update.categories = [...new Set(update.categories as string[])];
 
+    const userId = req.auth!.userId;
+    const current = await SupplierProfile.findOne({ userId })
+      .select('_id gstin businessName verificationStatus kycDocuments').lean();
+    if (!current) throw AppError.notFound('Supplier profile');
+
+    // Verification (features/suppliers/verification.ts): one GSTIN per seller, audit trail, and a
+    // fresh review when a verified seller changes GSTIN or business name.
+    const newGstin = 'gstin' in req.body ? ((req.body.gstin as string) || null) : undefined;
+    const gstinChanged = newGstin !== undefined && (newGstin ?? '') !== (current.gstin ?? '');
+    if (gstinChanged && newGstin) await assertGstinFree(newGstin, current._id);
+    const reasons = reviewReasons(current, { gstin: newGstin, businessName: update.businessName as string | undefined });
+    const log: LogEntry[] = [];
+    if (gstinChanged) log.push(logEntry('SUPPLIER', newGstin ? 'GSTIN_CHANGED' : 'GSTIN_REMOVED', userId, newGstin ? `${current.gstin ?? 'none'} -> ${newGstin}` : `removed ${current.gstin}`));
+    if (update.businessName !== undefined && update.businessName !== current.businessName) {
+      log.push(logEntry('SUPPLIER', 'NAME_CHANGED', userId, `${current.businessName} -> ${update.businessName as string}`));
+    }
+    if (reasons.length) {
+      update.verificationStatus = 'PENDING';
+      log.push(logEntry('SYSTEM', 'RE_REVIEW', undefined, reasons.join(', ')));
+    }
+    // The GST certificate was checked against the old number: ops must look at it again
+    if (gstinChanged && (current.kycDocuments ?? []).some((d) => d.type === 'GST' && d.publicId)) {
+      update.kycDocuments = (current.kycDocuments ?? []).map((d) =>
+        d.type === 'GST' ? { ...d, status: 'SUBMITTED', verified: false, note: '', reviewedAt: undefined } : d);
+    }
+
     const profile = await SupplierProfile.findOneAndUpdate(
-      { userId: req.auth!.userId },
-      Object.keys(unset).length ? { $set: update, $unset: unset } : { $set: update },
+      { _id: current._id },
+      {
+        $set: update,
+        ...(Object.keys(unset).length ? { $unset: unset } : {}),
+        ...(log.length ? { $push: pushLog(...log) } : {}),
+      },
       { new: true, runValidators: true }
     ).lean();
     if (!profile) throw AppError.notFound('Supplier profile');
+    if (reasons.length) {
+      logger.info('[verification] re-review', { supplierId: String(current._id), reasons });
+      notifyUser(userId, {
+        title: 'Your details are being checked again',
+        body: `${reasons.join(' and ')}, so Sthiva will check your business again. Your items are hidden from buyers until then, usually within one working day.`,
+        data: { screen: 'supplier_profile' },
+      });
+    }
     res.json(ok(profile));
   } catch (err) { next(err); }
 }

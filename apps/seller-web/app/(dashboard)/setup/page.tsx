@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useApiClient, catalogItems, ApiClientError } from '@sthiva/web-core';
+import { useApiClient, catalogItems, checkGstin, ApiClientError } from '@sthiva/web-core';
 import { z } from 'zod';
 import { useAuth } from '../../../components/auth/AuthProvider';
 import { useCategories } from '../../../lib/categories';
@@ -12,8 +12,6 @@ import {
 } from '../../../lib/setup';
 import { ErrorNote } from '../../../components/ui';
 import { VerificationDocuments } from '../../../components/VerificationDocuments';
-
-const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const STEPS = ['Your business', 'Where you deliver', 'What you sell'] as const;
 
 function StepTabs({ step, done, onPick }: { step: number; done: boolean[]; onPick: (i: number) => void }) {
@@ -98,7 +96,12 @@ export default function SetupPage() {
 
   const gaps = setupGaps(p);
   const done = [!gaps.business, !gaps.area, !gaps.range];
-  const gstinValid = gstin === '' || GSTIN_RE.test(gstin);
+  // Full check (state code and check character) once all 15 characters are in
+  const gstinCheck = gstin.length === 15 ? checkGstin(gstin) : null;
+  const gstinValid = gstin === '' || gstinCheck?.ok === true;
+  const gstinTyping = gstin !== '' && gstin.length < 15;
+  // A verified seller who changes GSTIN is checked again (API: features/suppliers/verification.ts)
+  const gstinRecheck = p?.verificationStatus === 'VERIFIED' && gstin !== (p.gstin ?? '');
   const pins = [...(p?.servicePincodes ?? [])].sort();
 
   // brands from the catalogue for the chosen categories, most common first
@@ -128,7 +131,7 @@ export default function SetupPage() {
   const saveBusiness = () =>
     run(async () => {
       if (!businessType) throw new Error('Choose what kind of business you are.');
-      if (!gstinValid) throw new Error('Check the GSTIN: it has 15 characters, like 29ABCDE1234F1Z5.');
+      if (!gstinValid) throw new Error(gstinCheck && !gstinCheck.ok ? gstinCheck.problem : 'A GSTIN has 15 characters. Copy it from your GST certificate.');
       if (!/^[6-9]\d{9}$/.test(whatsapp)) throw new Error('Enter a 10-digit WhatsApp number.');
       profile.replace(await updateSupplierProfile(client, { businessType, gstin, address: address.trim(), whatsappNumber: whatsapp, canDeliver }));
       setStep(1);
@@ -270,12 +273,24 @@ export default function SetupPage() {
               value={gstin}
               onChange={(e) => setGstin(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15))}
               placeholder="29ABCDE1234F1Z5"
-              className={`field font-mono tracking-wider ${gstinValid ? '' : 'border-error'}`}
-              aria-invalid={!gstinValid}
+              className={`field font-mono tracking-wider ${gstinValid || gstinTyping ? '' : 'border-error'}`}
+              aria-invalid={!gstinValid && !gstinTyping}
+              aria-describedby="gstin-help"
             />
-            <span className={`text-[13px] ${gstinValid ? 'text-stone' : 'text-error'}`}>
-              {gstinValid ? 'Lets business buyers claim GST input credit on your invoices.' : 'A GSTIN has 15 characters: state code, PAN, entity number, Z and a check character.'}
+            <span id="gstin-help" aria-live="polite" className={`text-[13px] ${gstinCheck && !gstinCheck.ok ? 'text-error' : 'text-stone'}`}>
+              {gstinCheck?.ok
+                ? `Looks right: registered in ${gstinCheck.state}, PAN ${gstinCheck.pan}.`
+                : gstinCheck
+                  ? gstinCheck.problem
+                  : gstinTyping
+                    ? `${gstin.length} of 15 characters.`
+                    : 'Only if you are GST-registered. Lets business buyers claim GST input credit on your invoices.'}
             </span>
+            {gstinRecheck && (
+              <span className="rounded-lg bg-sand-3 px-3 py-2 text-[13px]">
+                You are verified. If you save a different GSTIN, Sthiva checks your business again and your items are hidden from buyers until then (usually within one working day).
+              </span>
+            )}
           </label>
 
           <label className="flex flex-col gap-2">
@@ -394,7 +409,7 @@ export default function SetupPage() {
         </section>
       )}
 
-      <VerificationDocuments />
+      <VerificationDocuments status={p?.verificationStatus} hasGstin={!!p?.gstin} />
       <DeleteAccount />
     </div>
   );

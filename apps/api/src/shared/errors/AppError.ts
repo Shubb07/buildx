@@ -19,7 +19,9 @@ export type ErrorCode =
   | 'NOT_SERVICEABLE'
   | 'PINCODE_REQUIRED'
   // Delivery pricing (features/delivery/delivery-pricing.ts)
-  | 'DELIVERY_NOT_PRICED';
+  | 'DELIVERY_NOT_PRICED'
+  // Seller verification (features/suppliers/verification.ts)
+  | 'GSTIN_TAKEN';
 
 export class AppError extends Error {
   public readonly statusCode: number;

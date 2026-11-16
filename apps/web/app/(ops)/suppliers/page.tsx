@@ -28,7 +28,31 @@ const waNumber = (n: string) => {
   return d.length === 10 ? `91${d}` : d;
 };
 
-const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+// Audit trail wording (actions written by the API: features/suppliers/verification.ts and documents.ts)
+const LOG_ACTION: Record<string, string> = {
+  VERIFIED: 'Verified', REJECTED: 'Rejected', DOC_UPLOADED: 'Uploaded a document', DOC_ACCEPTED: 'Document accepted',
+  DOC_REJECTED: 'Document rejected', GSTIN_CHANGED: 'Changed GSTIN', GSTIN_REMOVED: 'Removed GSTIN',
+  NAME_CHANGED: 'Changed business name', RE_REVIEW: 'Sent back for review',
+};
+const LOG_ACTOR: Record<string, string> = { SUPPLIER: 'Seller', OPS: 'Sthiva team', SYSTEM: 'Automatic' };
+
+function History({ log }: { log: NonNullable<OpsSupplier['verificationLog']> }) {
+  if (log.length === 0) return null;
+  return (
+    <details className="rounded-xl border border-sand-4 px-4 py-3">
+      <summary className="cursor-pointer text-[14px] font-semibold">Verification history ({log.length})</summary>
+      <ol className="mt-3 flex flex-col gap-2">
+        {[...log].reverse().map((e, i) => (
+          <li key={i} className="text-[14px]">
+            <span className="font-semibold">{LOG_ACTION[e.action] ?? e.action}</span>
+            <span className="text-stone"> · {LOG_ACTOR[e.actor] ?? e.actor} · {ago(e.at)}</span>
+            {e.note && <span className="block font-mono text-[13px] text-stone">{e.note}</span>}
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -125,6 +149,15 @@ function SupplierCard({ supplier, onChanged }: { supplier: OpsSupplier; onChange
     pins.length === 0 && 'delivery PIN codes',
     (supplier.categories ?? []).length === 0 && 'categories',
   ].filter(Boolean) as string[];
+  const checks = supplier.checks;
+  const warnings = [
+    checks?.gstin.status === 'PROBLEM' && 'GSTIN is wrong: it cannot be verified until the seller fixes it.',
+    checks?.duplicateGstin && 'Another seller uses the same GSTIN: it cannot be verified.',
+    checks && checks.otherStates.length > 0 && `GSTIN is from ${checks.gstin.state}, but some delivery PIN codes are in ${checks.otherStates.join(', ')}. Ask how they deliver there.`,
+    checks?.statesUnknown && 'Could not compare PIN code states (postal directory not available).',
+    checks && checks.documents.accepted.length + checks.documents.waiting.length === 0 && 'No papers uploaded yet.',
+    checks?.gstin.status === 'OK' && !checks.documents.accepted.concat(checks.documents.waiting).includes('GST') && 'GSTIN given but no GST certificate uploaded.',
+  ].filter(Boolean) as string[];
 
   async function decide(status: 'VERIFIED' | 'REJECTED') {
     setBusy(true);
@@ -174,9 +207,10 @@ function SupplierCard({ supplier, onChanged }: { supplier: OpsSupplier; onChange
           <Fact label="Business type">{supplier.businessType ? BUSINESS_TYPE[supplier.businessType] ?? supplier.businessType : <span className="text-stone">Not given</span>}</Fact>
           <Fact label="GSTIN">
             {supplier.gstin ? (
-              <span className="font-mono">
-                {supplier.gstin}
-                {!GSTIN_RE.test(supplier.gstin) && <span className="ml-2 text-[13px] text-error">format looks wrong</span>}
+              <span className="flex flex-col gap-1">
+                <span className="font-mono">{supplier.gstin}</span>
+                {checks?.gstin.status === 'OK' && <span className="text-[13px] text-stone">{checks.gstin.state} · PAN {checks.gstin.pan}</span>}
+                {checks?.gstin.status === 'PROBLEM' && <span className="text-[13px] text-error">{checks.gstin.problem}</span>}
               </span>
             ) : (
               <span className="text-stone">Not given</span>
@@ -214,12 +248,18 @@ function SupplierCard({ supplier, onChanged }: { supplier: OpsSupplier; onChange
         {supplier.verificationStatus === 'PENDING' && missing.length > 0 && (
           <p className="rounded-xl bg-[#FFF4D6] px-4 py-3 text-[14px] text-[#5C4300]">Setup not finished: {missing.join(', ')} missing.</p>
         )}
+        {warnings.length > 0 && (
+          <ul className="flex flex-col gap-1 rounded-xl bg-[#FFF4D6] px-4 py-3 text-[14px] text-[#5C4300]" aria-label="Check before approving">
+            {warnings.map((w) => <li key={w}>{w}</li>)}
+          </ul>
+        )}
         {supplier.gstin && (
           <p className="text-[13px] text-stone">
             Check the GSTIN on the government portal before approving: services.gst.gov.in, Search Taxpayer.
           </p>
         )}
         <Documents supplierId={supplier._id} count={((supplier as { kycDocuments?: { publicId?: string }[] }).kycDocuments ?? []).filter((d) => d.publicId).length} />
+        <History log={supplier.verificationLog ?? []} />
         {error && <ErrorNote>{error}</ErrorNote>}
       </div>
 

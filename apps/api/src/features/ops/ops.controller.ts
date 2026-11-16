@@ -5,6 +5,8 @@ import { ok } from '@sthiva/shared';
 import { Order } from '../../infrastructure/database/models/Order.model';
 import { User } from '../../infrastructure/database/models/User.model';
 import { SupplierProfile } from '../../infrastructure/database/models/SupplierProfile.model';
+import { assertGstinFree, logEntry, pushLog, verificationChecks } from '../suppliers/verification';
+import { checkGstin } from '../../shared/gstin';
 import { DeliveryPartner, isDriverVerified } from '../../infrastructure/database/models/DeliveryPartner.model';
 import { Product } from '../../infrastructure/database/models/Product.model';
 import { AppError } from '../../shared/errors/AppError';
@@ -307,7 +309,8 @@ export async function listSuppliers(req: Request, res: Response, next: NextFunct
       .sort({ createdAt: -1 })
       .limit(200)
       .lean();
-    res.json(ok(suppliers));
+    const checks = await verificationChecks(suppliers);
+    res.json(ok(suppliers.map((s) => ({ ...s, checks: checks.get(String(s._id)) }))));
   } catch (err) { next(err); }
 }
 
@@ -317,7 +320,19 @@ export async function setSupplierVerification(req: Request, res: Response, next:
     const id = String(req.params.id);
     if (!isValidObjectId(id)) throw AppError.badRequest('Invalid supplier ID');
     const { status, note } = req.body as { status: 'VERIFIED' | 'REJECTED'; note?: string };
-    const profile = await SupplierProfile.findByIdAndUpdate(id, { verificationStatus: status }, { new: true }).lean();
+    const current = await SupplierProfile.findById(id).select('gstin').lean();
+    if (!current) throw AppError.notFound('Supplier');
+    // A wrong or duplicate GSTIN cannot be approved; the seller must fix it first
+    if (status === 'VERIFIED' && current.gstin) {
+      const g = checkGstin(current.gstin);
+      if (!g.ok) throw AppError.badRequest(`Cannot verify: the GSTIN on this profile is wrong. ${g.problem}`);
+      await assertGstinFree(current.gstin, id);
+    }
+    const profile = await SupplierProfile.findByIdAndUpdate(
+      id,
+      { $set: { verificationStatus: status }, $push: pushLog(logEntry('OPS', status, req.auth!.userId, note)) },
+      { new: true }
+    ).lean();
     if (!profile) throw AppError.notFound('Supplier');
     logger.info('[ops] supplier verification', { opsUserId: req.auth!.userId, supplierId: id, status, note });
     notifyUser(profile.userId.toString(), {

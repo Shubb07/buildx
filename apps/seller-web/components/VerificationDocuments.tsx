@@ -39,7 +39,13 @@ async function call(baseUrl: string, init?: RequestInit) {
   return z.array(docSchema).parse(json.data.documents);
 }
 
-export function VerificationDocuments() {
+const STATUS_STEP = {
+  PENDING: { label: 'Being checked', tone: 'wait' as const, text: 'Sthiva checks your details and papers, usually within one working day. Buyers see your items once you are verified.' },
+  VERIFIED: { label: 'Verified', tone: 'done' as const, text: 'Buyers see the Verified badge on your items. Changing your GSTIN means a fresh check.' },
+  REJECTED: { label: 'Not approved', tone: 'bad' as const, text: 'Fix what Sthiva asked for below and upload again, or write to support@sthiva.com.' },
+};
+
+export function VerificationDocuments({ status, hasGstin }: { status?: 'PENDING' | 'VERIFIED' | 'REJECTED'; hasGstin?: boolean }) {
   const client = useApiClient();
   const [docs, setDocs] = useState<Doc[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -69,6 +75,24 @@ export function VerificationDocuments() {
           Sthiva checks these before giving you the Verified badge. They are kept private: only Sthiva&apos;s team can open them. JPEG, PNG or PDF, up to 5 MB.
         </p>
       </div>
+      {status && (
+        <ol className="grid gap-2 sm:grid-cols-3" aria-label="How verification works">
+          {[
+            { n: 1, title: 'Your business', text: hasGstin ? 'GSTIN added and checked.' : 'Add your GSTIN above if you are GST-registered.', done: true },
+            { n: 2, title: 'Your papers', text: 'GST certificate if registered, and a shop licence or Udyam certificate.', done: docs !== null && docs.some((d) => d.type !== 'GST' && d.status !== 'REJECTED') },
+            { n: 3, title: 'Sthiva checks', text: STATUS_STEP[status].text, done: status === 'VERIFIED' },
+          ].map((s) => (
+            <li key={s.n} className="rounded-xl border border-sand-4 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`grid h-6 w-6 place-items-center rounded-full font-mono text-[12px] ${s.done ? 'bg-lime text-ink' : 'bg-sand-3 text-ink'}`}>{s.n}</span>
+                <p className="font-semibold">{s.title}</p>
+                {s.n === 3 && <Pill tone={STATUS_STEP[status].tone}>{STATUS_STEP[status].label}</Pill>}
+              </div>
+              <p className="mt-1 text-[13px] text-stone">{s.text}</p>
+            </li>
+          ))}
+        </ol>
+      )}
       {error && <p role="alert" className="text-[14px] text-error">{error}</p>}
       <ul className="flex flex-col gap-3">
         {SLOTS.map((slot) => {

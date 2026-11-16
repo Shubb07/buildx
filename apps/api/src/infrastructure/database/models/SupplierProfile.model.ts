@@ -35,6 +35,14 @@ export interface ISupplierProfile extends Document {
     url?: string;      // legacy field, never set by current code
     verified: boolean; // kept in step with status === 'ACCEPTED'
   }[];
+  // Verification audit trail (newest last, capped at 100): who did what and when
+  verificationLog: {
+    at: Date;
+    by?: Types.ObjectId; // user who acted; empty for automatic entries
+    actor: 'SUPPLIER' | 'OPS' | 'SYSTEM';
+    action: string; // e.g. VERIFIED, REJECTED, DOC_ACCEPTED, GSTIN_CHANGED, RE_REVIEW
+    note?: string;
+  }[];
   // Weekly availability check (features/suppliers/weekly.ts)
   weeklyConfirmedAt?: Date;
   weeklyReminderFor?: Date; // week start of the last Monday reminder sent
@@ -83,6 +91,17 @@ const supplierProfileSchema = new Schema<ISupplierProfile>(
         verified: { type: Boolean, default: false },
       },
     ],
+    verificationLog: {
+      type: [{
+        _id: false,
+        at: { type: Date, required: true },
+        by: { type: Schema.Types.ObjectId, ref: 'User' },
+        actor: { type: String, enum: ['SUPPLIER', 'OPS', 'SYSTEM'], required: true },
+        action: { type: String, required: true, maxlength: 40 },
+        note: { type: String, trim: true, maxlength: 300 },
+      }],
+      default: [],
+    },
     weeklyConfirmedAt: Date,
     weeklyReminderFor: Date,
     weeklyHiddenNoticeFor: Date,
@@ -98,5 +117,8 @@ const supplierProfileSchema = new Schema<ISupplierProfile>(
 
 // Which suppliers serve a PIN (multikey)
 supplierProfileSchema.index({ servicePincodes: 1, verificationStatus: 1, isActive: 1 });
+// One GSTIN per seller is enforced in features/suppliers/verification.ts (a clear message beats a
+// duplicate-key error); this index only makes that lookup fast.
+supplierProfileSchema.index({ gstin: 1 }, { sparse: true });
 
 export const SupplierProfile = model<ISupplierProfile>('SupplierProfile', supplierProfileSchema);

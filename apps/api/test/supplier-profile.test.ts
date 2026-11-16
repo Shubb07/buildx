@@ -18,7 +18,7 @@ describe('PATCH /suppliers/me (business setup)', () => {
     const { headers } = await seedSupplier('prof-1');
     const res = await request(app).patch(ME).set(headers).send({
       businessType: 'DEALER',
-      gstin: '29abcde1234f1z5',
+      gstin: '29abcde1234f1zw',
       address: 'Survey 12, Antharasanahalli, Tumakuru',
       categories: ['cement-concrete', 'steel-tmt-bars', 'cement-concrete'],
       brands: ['UltraTech', 'TATA Tiscon', 'UltraTech'],
@@ -26,7 +26,7 @@ describe('PATCH /suppliers/me (business setup)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({
       businessType: 'DEALER',
-      gstin: '29ABCDE1234F1Z5',
+      gstin: '29ABCDE1234F1ZW',
       address: 'Survey 12, Antharasanahalli, Tumakuru',
       categories: ['cement-concrete', 'steel-tmt-bars'],
       brands: ['UltraTech', 'TATA Tiscon'],
@@ -42,7 +42,7 @@ describe('PATCH /suppliers/me (business setup)', () => {
 
   it('clears the GSTIN when an empty string is sent', async () => {
     const { headers } = await seedSupplier('prof-3');
-    await request(app).patch(ME).set(headers).send({ gstin: '29ABCDE1234F1Z5' });
+    await request(app).patch(ME).set(headers).send({ gstin: '29ABCDE1234F1ZW' });
     const res = await request(app).patch(ME).set(headers).send({ gstin: '' });
     expect(res.status).toBe(200);
     expect(res.body.data.gstin).toBeUndefined();

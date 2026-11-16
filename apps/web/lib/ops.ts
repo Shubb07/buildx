@@ -94,6 +94,18 @@ export const supplierSchema = z
     isActive: z.boolean().optional(),
     createdAt: z.string().optional(),
     userId: ref(person),
+    // Free verification checks worked out by the API (features/suppliers/verification.ts)
+    checks: z.object({
+      gstin: z.object({ status: z.enum(['NONE', 'OK', 'PROBLEM']), state: z.string().optional(), pan: z.string().optional(), problem: z.string().optional() }),
+      duplicateGstin: z.boolean(),
+      otherStates: z.array(z.string()),
+      statesUnknown: z.boolean(),
+      documents: z.object({ accepted: z.array(z.string()), waiting: z.array(z.string()), rejected: z.array(z.string()) }),
+    }).optional(),
+    // Audit trail, oldest first
+    verificationLog: z.array(z.object({
+      at: z.string(), actor: z.string(), action: z.string(), note: z.string().optional(), by: z.string().optional(),
+    }).passthrough()).optional(),
   })
   .passthrough();
 export type OpsSupplier = z.infer<typeof supplierSchema>;

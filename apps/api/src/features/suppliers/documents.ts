@@ -11,6 +11,7 @@ import { StorageService } from '../../infrastructure/storage/cloudinary.client';
 import { AppError } from '../../shared/errors/AppError';
 import { logger } from '../../shared/logger/logger';
 import { notifyUser } from '../../shared/services/notification.service';
+import { logEntry, pushLog } from './verification';
 
 export const DOCUMENT_TYPES = ['GST', 'SHOP_LICENSE', 'UDYAM'] as const;
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -69,7 +70,11 @@ export async function uploadDocument(req: Request, res: Response, next: NextFunc
 
     const updated = await SupplierProfile.findOneAndUpdate(
       { _id: profile._id },
-      [{ $set: { kycDocuments: { $concatArrays: [{ $filter: { input: { $ifNull: ['$kycDocuments', []] }, cond: { $ne: ['$$this.type', type] } } }, [doc]] } } }],
+      [{ $set: {
+        kycDocuments: { $concatArrays: [{ $filter: { input: { $ifNull: ['$kycDocuments', []] }, cond: { $ne: ['$$this.type', type] } } }, [doc]] },
+        // audit trail, newest 100 (pipeline form of pushLog)
+        verificationLog: { $slice: [{ $concatArrays: [{ $ifNull: ['$verificationLog', []] }, [{ $literal: logEntry('SUPPLIER', 'DOC_UPLOADED', req.auth!.userId, LABEL[type]) }]] }, -100] },
+      } }],
       { new: true }
     ).select('kycDocuments').lean();
     // The replaced file is no longer needed
@@ -108,7 +113,10 @@ export async function reviewDocument(req: Request, res: Response, next: NextFunc
     const { status, note } = req.body as { status: 'ACCEPTED' | 'REJECTED'; note?: string };
     const profile = await SupplierProfile.findOneAndUpdate(
       { _id: id, 'kycDocuments.type': type },
-      { $set: { 'kycDocuments.$.status': status, 'kycDocuments.$.verified': status === 'ACCEPTED', 'kycDocuments.$.note': note ?? '', 'kycDocuments.$.reviewedAt': new Date() } },
+      {
+        $set: { 'kycDocuments.$.status': status, 'kycDocuments.$.verified': status === 'ACCEPTED', 'kycDocuments.$.note': note ?? '', 'kycDocuments.$.reviewedAt': new Date() },
+        $push: pushLog(logEntry('OPS', status === 'ACCEPTED' ? 'DOC_ACCEPTED' : 'DOC_REJECTED', req.auth!.userId, [LABEL[type] ?? type, note].filter(Boolean).join(': '))),
+      },
       { new: true }
     ).select('kycDocuments userId').lean();
     if (!profile) throw AppError.notFound('Document');

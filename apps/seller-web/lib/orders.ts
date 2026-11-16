@@ -22,6 +22,8 @@ export const supplierOrderSchema = z
       label: z.string(), fullAddress: z.string(), contactPhone: z.string(),
       pincode: z.string().optional(), district: z.string().optional(), state: z.string().optional(),
     }).passthrough(),
+    // Buyer asked for a GST invoice to this GSTIN
+    buyerGst: z.object({ gstin: z.string(), businessName: z.string() }).optional(),
     paymentMethod: z.enum(['UPI', 'CARD', 'COD']).optional(),
     paymentStatus: z.enum(['PENDING', 'PARTIAL', 'CAPTURED', 'RELEASED', 'REFUNDED']).optional(),
     driverId: z.union([z.object({ name: z.string().optional(), phone: z.string().optional() }).passthrough(), z.string()]).nullable().optional(),

@@ -9,7 +9,8 @@ export interface IUser extends Document {
   role: 'BUYER' | 'SUPPLIER' | 'DELIVERY_PARTNER' | 'OPERATOR' | 'ADMIN';
   fcmToken?: string;
   aadhaarVerified: boolean;
-  gstNumber?: string;
+  gstNumber?: string; // buyer's GSTIN, remembered from their last GST invoice order
+  gstBusinessName?: string; // registered business name for that GSTIN
   gstVerified: boolean;
   bankAccount?: {
     accountNumber: string;
@@ -45,6 +46,7 @@ const userSchema = new Schema<IUser>(
     fcmToken: { type: String, index: true, sparse: true },
     aadhaarVerified: { type: Boolean, default: false },
     gstNumber: { type: String, uppercase: true, sparse: true },
+    gstBusinessName: { type: String, trim: true, maxlength: 120 },
     gstVerified: { type: Boolean, default: false },
     bankAccount: {
       accountNumber: String,

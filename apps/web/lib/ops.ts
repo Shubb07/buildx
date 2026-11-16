@@ -100,7 +100,10 @@ export const supplierSchema = z
       duplicateGstin: z.boolean(),
       otherStates: z.array(z.string()),
       statesUnknown: z.boolean(),
-      documents: z.object({ accepted: z.array(z.string()), waiting: z.array(z.string()), rejected: z.array(z.string()) }),
+      documents: z.object({
+        accepted: z.array(z.string()), waiting: z.array(z.string()), rejected: z.array(z.string()),
+        expired: z.array(z.string()).optional(), expiringSoon: z.array(z.string()).optional(),
+      }),
     }).optional(),
     // Audit trail, oldest first
     verificationLog: z.array(z.object({
@@ -176,11 +179,11 @@ export const opsApi = {
     gstin: z.string().nullable(),
     documents: z.array(z.object({
       type: z.string(), label: z.string(), status: z.enum(['SUBMITTED', 'ACCEPTED', 'REJECTED']),
-      note: z.string().optional(), uploadedAt: z.string().optional(), format: z.string().optional(), viewUrl: z.string(),
+      note: z.string().optional(), uploadedAt: z.string().optional(), format: z.string().optional(), viewUrl: z.string(), expiresOn: z.string().optional(),
     })),
   })),
-  reviewDocument: (c: ApiClient, id: string, type: string, status: 'ACCEPTED' | 'REJECTED', note?: string) =>
-    send(c, 'PATCH', `/ops/suppliers/${id}/documents/${type}`, { status, ...(note ? { note } : {}) }, z.unknown()),
+  reviewDocument: (c: ApiClient, id: string, type: string, status: 'ACCEPTED' | 'REJECTED', note?: string, expiresOn?: string | null) =>
+    send(c, 'PATCH', `/ops/suppliers/${id}/documents/${type}`, { status, ...(note ? { note } : {}), ...(expiresOn !== undefined ? { expiresOn } : {}) }, z.unknown()),
   verify: (c: ApiClient, id: string, status: 'VERIFIED' | 'REJECTED', note?: string) =>
     send(c, 'PATCH', `/ops/suppliers/${id}/verification`, { status, ...(note ? { note } : {}) }, supplierSchema),
 };

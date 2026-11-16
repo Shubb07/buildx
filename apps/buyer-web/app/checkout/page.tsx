@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { buyerDeliveryPhrase, useApiClient, useSelectedLocation } from '@sthiva/web-core';
+import { buyerDeliveryPhrase, checkGstin, useApiClient, useSelectedLocation } from '@sthiva/web-core';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { EmptyState, ErrorNote, PageHead, SummaryRow } from '@/components/account/AccountUI';
 import { useCart, clearCart } from '@/lib/cart';
-import { quoteCart, placeOrder, type Quote } from '@/lib/orders';
+import { quoteCart, placeOrder, savedGst, type Quote } from '@/lib/orders';
 import { rupees } from '@/lib/format';
 
 const LABELS = ['Site', 'Home', 'Office', 'Warehouse'];
@@ -39,6 +39,15 @@ function CheckoutForm() {
   const [contactPhone, setContactPhone] = useState(user?.phone?.replace(/\D/g, '').slice(-10) ?? '');
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
+  // Optional GST invoice (business buyers claim input credit); prefilled from the last one used
+  const [wantGst, setWantGst] = useState(false);
+  const [gstin, setGstin] = useState('');
+  const [gstName, setGstName] = useState('');
+  useEffect(() => {
+    savedGst(client).then((g) => { if (g) { setGstin(g.gstin); setGstName(g.businessName); } }).catch(() => undefined);
+  }, [client]);
+  const gstCheck = gstin.length === 15 ? checkGstin(gstin) : null;
+  const gstReady = !wantGst || (gstCheck?.ok === true && gstName.trim().length >= 2);
   const idempotencyKey = useMemo(() => crypto.randomUUID(), []);
 
   const items = useMemo(() => cart?.items.map((i) => ({ productId: i.productId, quantity: i.quantity })) ?? [], [cart]);
@@ -71,7 +80,7 @@ function CheckoutForm() {
   // Out of area is allowed (Sthiva finds a supplier); any other not-serviceable answer blocks the order
   const notServiceable = quote.status === 'success' && quote.data.delivery !== null && !quote.data.delivery.serviceable && !quote.data.outOfArea;
   const canPlace =
-    !placing && quote.status === 'success' && !notServiceable && quote.data.deliveryPricing?.status !== 'UNPRICED' && fullAddress.trim().length >= 5 && /^[6-9]\d{9}$/.test(contactPhone);
+    !placing && quote.status === 'success' && !notServiceable && quote.data.deliveryPricing?.status !== 'UNPRICED' && fullAddress.trim().length >= 5 && /^[6-9]\d{9}$/.test(contactPhone) && gstReady;
 
   async function handlePlaceOrder(e: React.FormEvent) {
     e.preventDefault();
@@ -85,6 +94,7 @@ function CheckoutForm() {
           items,
           deliveryAddress: { label, fullAddress, pincode: location?.pincode, contactPhone },
           expectedTotal: quote.data.total,
+          ...(wantGst ? { buyerGst: { gstin, businessName: gstName.trim() } } : {}),
         },
         idempotencyKey
       );
@@ -173,6 +183,36 @@ function CheckoutForm() {
               <p className="text-[14px] text-stone">Pay when the materials reach your site.</p>
             </div>
           </div>
+
+          <label className="mt-5 flex cursor-pointer items-start gap-3">
+            <input type="checkbox" checked={wantGst} onChange={(e) => setWantGst(e.target.checked)} className="mt-1 h-5 w-5 accent-ink" />
+            <span>
+              <span className="block font-semibold">I need a GST invoice</span>
+              <span className="block text-[14px] text-stone">For business purchases: the supplier bills your GSTIN so you can claim input credit.</span>
+            </span>
+          </label>
+          {wantGst && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-2">
+                <span className="text-[14px] font-medium text-stone">GSTIN</span>
+                <input
+                  value={gstin}
+                  onChange={(e) => setGstin(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15))}
+                  placeholder="29ABCDE1234F1ZW"
+                  aria-invalid={gstCheck ? !gstCheck.ok : undefined}
+                  aria-describedby="gst-help"
+                  className={`field font-mono tracking-wider ${gstCheck && !gstCheck.ok ? 'border-error' : ''}`}
+                />
+                <span id="gst-help" aria-live="polite" className={`text-[13px] ${gstCheck && !gstCheck.ok ? 'text-error' : 'text-stone'}`}>
+                  {gstCheck ? (gstCheck.ok ? `Registered in ${gstCheck.state}.` : gstCheck.problem) : `${gstin.length} of 15 characters.`}
+                </span>
+              </label>
+              <label className="flex flex-col gap-2">
+                <span className="text-[14px] font-medium text-stone">Business name on the GST certificate</span>
+                <input value={gstName} onChange={(e) => setGstName(e.target.value.slice(0, 120))} autoComplete="organization" className="field" />
+              </label>
+            </div>
+          )}
         </Step>
       </div>
 

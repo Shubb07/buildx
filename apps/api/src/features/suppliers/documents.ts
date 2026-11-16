@@ -44,7 +44,27 @@ type Doc = ISupplierProfile['kycDocuments'][number];
 const summary = (d: Doc) => ({
   type: d.type, label: LABEL[d.type] ?? d.type, status: d.status ?? (d.verified ? 'ACCEPTED' : 'SUBMITTED'),
   note: d.note, uploadedAt: d.uploadedAt, reviewedAt: d.reviewedAt, format: d.format,
+  expiresOn: d.expiresOn ? istDay(d.expiresOn) : undefined,
 });
+
+/** YYYY-MM-DD for a stored expiry date (kept as the start of that day, IST) */
+const istDay = (d: Date) => new Date(new Date(d).getTime() + 330 * 60000).toISOString().slice(0, 10);
+
+/**
+ * Optional expiry date from a form field: '' or missing = none. Must be a real date from today
+ * up to 30 years ahead. Stored as the start of that day in IST.
+ */
+export function parseExpiry(raw: unknown): Date | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const v = String(raw).trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  const date = m ? new Date(`${v}T00:00:00+05:30`) : null;
+  if (!date || Number.isNaN(date.getTime()) || istDay(date) !== v) throw AppError.badRequest('Enter the expiry date as a real date (YYYY-MM-DD)');
+  const today = new Date(`${istDay(new Date())}T00:00:00+05:30`);
+  if (date < today) throw AppError.badRequest('This paper has already expired. Upload the renewed one.');
+  if (date.getTime() > today.getTime() + 30 * 366 * 86400000) throw AppError.badRequest('Check the expiry date: it is too far ahead');
+  return date;
+}
 
 // GET /suppliers/me/documents
 export async function myDocuments(req: Request, res: Response, next: NextFunction) {
@@ -61,12 +81,16 @@ export async function uploadDocument(req: Request, res: Response, next: NextFunc
     const type = String(req.body?.type ?? '') as DocumentType;
     if (!DOCUMENT_TYPES.includes(type)) throw AppError.badRequest('Choose GST certificate, shop licence or Udyam certificate');
     if (!req.file) throw AppError.badRequest('Attach the file (field name: "file")');
+    const expiresOn = parseExpiry(req.body?.expiresOn);
     const profile = await SupplierProfile.findOne({ userId: req.auth!.userId }).select('_id kycDocuments').lean();
     if (!profile) throw AppError.notFound('Supplier profile');
 
     const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const stored = await StorageService.uploadPrivate(dataUri, `kyc/${profile._id}`);
-    const doc = { type, publicId: stored.publicId, format: stored.format, status: 'SUBMITTED' as const, uploadedAt: new Date(), verified: false };
+    const doc = {
+      type, publicId: stored.publicId, format: stored.format, status: 'SUBMITTED' as const, uploadedAt: new Date(), verified: false,
+      ...(expiresOn ? { expiresOn } : {}),
+    };
 
     const updated = await SupplierProfile.findOneAndUpdate(
       { _id: profile._id },
@@ -110,11 +134,17 @@ export async function reviewDocument(req: Request, res: Response, next: NextFunc
     const id = String(req.params.id);
     const type = String(req.params.type);
     if (!isValidObjectId(id)) throw AppError.badRequest('Invalid supplier ID');
-    const { status, note } = req.body as { status: 'ACCEPTED' | 'REJECTED'; note?: string };
+    const { status, note, expiresOn: rawExpiry } = req.body as { status: 'ACCEPTED' | 'REJECTED'; note?: string; expiresOn?: string | null };
+    // Ops can record or correct the expiry date they read on the paper; null clears it
+    const expiresOn = rawExpiry === null ? null : parseExpiry(rawExpiry);
     const profile = await SupplierProfile.findOneAndUpdate(
       { _id: id, 'kycDocuments.type': type },
       {
-        $set: { 'kycDocuments.$.status': status, 'kycDocuments.$.verified': status === 'ACCEPTED', 'kycDocuments.$.note': note ?? '', 'kycDocuments.$.reviewedAt': new Date() },
+        $set: {
+          'kycDocuments.$.status': status, 'kycDocuments.$.verified': status === 'ACCEPTED', 'kycDocuments.$.note': note ?? '', 'kycDocuments.$.reviewedAt': new Date(),
+          ...(expiresOn ? { 'kycDocuments.$.expiresOn': expiresOn } : {}),
+        },
+        ...(expiresOn === null ? { $unset: { 'kycDocuments.$.expiresOn': '' } } : {}),
         $push: pushLog(logEntry('OPS', status === 'ACCEPTED' ? 'DOC_ACCEPTED' : 'DOC_REJECTED', req.auth!.userId, [LABEL[type] ?? type, note].filter(Boolean).join(': '))),
       },
       { new: true }

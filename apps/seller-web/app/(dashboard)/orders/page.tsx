@@ -147,6 +147,11 @@ function OrderCard({ order, onDone }: { order: SupplierOrder; onDone: () => void
               WhatsApp
             </a>
           </div>
+          {order.buyerGst && (
+            <p className="mt-3 rounded-lg bg-white/60 px-3 py-2 text-[14px]">
+              <span className="font-semibold">GST invoice needed:</span> bill {order.buyerGst.businessName}, GSTIN <span className="font-mono">{order.buyerGst.gstin}</span>
+            </p>
+          )}
           {order.deliveryMode && (
             <p className="mt-3 text-[13px] text-stone">
               {own ? 'You are delivering this order with your own vehicle.' : driver ? `Sthiva driver: ${driver.name ?? 'assigned'}${driver.phone ? ` (${driver.phone})` : ''}.` : 'Waiting for a Sthiva driver to accept it.'}

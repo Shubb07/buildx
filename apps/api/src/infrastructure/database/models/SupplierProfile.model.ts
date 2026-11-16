@@ -32,6 +32,10 @@ export interface ISupplierProfile extends Document {
     note?: string;
     uploadedAt?: Date;
     reviewedAt?: Date;
+    // Last day the paper is valid (shop licences expire; GST and Udyam usually do not). Optional.
+    expiresOn?: Date;
+    // Last expiry notice sent for this paper (features/suppliers/document-expiry.ts)
+    expiryNotice?: 'D30' | 'D7' | 'EXPIRED';
     url?: string;      // legacy field, never set by current code
     verified: boolean; // kept in step with status === 'ACCEPTED'
   }[];
@@ -88,6 +92,8 @@ const supplierProfileSchema = new Schema<ISupplierProfile>(
         note: { type: String, trim: true, maxlength: 300 },
         uploadedAt: Date,
         reviewedAt: Date,
+        expiresOn: Date,
+        expiryNotice: { type: String, enum: ['D30', 'D7', 'EXPIRED'] },
         verified: { type: Boolean, default: false },
       },
     ],
@@ -120,5 +126,7 @@ supplierProfileSchema.index({ servicePincodes: 1, verificationStatus: 1, isActiv
 // One GSTIN per seller is enforced in features/suppliers/verification.ts (a clear message beats a
 // duplicate-key error); this index only makes that lookup fast.
 supplierProfileSchema.index({ gstin: 1 }, { sparse: true });
+// Expiry reminders look for papers running out soon
+supplierProfileSchema.index({ 'kycDocuments.expiresOn': 1 }, { sparse: true });
 
 export const SupplierProfile = model<ISupplierProfile>('SupplierProfile', supplierProfileSchema);

@@ -75,6 +75,8 @@ export async function placeOrder(
     deliveryAddress: DeliveryAddressInput;
     expectedTotal?: number;
     notes?: string;
+    // Optional GST invoice: the supplier bills this GSTIN
+    buyerGst?: { gstin: string; businessName: string };
   },
   idempotencyKey: string
 ): Promise<PlaceOrderResult> {
@@ -120,6 +122,7 @@ export const orderSchema = z
     deliveryDate: z.string().optional(),
     onOrder: z.boolean().optional(),
     outOfArea: z.boolean().optional(),
+    buyerGst: z.object({ gstin: z.string(), businessName: z.string() }).optional(),
     createdAt: z.string(),
   })
   .passthrough();
@@ -135,4 +138,13 @@ export async function fetchOrder(client: ApiClient, id: string): Promise<BuyerOr
 
 export async function cancelBuyerOrder(client: ApiClient, id: string, reason?: string): Promise<BuyerOrder> {
   return client.request(`/orders/${id}/cancel`, { method: 'POST', auth: true, envelope: true, schema: orderSchema, body: { reason } });
+}
+
+// GSTIN remembered from the buyer's last GST invoice order (GET /users/me), to prefill checkout
+export async function savedGst(client: ApiClient): Promise<{ gstin: string; businessName: string } | null> {
+  const me = await client.request('/users/me', {
+    auth: true, envelope: true,
+    schema: z.object({ gstNumber: z.string().optional(), gstBusinessName: z.string().optional() }).passthrough(),
+  });
+  return me.gstNumber ? { gstin: me.gstNumber, businessName: me.gstBusinessName ?? '' } : null;
 }

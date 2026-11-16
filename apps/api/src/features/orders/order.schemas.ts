@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { checkGstin } from '../../shared/gstin';
 import { isValidObjectId } from 'mongoose';
 
 const objectId = z.string().refine((v) => isValidObjectId(v), 'Invalid ID');
@@ -42,6 +43,14 @@ export const createOrderSchema = z.object({
       .transform((v) => v.slice(-10)),
   }),
   notes: z.string().trim().max(500).optional(),
+  // Optional GST invoice: GSTIN checked properly (state code, check character)
+  buyerGst: z.object({
+    gstin: z.string().trim().toUpperCase().superRefine((g, ctx) => {
+      const r = checkGstin(g);
+      if (!r.ok) ctx.addIssue({ code: z.ZodIssueCode.custom, message: r.problem });
+    }),
+    businessName: z.string().trim().min(2, 'Enter the business name on the GST certificate').max(120),
+  }).optional(),
   deliveryMethod: z.enum(['STANDARD', 'EXPRESS']).default('STANDARD'),
   // Total the buyer saw on the summary screen; if prices moved since, the order is refused
   expectedTotal: z.number().finite().nonnegative().optional(),

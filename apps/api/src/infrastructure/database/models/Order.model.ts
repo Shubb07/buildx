@@ -112,6 +112,8 @@ export interface IOrder extends Document {
   razorpayPaymentId?: string;
   paymentMethod?: 'UPI' | 'CARD' | 'COD';
   notes?: string;
+  // Buyer asked for a GST invoice (optional): the seller bills this GSTIN so the buyer can claim input credit
+  buyerGst?: { gstin: string; businessName: string };
   confirmedAt?: Date;
   deliveredAt?: Date;
   cancelledAt?: Date;
@@ -255,6 +257,7 @@ const orderSchema = new Schema<IOrder>(
     razorpayPaymentId: String,
     paymentMethod: { type: String, enum: ['UPI', 'CARD', 'COD'] },
     notes: String,
+    buyerGst: { _id: false, gstin: { type: String, uppercase: true }, businessName: { type: String, trim: true, maxlength: 120 } },
     confirmedAt: Date,
     deliveredAt: Date,
     cancelledAt: Date,

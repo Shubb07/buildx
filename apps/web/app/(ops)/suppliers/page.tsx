@@ -32,7 +32,7 @@ const waNumber = (n: string) => {
 const LOG_ACTION: Record<string, string> = {
   VERIFIED: 'Verified', REJECTED: 'Rejected', DOC_UPLOADED: 'Uploaded a document', DOC_ACCEPTED: 'Document accepted',
   DOC_REJECTED: 'Document rejected', GSTIN_CHANGED: 'Changed GSTIN', GSTIN_REMOVED: 'Removed GSTIN',
-  NAME_CHANGED: 'Changed business name', RE_REVIEW: 'Sent back for review',
+  NAME_CHANGED: 'Changed business name', RE_REVIEW: 'Sent back for review', DOC_EXPIRED: 'Document expired',
 };
 const LOG_ACTOR: Record<string, string> = { SUPPLIER: 'Seller', OPS: 'Sthiva team', SYSTEM: 'Automatic' };
 
@@ -63,6 +63,8 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
+const DOC_LABEL: Record<string, string> = { GST: 'GST certificate', SHOP_LICENSE: 'shop licence', UDYAM: 'Udyam certificate' };
+
 const DOC_STATUS: Record<string, { label: string; tone: Tone }> = {
   SUBMITTED: { label: 'To check', tone: 'wait' },
   ACCEPTED: { label: 'Accepted', tone: 'live' },
@@ -79,6 +81,8 @@ function Documents({ supplierId, count }: { supplierId: string; count: number })
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  // Expiry date typed by ops (read on the paper); '' = leave as it is
+  const [expiry, setExpiry] = useState<Record<string, string>>({});
 
   const load = async () => {
     setError(null);
@@ -87,7 +91,10 @@ function Documents({ supplierId, count }: { supplierId: string; count: number })
   const review = async (type: string, status: 'ACCEPTED' | 'REJECTED') => {
     setBusy(true);
     setError(null);
-    try { await opsApi.reviewDocument(client, supplierId, type, status, status === 'REJECTED' ? note.trim() : undefined); setRejecting(null); setNote(''); await load(); }
+    try {
+      await opsApi.reviewDocument(client, supplierId, type, status, status === 'REJECTED' ? note.trim() : undefined, expiry[type] || undefined);
+      setRejecting(null); setNote(''); setExpiry((e) => ({ ...e, [type]: '' })); await load();
+    }
     catch (err) { setError(errorText(err, 'Couldn’t save.')); } finally { setBusy(false); }
   };
 
@@ -114,6 +121,11 @@ function Documents({ supplierId, count }: { supplierId: string; count: number })
             <a href={d.viewUrl} target="_blank" rel="noreferrer" className="ml-auto text-[14px] font-medium text-cobalt hover:underline">Open (link works for 10 min)</a>
           </div>
           {d.status === 'REJECTED' && d.note && <p className="text-[13px] text-stone">Reason sent: {d.note}</p>}
+          {d.expiresOn && (
+            <p className={`text-[13px] ${Date.parse(`${d.expiresOn}T23:59:59+05:30`) < Date.now() ? 'font-semibold text-error' : 'text-stone'}`}>
+              Valid until {new Date(`${d.expiresOn}T00:00:00+05:30`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}
+            </p>
+          )}
           {rejecting === d.type ? (
             <div className="flex flex-col gap-2 sm:flex-row">
               <input value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder="Reason, sent to the supplier" className="field flex-1" aria-label={`Reason for rejecting the ${d.label}`} />
@@ -123,8 +135,14 @@ function Documents({ supplierId, count }: { supplierId: string; count: number })
               </div>
             </div>
           ) : (
-            <div className="flex gap-2">
-              {d.status !== 'ACCEPTED' && <button type="button" disabled={busy} onClick={() => review(d.type, 'ACCEPTED')} className="btn-lime px-4">Accept</button>}
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-[13px] text-stone">
+                {d.expiresOn ? 'Change expiry' : 'Expiry on paper'}
+                <input type="date" value={expiry[d.type] ?? ''} onChange={(e) => setExpiry((x) => ({ ...x, [d.type]: e.target.value }))} className="field h-10 w-auto py-0" />
+              </label>
+              {(d.status !== 'ACCEPTED' || expiry[d.type]) && (
+                <button type="button" disabled={busy} onClick={() => review(d.type, 'ACCEPTED')} className="btn-lime px-4">{d.status === 'ACCEPTED' ? 'Save date' : 'Accept'}</button>
+              )}
               {d.status !== 'REJECTED' && <button type="button" disabled={busy} onClick={() => setRejecting(d.type)} className="btn-ghost">Reject</button>}
             </div>
           )}
@@ -155,6 +173,8 @@ function SupplierCard({ supplier, onChanged }: { supplier: OpsSupplier; onChange
     checks?.duplicateGstin && 'Another seller uses the same GSTIN: it cannot be verified.',
     checks && checks.otherStates.length > 0 && `GSTIN is from ${checks.gstin.state}, but some delivery PIN codes are in ${checks.otherStates.join(', ')}. Ask how they deliver there.`,
     checks?.statesUnknown && 'Could not compare PIN code states (postal directory not available).',
+    checks?.documents.expired?.length && `Expired paper: ${checks.documents.expired.map((t) => DOC_LABEL[t] ?? t).join(', ')}. Ask for the renewed one.`,
+    checks?.documents.expiringSoon?.length && `Expires within 30 days: ${checks.documents.expiringSoon.map((t) => DOC_LABEL[t] ?? t).join(', ')} (the seller is reminded).`,
     checks && checks.documents.accepted.length + checks.documents.waiting.length === 0 && 'No papers uploaded yet.',
     checks?.gstin.status === 'OK' && !checks.documents.accepted.concat(checks.documents.waiting).includes('GST') && 'GSTIN given but no GST certificate uploaded.',
   ].filter(Boolean) as string[];

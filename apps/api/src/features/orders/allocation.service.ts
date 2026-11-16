@@ -25,6 +25,7 @@ import { checkSupplier } from '../serviceability/serviceability.service';
 import { priceLine, toPaise, PricingError } from './pricing';
 import { expireDriverOffers } from '../delivery/driver-offers';
 import { sendWeeklyReminders } from '../suppliers/weekly';
+import { sendDocumentExpiryReminders } from '../suppliers/document-expiry';
 import { checkDeliveryDate, deliveryWindow } from './delivery-window';
 import { deliveryPoint, distanceKm } from '../delivery/delivery-pricing';
 
@@ -375,6 +376,7 @@ export function startOfferSweeper(intervalMs = 60_000): NodeJS.Timeout {
     expireOverdueOffers().catch((err) => logger.error('[allocation] sweep failed', { error: err?.message }));
     expireDriverOffers().catch((err) => logger.error('[driver-offers] sweep failed', { error: err?.message }));
     sendWeeklyReminders().catch((err) => logger.error('[weekly] reminders failed', { error: err?.message }));
+    sendDocumentExpiryReminders().catch((err) => logger.error('[documents] expiry notices failed', { error: err?.message }));
   }, intervalMs);
 }
 

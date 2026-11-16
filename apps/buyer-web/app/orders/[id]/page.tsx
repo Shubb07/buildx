@@ -124,6 +124,15 @@ function OrderDetail({ id }: { id: string }) {
                 <p className="mt-2 font-mono text-[14px]">{order.deliveryAddress.contactPhone}</p>
               </div>
             </div>
+            {order.buyerGst && (
+              <div className="mt-4 flex gap-3 border-t border-sand-4 pt-4 text-[15px]">
+                <span className="material-symbols-outlined text-stone" aria-hidden="true">receipt_long</span>
+                <div>
+                  <p className="font-semibold">GST invoice to {order.buyerGst.businessName}</p>
+                  <p className="mt-0.5 font-mono text-[14px] text-stone">GSTIN {order.buyerGst.gstin}</p>
+                </div>
+              </div>
+            )}
           </section>
 
           {cancellable && (

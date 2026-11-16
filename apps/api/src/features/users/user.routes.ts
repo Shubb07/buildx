@@ -100,7 +100,7 @@ router.delete('/me', requireAuth, async (req, res, next) => {
       { _id: userId },
       {
         $set: { name: 'Deleted user', isActive: false, firebaseUid: `deleted:${userId}`, addresses: [], deletedAt: new Date() },
-        $unset: { phone: 1, email: 1, fcmToken: 1, gstNumber: 1, bankAccount: 1, avatarUrl: 1 },
+        $unset: { phone: 1, email: 1, fcmToken: 1, gstNumber: 1, gstBusinessName: 1, bankAccount: 1, avatarUrl: 1 },
       }
     );
 

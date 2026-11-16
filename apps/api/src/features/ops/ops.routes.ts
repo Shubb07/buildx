@@ -19,6 +19,8 @@ import { z } from 'zod';
 const documentReviewSchema = z.object({
   status: z.enum(['ACCEPTED', 'REJECTED']),
   note: z.string().trim().max(300).optional(),
+  // Expiry date read on the paper (YYYY-MM-DD), null to clear; checked in documents.ts
+  expiresOn: z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD'), z.null()]).optional(),
 }).refine((v) => v.status === 'ACCEPTED' || (v.note ?? '').length >= 3, { message: 'Say why it was not accepted', path: ['note'] });
 import { catalogCreateSchema, catalogUpdateSchema, catalogMergeSchema } from '../catalog/catalog.schemas';
 import { getSettings, setCommission, createVehicle, updateVehicle, updateGeneral, createCategory, updateCategory } from '../settings/settings.controller';

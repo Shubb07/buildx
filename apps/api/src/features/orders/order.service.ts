@@ -15,6 +15,8 @@ import { offerExpiry, supplierDistances } from './allocation.service';
 import { ratesFor, buyerProduct, type Rates } from './commission';
 import { activeVehicles, deliveryPoint, quoteDelivery, type DeliveryQuote, type LatLng } from '../delivery/delivery-pricing';
 import { SupplierProfile } from '../../infrastructure/database/models/SupplierProfile.model';
+import { User } from '../../infrastructure/database/models/User.model';
+import { logger } from '../../shared/logger/logger';
 import { getPlatformSettings } from '../../infrastructure/database/models/PlatformSettings.model';
 import { checkSupplier, eligibleSupplierIds, notServiceable, resolveDestination, type Destination } from '../serviceability/serviceability.service';
 
@@ -342,6 +344,7 @@ export async function createOrder(params: {
             gstAmount: paiseToRupees(priced.gstPaise),
             total: paiseToRupees(priced.totalPaise + chargePaise),
             notes: input.notes,
+            ...(input.buyerGst ? { buyerGst: input.buyerGst } : {}),
             paymentMethod: 'COD',
             paymentStatus: 'PENDING',
             // Waits for the supplier to accept (allocation.service.ts)
@@ -361,6 +364,11 @@ export async function createOrder(params: {
       );
       return created.toObject() as LeanOrder;
     });
+    // Remember the GSTIN for the next order (prefilled at checkout)
+    if (input.buyerGst) {
+      await User.updateOne({ _id: buyerId }, { $set: { gstNumber: input.buyerGst.gstin, gstBusinessName: input.buyerGst.businessName } })
+        .catch((err: Error) => logger.warn('[orders] could not remember GSTIN', { error: err?.message }));
+    }
     return { order, replayed: false };
   } catch (err: any) {
     // A concurrent duplicate committed first: our transaction (and its stock changes) rolled back

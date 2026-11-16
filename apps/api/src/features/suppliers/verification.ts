@@ -66,7 +66,7 @@ export type VerificationChecks = {
   otherStates: string[];
   /** true when the postal directory could not be read, so otherStates is unknown */
   statesUnknown: boolean;
-  documents: { accepted: string[]; waiting: string[]; rejected: string[] };
+  documents: { accepted: string[]; waiting: string[]; rejected: string[]; expired: string[]; expiringSoon: string[] };
 };
 
 type CheckInput = Pick<ISupplierProfile, '_id' | 'gstin' | 'servicePincodes' | 'kycDocuments'>;
@@ -115,6 +115,11 @@ export async function verificationChecks(profiles: CheckInput[]): Promise<Map<st
         accepted: docs.filter((d) => status(d) === 'ACCEPTED').map((d) => d.type),
         waiting: docs.filter((d) => status(d) === 'SUBMITTED').map((d) => d.type),
         rejected: docs.filter((d) => status(d) === 'REJECTED').map((d) => d.type),
+        expired: docs.filter((d) => d.expiresOn && new Date(d.expiresOn).getTime() <= Date.now()).map((d) => d.type),
+        expiringSoon: docs.filter((d) => {
+          const left = d.expiresOn ? new Date(d.expiresOn).getTime() - Date.now() : -1;
+          return left > 0 && left <= 30 * 86400000;
+        }).map((d) => d.type),
       },
     });
   }

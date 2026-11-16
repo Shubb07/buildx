@@ -15,6 +15,7 @@ const docSchema = z.object({
   status: z.enum(['SUBMITTED', 'ACCEPTED', 'REJECTED']),
   note: z.string().optional(),
   uploadedAt: z.string().optional(),
+  expiresOn: z.string().optional(), // YYYY-MM-DD
 });
 type Doc = z.infer<typeof docSchema>;
 
@@ -39,6 +40,8 @@ async function call(baseUrl: string, init?: RequestInit) {
   return z.array(docSchema).parse(json.data.documents);
 }
 
+const dayDate = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+
 const STATUS_STEP = {
   PENDING: { label: 'Being checked', tone: 'wait' as const, text: 'Sthiva checks your details and papers, usually within one working day. Buyers see your items once you are verified.' },
   VERIFIED: { label: 'Verified', tone: 'done' as const, text: 'Buyers see the Verified badge on your items. Changing your GSTIN means a fresh check.' },
@@ -50,6 +53,9 @@ export function VerificationDocuments({ status, hasGstin }: { status?: 'PENDING'
   const [docs, setDocs] = useState<Doc[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Optional "valid until" per paper, sent with the next upload
+  const [expiry, setExpiry] = useState<Record<string, string>>({});
+  const today = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
 
   useEffect(() => {
     call(client.baseUrl).then(setDocs).catch((e) => setError(e instanceof Error ? e.message : 'Couldn’t load your documents.'));
@@ -61,8 +67,12 @@ export function VerificationDocuments({ status, hasGstin }: { status?: 'PENDING'
     setError(null);
     const form = new FormData();
     form.append('type', type);
+    if (expiry[type]) form.append('expiresOn', expiry[type]);
     form.append('file', file);
-    try { setDocs(await call(client.baseUrl, { method: 'POST', body: form })); }
+    try {
+      setDocs(await call(client.baseUrl, { method: 'POST', body: form }));
+      setExpiry((e) => ({ ...e, [type]: '' }));
+    }
     catch (e) { setError(e instanceof Error ? e.message : 'Upload failed. Try again.'); }
     finally { setBusy(null); }
   }
@@ -72,7 +82,7 @@ export function VerificationDocuments({ status, hasGstin }: { status?: 'PENDING'
       <div>
         <h2 id="docs-title" className="text-[18px] font-semibold">Verification documents</h2>
         <p className="mt-1 text-[14px] text-stone">
-          Sthiva checks these before giving you the Verified badge. They are kept private: only Sthiva&apos;s team can open them. JPEG, PNG or PDF, up to 5 MB.
+          Sthiva checks these before giving you the Verified badge. If a paper has an expiry date, Sthiva reminds you a month and a week before it runs out. They are kept private: only Sthiva&apos;s team can open them. JPEG, PNG or PDF, up to 5 MB.
         </p>
       </div>
       {status && (
@@ -108,6 +118,27 @@ export function VerificationDocuments({ status, hasGstin }: { status?: 'PENDING'
                 <p className="text-[14px] text-stone">
                   {doc?.status === 'REJECTED' && doc.note ? `Sthiva says: ${doc.note}` : doc?.uploadedAt ? `Uploaded ${shortDate.format(new Date(doc.uploadedAt))}` : slot.hint}
                 </p>
+                {doc?.expiresOn && (() => {
+                  const days = Math.round((Date.parse(`${doc.expiresOn}T00:00:00+05:30`) - Date.parse(`${today}T00:00:00+05:30`)) / 86400000);
+                  const when = dayDate.format(new Date(`${doc.expiresOn}T00:00:00+05:30`));
+                  return (
+                    <p className={`text-[14px] ${days <= 30 ? 'font-semibold text-error' : 'text-stone'}`}>
+                      {days < 0 ? `Expired on ${when}. Upload the renewed one.` : days <= 30 ? `Valid until ${when}: upload the renewed one soon.` : `Valid until ${when}`}
+                    </p>
+                  );
+                })()}
+                {slot.type === 'SHOP_LICENSE' && (
+                  <label className="mt-2 flex flex-wrap items-center gap-2 text-[14px]">
+                    <span className="text-stone">Valid until (if printed on it)</span>
+                    <input
+                      type="date"
+                      min={today}
+                      value={expiry[slot.type] ?? ''}
+                      onChange={(e) => setExpiry((x) => ({ ...x, [slot.type]: e.target.value }))}
+                      className="field h-10 w-auto py-0"
+                    />
+                  </label>
+                )}
               </div>
               <label className={`btn-ghost cursor-pointer self-start ${busy ? 'pointer-events-none opacity-60' : ''}`}>
                 {busy === slot.type ? 'Uploading' : doc ? 'Replace' : 'Upload'}

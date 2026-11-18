@@ -298,6 +298,16 @@ describe('grant-role script', () => {
     expect((await ops.get(person, '/summary')).status).toBe(200);
   });
 
+  it('promotes a Google sign-in account by its email', async () => {
+    const person = await seedUser('google-ops', { onboardingComplete: false });
+    await User.updateOne({ _id: person.user._id }, { $set: { email: 'ops.person@gmail.com' }, $unset: { phone: '' } });
+    const updated = await grantRole('  Ops.Person@Gmail.com ', 'ADMIN');
+    expect(updated).toMatchObject({ role: 'ADMIN', email: 'ops.person@gmail.com' });
+    expect((await ops.get(person, '/summary')).status).toBe(200);
+    await expect(grantRole('nobody@gmail.com', 'OPERATOR')).rejects.toThrow(/sign in/);
+    await expect(grantRole('not-an-email@', 'OPERATOR')).rejects.toThrow(/valid email/);
+  });
+
   it('refuses unknown users and roles that must onboard in the app', async () => {
     await expect(grantRole('9000000001', 'OPERATOR')).rejects.toThrow(/sign in/);
     const person = await seedUser('wannabe');

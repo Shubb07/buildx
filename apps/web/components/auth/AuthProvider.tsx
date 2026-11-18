@@ -3,7 +3,10 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   RecaptchaVerifier,
+  GoogleAuthProvider,
   signInWithPhoneNumber,
+  signInWithPopup,
+  signInWithRedirect,
   onAuthStateChanged,
   signOut as firebaseSignOut,
   type ConfirmationResult,
@@ -26,6 +29,7 @@ type AuthContextValue = {
   error: string | null;
   phoneInFlight: string | null;
   sendOtp: (phone: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   confirmOtp: (code: string) => Promise<void>;
   signOut: () => Promise<void>;
   // Back to the phone step after a code was sent (wrong number, or to request a new code)
@@ -130,6 +134,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Owner decision 2026-11-16: Google sign-in (free) is the main way in; SMS codes stay off
+  const signInWithGoogle = useCallback(async () => {
+    setError(null);
+    const auth = getFirebaseAuth();
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    try {
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged fires next and drives the sync + status transition above
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+      if (code === 'auth/popup-blocked') {
+        await signInWithRedirect(auth, provider).catch((e) => setError(describeAuthError(e)));
+        return;
+      }
+      setError(describeAuthError(err));
+    }
+  }, []);
+
   const confirmOtp = useCallback(async (code: string) => {
     if (!confirmationRef.current) {
       setError('Request a new code and try again.');
@@ -159,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ status, user, error, phoneInFlight, sendOtp, confirmOtp, signOut, resetOtp }}>
+    <AuthContext.Provider value={{ status, user, error, phoneInFlight, sendOtp, signInWithGoogle, confirmOtp, signOut, resetOtp }}>
       {children}
       <div id="recaptcha-container" />
     </AuthContext.Provider>

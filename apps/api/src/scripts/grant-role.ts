@@ -2,8 +2,9 @@
  * Promote an existing account to an operations role (or change its role).
  * OPERATOR/ADMIN can never be chosen in the app, so this is how ops accounts are created.
  *
- * The person must have signed in to the app once (so their user exists), then:
+ * The person must have signed in once (so their user exists), then, by phone or by Google email:
  *   npm run grant-role --workspace=apps/api -- --phone 9876543210 --role OPERATOR
+ *   npm run grant-role --workspace=apps/api -- --email name@gmail.com --role OPERATOR
  *
  * Uses MONGODB_URI from the environment — check which database you are pointing at.
  */
@@ -21,17 +22,25 @@ export function normalisePhone(input: string): string {
   return `+91${m[1]}`;
 }
 
-export async function grantRole(phoneInput: string, role: string) {
+/** Google sign-in accounts are found by their (verified) email address */
+export function normaliseEmail(input: string): string {
+  const email = input.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error(`Not a valid email address: ${input}`);
+  return email;
+}
+
+/** `who` is an Indian mobile number or a Google account email */
+export async function grantRole(who: string, role: string) {
   if (!GRANTABLE.includes(role as UserRole)) {
     throw new Error(`Role must be one of ${GRANTABLE.join(', ')} (suppliers/drivers onboard in the app)`);
   }
-  const phone = normalisePhone(phoneInput);
+  const filter = who.includes('@') ? { email: normaliseEmail(who) } : { phone: normalisePhone(who) };
   const user = await User.findOneAndUpdate(
-    { phone },
+    filter,
     { $set: { role, onboardingComplete: true } },
     { new: true }
-  ).select('name phone role isActive').lean();
-  if (!user) throw new Error(`No user with phone ${phone}. Ask them to sign in to the app once first.`);
+  ).select('name phone email role isActive').lean();
+  if (!user) throw new Error(`No user with ${who}. Ask them to sign in once first (ops.sthiva.com or the app).`);
   return user;
 }
 
@@ -41,18 +50,18 @@ function arg(name: string): string | undefined {
 }
 
 async function main() {
-  const phone = arg('phone');
+  const who = arg('phone') ?? arg('email');
   const role = arg('role');
-  if (!phone || !role) {
-    console.error('Usage: npm run grant-role --workspace=apps/api -- --phone 9876543210 --role OPERATOR');
+  if (!who || !role) {
+    console.error('Usage: npm run grant-role --workspace=apps/api -- (--phone 9876543210 | --email name@gmail.com) --role OPERATOR');
     process.exit(1);
   }
 
   const host = new URL(env.MONGODB_URI.replace(/^mongodb(\+srv)?:/, 'http:')).host;
   console.log(`Connecting to MongoDB at ${host}...`);
   await mongoose.connect(env.MONGODB_URI, { dbName: 'buildx' });
-  const user = await grantRole(phone, role);
-  console.log(`✓ ${user.name} (${user.phone}) is now ${user.role}${user.isActive ? '' : ' — NOTE: account is suspended'}`);
+  const user = await grantRole(who, role);
+  console.log(`✓ ${user.name} (${user.phone ?? user.email}) is now ${user.role}${user.isActive ? '' : ' — NOTE: account is suspended'}`);
   await mongoose.disconnect();
 }
 

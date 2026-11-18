@@ -7,7 +7,7 @@ import { useAuth } from './AuthProvider';
 // Wraps every console page. Only OPERATOR and ADMIN accounts get past this; the API enforces
 // the same rule on every /ops route, so this is about a clear message, not security.
 export function RequireOps({ children }: { children: React.ReactNode }) {
-  const { status, error, signOut } = useAuth();
+  const { status, error, signOut, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -28,9 +28,10 @@ export function RequireOps({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6 text-center">
         <div className="max-w-sm">
-          <p className="font-display text-2xl font-semibold tracking-tight">This number has no operations access</p>
+          <p className="font-display text-2xl font-semibold tracking-tight">This account has no operations access</p>
           <p className="mt-2 text-[15px] text-stone">
-            The console is only for the Sthiva operations team. Ask an admin to give your number access, then sign in again.
+            The console is only for the Sthiva operations team. Ask an admin to give access to
+            {user?.email || user?.phone ? <> <span className="font-mono text-ink">{user.email ?? user.phone}</span></> : ' this account'}, then sign in again.
           </p>
           <button type="button" onClick={() => signOut()} className="btn-ghost mt-6">Sign out</button>
         </div>

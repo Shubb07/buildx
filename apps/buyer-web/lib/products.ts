@@ -43,6 +43,8 @@ export const productDetailSchema = z
     sellerCount: z.number().optional(),
     // Every seller paused this item: when it is back (start of that day, India time)
     backOn: z.string().optional(),
+    // Some seller offers delivery in a booked slot for this item
+    slotDelivery: z.boolean().optional(),
     // Present only when a PIN was given to the API
     availability: z.object({ deliverable: z.boolean(), reason: z.string().optional() }).optional(),
   })

@@ -84,6 +84,8 @@ const productFields = {
   deliveryDays: z.number().int().min(0).max(90),
   deliveryDaysMax: z.number().int().min(0).max(90),
   supply: z.enum(['IN_STOCK', 'ON_ORDER']),
+  // Offer delivery in a buyer-chosen slot for this listing (features/orders/delivery-slots.ts)
+  slotDelivery: z.boolean(),
   lowStockAlert: z.number().int().min(0).max(10_000_000),
   tags: z.array(z.string().trim().min(1).max(40)).max(20),
   specifications: z.record(z.string().trim().min(1).max(60), z.string().trim().max(200))
@@ -110,7 +112,7 @@ export const createProductSchema = z
     status: z.enum(['DRAFT', 'ACTIVE']),
   })
   .partial({ catalogItemId: true, hsn: true, brand: true, shortDescription: true, gstRate: true, isGstInclusive: true, stockQuantity: true, minOrderQuantity: true,
-    deliveryDays: true, deliveryDaysMax: true, supply: true, lowStockAlert: true, tags: true, specifications: true, images: true, bulkPricing: true, status: true })
+    deliveryDays: true, deliveryDaysMax: true, supply: true, slotDelivery: true, lowStockAlert: true, tags: true, specifications: true, images: true, bulkPricing: true, status: true })
   .strict()
   .superRefine((v, ctx) => {
     const problem = bulkPricingProblem(v.bulkPricing, v.basePrice, v.minOrderQuantity);

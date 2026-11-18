@@ -210,6 +210,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         {data.sellerCount} verified sellers{location?.pincode ? ` deliver to ${location.pincode}` : ' carry this'}
                       </span>
                     )}
+                    {data.slotDelivery && (
+                      <span className="inline-flex items-center gap-1 text-stone">
+                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
+                        Book a delivery slot at checkout
+                      </span>
+                    )}
                     {(data.totalReviews ?? 0) > 0 && (
                       <span className="inline-flex items-center gap-1.5">
                         <Stars value={data.avgRating ?? 0} size="text-[16px]" />

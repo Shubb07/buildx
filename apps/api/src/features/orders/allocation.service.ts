@@ -32,6 +32,7 @@ import { clearFinishedLocations } from '../delivery/tracking';
 import { checkDeliveryDate, deliveryWindow } from './delivery-window';
 import { deliveryPoint, distanceKm } from '../delivery/delivery-pricing';
 import { orderable } from '../products/availability';
+import { slotDaysAhead, slotLabel, slotLeadDays } from './delivery-slots';
 
 type LeanOrder = IOrder & { _id: Types.ObjectId };
 type Outcome = 'REJECTED' | 'EXPIRED' | 'WITHDRAWN';
@@ -57,7 +58,7 @@ async function inTransaction<T>(fn: (session: ClientSession) => Promise<T>): Pro
 type Listing = {
   _id: Types.ObjectId; supplierId: Types.ObjectId; catalogItemId?: Types.ObjectId; name: string; unit: string;
   basePrice: number; bulkPricing?: { minQty: number; price: number }[]; gstRate: number; isGstInclusive: boolean;
-  minOrderQuantity?: number; stockQuantity: number;
+  minOrderQuantity?: number; stockQuantity: number; deliveryDays?: number; slotDelivery?: boolean;
 };
 
 /** For one supplier: their listing for each order line, or null if they can't supply all of it. */
@@ -93,7 +94,7 @@ async function listingsFor(order: LeanOrder, supplierIds: Types.ObjectId[] | nul
     ...orderable(),
     ...(supplierIds ? { supplierId: { $in: supplierIds } } : {}),
   })
-    .select('supplierId catalogItemId name unit basePrice bulkPricing gstRate isGstInclusive minOrderQuantity stockQuantity')
+    .select('supplierId catalogItemId name unit basePrice bulkPricing gstRate isGstInclusive minOrderQuantity stockQuantity deliveryDays slotDelivery')
     .session(session)
     .lean<Listing[]>();
 }
@@ -118,7 +119,10 @@ export async function supplierDistances(ids: Types.ObjectId[], to: { lat: number
 /** Best next supplier for the order, or null. */
 async function findNextSupplier(order: LeanOrder, session: ClientSession) {
   const tried = (order.allocation?.attempts ?? []).map((a) => a.supplierId.toString());
-  const listings = (await listingsFor(order, null, session)).filter((l) => !tried.includes(l.supplierId.toString()));
+  // A slot order only moves to sellers who offer slots on the item and can make the date
+  const slotDays = order.deliverySlot ? slotDaysAhead(order.deliverySlot) : null;
+  const listings = (await listingsFor(order, null, session)).filter((l) => !tried.includes(l.supplierId.toString())
+    && (slotDays === null || (l.slotDelivery === true && slotLeadDays(l.deliveryDays) <= slotDays)));
   const bySupplier = new Map<string, Listing[]>();
   for (const l of listings) bySupplier.set(l.supplierId.toString(), [...(bySupplier.get(l.supplierId.toString()) ?? []), l]);
 
@@ -274,7 +278,10 @@ const offeredTo = (supplierProfileId: string) => ({ supplierId: supplierProfileI
 export async function acceptOffer(params: { orderId: string; supplierProfileId: string; userId: string; deliveryDate?: string }) {
   const { orderId, supplierProfileId, userId, deliveryDate } = params;
   const now = new Date();
-  if (deliveryDate !== undefined) {
+  // A slot order is confirmed for the buyer's slot date; whatever date was sent is ignored
+  const slot = (await Order.findById(orderId).select('deliverySlot').lean<LeanOrder>())?.deliverySlot;
+  const confirmDate = slot?.date ?? deliveryDate;
+  if (!slot && deliveryDate !== undefined) {
     const problem = checkDeliveryDate(deliveryDate, now);
     if (problem) throw AppError.badRequest(problem);
   }
@@ -283,7 +290,7 @@ export async function acceptOffer(params: { orderId: string; supplierProfileId: 
     {
       $set: {
         status: 'CONFIRMED', confirmedAt: now, 'allocation.state': 'ACCEPTED', 'allocation.attempts.$[open].outcome': 'ACCEPTED', 'allocation.attempts.$[open].at': now,
-        ...(deliveryDate ? { deliveryDate, deliveryDateSetAt: now } : {}),
+        ...(confirmDate ? { deliveryDate: confirmDate, deliveryDateSetAt: now } : {}),
       },
       $unset: { 'allocation.expiresAt': '' },
       $push: { statusHistory: { status: 'CONFIRMED', at: now, byRole: 'SUPPLIER', byUserId: new Types.ObjectId(userId) } },
@@ -293,7 +300,9 @@ export async function acceptOffer(params: { orderId: string; supplierProfileId: 
   if (order) {
     notifyUser(order.buyerId.toString(), {
       title: 'Order confirmed',
-      body: order.deliveryDate
+      body: order.deliverySlot
+        ? `Your order ${order.orderNumber} is confirmed for ${slotLabel(order.deliverySlot)}.`
+        : order.deliveryDate
         ? `Your order ${order.orderNumber} is confirmed. Delivery on ${formatDay(order.deliveryDate)}.`
         : `Your order ${order.orderNumber} is confirmed by the supplier.`,
       data: { screen: 'buyer_orders', orderId: order._id.toString() },
@@ -319,8 +328,9 @@ export async function setDeliveryDate(params: { orderId: string; supplierProfile
   const { orderId, supplierProfileId, deliveryDate } = params;
   const problem = checkDeliveryDate(deliveryDate);
   if (problem) throw AppError.badRequest(problem);
-  const before = await Order.findOne({ _id: orderId, supplierId: new Types.ObjectId(supplierProfileId) }).select('status deliveryDate').lean<LeanOrder>();
+  const before = await Order.findOne({ _id: orderId, supplierId: new Types.ObjectId(supplierProfileId) }).select('status deliveryDate deliverySlot').lean<LeanOrder>();
   if (!before) throw AppError.notFound('Order');
+  if (before.deliverySlot) throw AppError.conflict('The buyer booked a delivery slot, so the date stays. If you cannot make it, contact Sthiva support.');
   if (!['CONFIRMED', 'READY_FOR_PICKUP', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'].includes(before.status)) {
     throw AppError.conflict(before.status === 'PENDING' ? 'Accept the order first' : 'This order can no longer be changed');
   }

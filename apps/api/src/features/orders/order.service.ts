@@ -23,6 +23,7 @@ import { DISPATCHED, issueInvoiceInBackground } from '../invoices/invoice.servic
 import { getPlatformSettings } from '../../infrastructure/database/models/PlatformSettings.model';
 import { checkSupplier, eligibleSupplierIds, notServiceable, resolveDestination, type Destination } from '../serviceability/serviceability.service';
 import { orderable, isPaused } from '../products/availability';
+import { checkSlot, istDayPlus, slotDaysAhead, slotLeadDays, SLOT_KEYS, SLOT_MAX_DAYS_AHEAD, type DeliverySlot } from './delivery-slots';
 
 /**
  * Destination step shared by quote and order: with a PIN, validate it and check the supplier
@@ -76,7 +77,7 @@ async function inTransaction<T>(fn: (session: ClientSession) => Promise<T>): Pro
 type LeanProduct = Pick<
   IProduct,
   'supplierId' | 'name' | 'unit' | 'basePrice' | 'bulkPricing' | 'gstRate' | 'isGstInclusive'
-  | 'minOrderQuantity' | 'stockQuantity' | 'status' | 'images' | 'catalogItemId' | 'categoryId' | 'deliveryDays' | 'deliveryDaysMax' | 'supply' | 'pausedUntil'
+  | 'minOrderQuantity' | 'stockQuantity' | 'status' | 'images' | 'catalogItemId' | 'categoryId' | 'deliveryDays' | 'deliveryDaysMax' | 'supply' | 'pausedUntil' | 'slotDelivery'
 > & { _id: Types.ObjectId };
 
 type PricedCart = {
@@ -129,7 +130,7 @@ function planFor(items: CartItemsInput, listings: LeanProduct[], rateMap: Map<st
  * (same catalog items) with enough stock, the cheapest for the buyer. The listings the buyer added
  * are just a way to name the items. Carts with items outside the catalog keep their own supplier.
  */
-async function chooseListings(items: CartItemsInput, asAdded: LeanProduct[], pincode: string | undefined, destination: LatLng | null, session?: ClientSession) {
+async function chooseListings(items: CartItemsInput, asAdded: LeanProduct[], pincode: string | undefined, destination: LatLng | null, session?: ClientSession, slot?: DeliverySlot) {
   const itemIds = asAdded.map((p) => p.catalogItemId);
   if (itemIds.some((id) => !id)) return null;
   const eligible = await eligibleSupplierIds(pincode);
@@ -137,7 +138,10 @@ async function chooseListings(items: CartItemsInput, asAdded: LeanProduct[], pin
     catalogItemId: { $in: itemIds },
     ...orderable(),
     supplierId: { $in: eligible },
+    // A slot order only goes to sellers who offer slots on the item
+    ...(slot ? { slotDelivery: true } : {}),
   }).session(session ?? null).lean<LeanProduct[]>();
+  const daysAhead = slot ? slotDaysAhead(slot) : Infinity;
 
   const bySupplier = new Map<string, LeanProduct[]>();
   for (const l of listings) bySupplier.set(l.supplierId.toString(), [...(bySupplier.get(l.supplierId.toString()) ?? []), l]);
@@ -149,7 +153,7 @@ async function chooseListings(items: CartItemsInput, asAdded: LeanProduct[], pin
   let best: Plan | null = null;
   let bestKm = Infinity;
   for (const [sid, own] of bySupplier) {
-    const lines = items.map((it, idx) => own.find((l) => l.catalogItemId!.equals(itemIds[idx]!) && l.stockQuantity >= it.quantity));
+    const lines = items.map((it, idx) => own.find((l) => l.catalogItemId!.equals(itemIds[idx]!) && l.stockQuantity >= it.quantity && slotLeadDays(l.deliveryDays) <= daysAhead));
     if (lines.some((l) => !l)) continue;
     try {
       const plan = await withDelivery(planFor(items, lines as LeanProduct[], rateMap), items, destination, vehicles);
@@ -163,7 +167,7 @@ async function chooseListings(items: CartItemsInput, asAdded: LeanProduct[], pin
   return best;
 }
 
-async function priceCart(items: CartItemsInput, session?: ClientSession, pincode?: string, destination: LatLng | null = null): Promise<PricedCart> {
+async function priceCart(items: CartItemsInput, session?: ClientSession, pincode?: string, destination: LatLng | null = null, slot?: DeliverySlot): Promise<PricedCart> {
   const ids = items.map((i) => i.productId);
   const found = await Product.find({ _id: { $in: ids } }).session(session ?? null).lean<LeanProduct[]>();
   const byId = new Map(found.map((p) => [p._id.toString(), p]));
@@ -174,8 +178,9 @@ async function priceCart(items: CartItemsInput, session?: ClientSession, pincode
     return p;
   });
 
-  const chosen = await chooseListings(items, products, pincode, destination, session);
+  const chosen = await chooseListings(items, products, pincode, destination, session, slot);
   if (chosen) return { supplierId: chosen.listings[0].supplierId, products: chosen.listings, ...chosen };
+  if (slot) throw AppError.conflict('No seller can deliver all these items in that slot. Pick a later date, or choose standard delivery.');
 
   // Nobody can supply the whole cart: with one supplier's items, let the usual checks explain why
   const paused = products.find((p) => isPaused(p));
@@ -217,11 +222,40 @@ function lineView(p: PricedCart['products'][number], line: PricedOrder['lines'][
   };
 }
 
+/**
+ * Whether the whole cart can be delivered in a slot near this PIN, and the earliest day. Some single
+ * seller must offer slots on every item, list it live with enough stock, and make the lead time.
+ */
+async function slotOptions(items: CartItemsInput, pincode?: string) {
+  const none = { available: false as const };
+  const added = await Product.find({ _id: { $in: items.map((i) => i.productId) } }).select('catalogItemId').lean();
+  const byProduct = new Map(added.map((p) => [String(p._id), p.catalogItemId]));
+  const itemIds = items.map((i) => byProduct.get(i.productId));
+  if (itemIds.some((id) => !id)) return none;
+  const listings = await Product.find({
+    catalogItemId: { $in: itemIds }, ...orderable(), slotDelivery: true, supplierId: { $in: await eligibleSupplierIds(pincode) },
+  }).select('supplierId catalogItemId stockQuantity deliveryDays').lean();
+  const bySupplier = new Map<string, typeof listings>();
+  for (const l of listings) bySupplier.set(String(l.supplierId), [...(bySupplier.get(String(l.supplierId)) ?? []), l]);
+  let lead = Infinity;
+  for (const own of bySupplier.values()) {
+    const lines = items.map((it, idx) => own.find((l) => l.catalogItemId!.equals(itemIds[idx]!) && l.stockQuantity >= it.quantity));
+    if (lines.some((l) => !l)) continue;
+    lead = Math.min(lead, Math.max(...lines.map((l) => slotLeadDays(l!.deliveryDays))));
+  }
+  if (lead > SLOT_MAX_DAYS_AHEAD) return none;
+  return { available: true as const, earliest: istDayPlus(lead), latest: istDayPlus(SLOT_MAX_DAYS_AHEAD), windows: SLOT_KEYS };
+}
+
 // POST /orders/quote — same pricing as order creation, no writes
-export async function quoteOrder(items: CartItemsInput, deliveryPincode?: string, point?: { lat?: number; lng?: number }) {
+export async function quoteOrder(items: CartItemsInput, deliveryPincode?: string, point?: { lat?: number; lng?: number }, slot?: DeliverySlot) {
+  if (slot) {
+    const problem = checkSlot(slot);
+    if (problem) throw AppError.badRequest(problem, { field: 'deliverySlot' });
+  }
   const destination = deliveryPincode !== undefined ? await resolveDestination(deliveryPincode) : null;
   const dropPoint = await deliveryPoint({ ...point, pincode: destination?.pincode });
-  const { supplierId, products, priced, delivery: priced0 } = await priceCart(items, undefined, destination?.pincode, dropPoint);
+  const { supplierId, products, priced, delivery: priced0 } = await priceCart(items, undefined, destination?.pincode, dropPoint, slot);
   const { outOfArea } = await coverage(supplierId, destination);
   // Out of area: the delivery charge is confirmed with the supplier Sthiva finds
   const delivery = outOfArea && priced0.status === 'UNPRICED' ? { status: 'OFF' as const } : priced0;
@@ -232,6 +266,9 @@ export async function quoteOrder(items: CartItemsInput, deliveryPincode?: string
     outOfArea,
     // Usual delivery time of the chosen listings; the supplier confirms the date after accepting
     expectedDelivery: deliveryWindow(products),
+    // Can this cart be delivered in a slot, and from which day (features/orders/delivery-slots.ts)
+    slots: await slotOptions(items, destination?.pincode),
+    ...(slot ? { deliverySlot: slot } : {}),
     // null for legacy quotes without a PIN; the order will re-check coverage anyway
     delivery: destination ? { ...destination, serviceable: !outOfArea } : null,
     items: products.map((p, i) => ({
@@ -286,6 +323,10 @@ export async function createOrder(params: {
   if (pincode === undefined && env.ORDERS_REQUIRE_DELIVERY_PINCODE) {
     throw new AppError('A confirmed delivery PIN code is required. Please update the app.', 'PINCODE_REQUIRED', 400);
   }
+  if (input.deliverySlot) {
+    const problem = checkSlot(input.deliverySlot);
+    if (problem) throw AppError.badRequest(problem, { field: 'deliverySlot' });
+  }
   // Postal validity is reference data — check it before opening the transaction
   const destination = pincode !== undefined ? await resolveDestination(pincode) : null;
   const dropPoint = await deliveryPoint({ lat: input.deliveryAddress.lat, lng: input.deliveryAddress.lng, pincode: destination?.pincode });
@@ -293,7 +334,7 @@ export async function createOrder(params: {
 
   try {
     const order = await inTransaction(async (session) => {
-      const { supplierId, products, priced, supplierPriced, rates, delivery: priced0 } = await priceCart(input.items, session, destination?.pincode, dropPoint);
+      const { supplierId, products, priced, supplierPriced, rates, delivery: priced0 } = await priceCart(input.items, session, destination?.pincode, dropPoint, input.deliverySlot);
       // Re-checked here, inside the transaction, regardless of any earlier quote
       const { outOfArea } = await coverage(supplierId, destination, session);
       const delivery = outOfArea && priced0.status === 'UNPRICED' ? { status: 'OFF' as const } : priced0;
@@ -343,6 +384,7 @@ export async function createOrder(params: {
             serviceabilityCheck: destination ? 'VERIFIED' : 'SKIPPED_NO_PINCODE',
             deliveryMethod: input.deliveryMethod,
             expectedDelivery: deliveryWindow(products),
+            ...(input.deliverySlot ? { deliverySlot: input.deliverySlot } : {}),
             onOrder: products.some((p) => p.supply === 'ON_ORDER'),
             ...(outOfArea ? { outOfArea: true } : {}),
             deliveryCharge: paiseToRupees(chargePaise),

@@ -35,6 +35,7 @@ export interface IProduct extends Document {
   // IN_STOCK: the supplier has it. ON_ORDER: they get it from the company or make it (brand catalogue
   // tiles, custom woodwork); never runs out (stock held at ON_ORDER_STOCK), date confirmed after ordering.
   supply: 'IN_STOCK' | 'ON_ORDER';
+  slotDelivery?: boolean; // seller offers delivery in a buyer-chosen slot for this listing (features/orders/delivery-slots.ts)
   location: { lat: number; lng: number; address: string };
   createdAt: Date;
   updatedAt: Date;
@@ -95,6 +96,7 @@ const productSchema = new Schema<IProduct>(
     deliveryDays: { type: Number, default: 2, min: 0, max: 90 },
     deliveryDaysMax: { type: Number, min: 0, max: 90 },
     supply: { type: String, enum: ['IN_STOCK', 'ON_ORDER'], default: 'IN_STOCK', index: true },
+    slotDelivery: { type: Boolean, default: false },
     location: {
       lat: Number,
       lng: Number,

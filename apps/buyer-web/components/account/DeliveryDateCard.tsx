@@ -1,11 +1,31 @@
 import { buyerDeliveryPhrase, formatDeliveryDate } from '@sthiva/web-core';
 import type { BuyerOrder } from '@/lib/orders';
+import { slotText } from '@/components/checkout/SlotPicker';
 
 // When will it arrive? The supplier's confirmed date once they accept. Until then: in process (out of
 // area, or something ordered from the company / made for the buyer), or the supplier's usual time.
 export function DeliveryDateCard({ order }: { order: BuyerOrder }) {
   if (order.status === 'DELIVERED' || order.status === 'CANCELLED') return null;
   const expected = order.expectedDelivery;
+
+  // A booked slot: waiting for a seller who offers slots, then confirmed
+  if (order.deliverySlot) {
+    const confirmed = order.status !== 'PENDING';
+    return (
+      <section className="card flex items-center gap-4 p-5 sm:p-6" aria-label="Delivery slot">
+        <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${confirmed ? 'bg-lime' : 'bg-sand-3'} text-ink`}>
+          <span className="material-symbols-outlined text-[24px]" aria-hidden="true">schedule</span>
+        </span>
+        <div>
+          <p className="eyebrow text-stone">Delivery slot</p>
+          <p className="mt-1 font-display text-xl font-bold tracking-tight">{slotText(order.deliverySlot)}</p>
+          <p className="mt-0.5 text-[14px] text-stone">
+            {confirmed ? 'Confirmed by the seller.' : 'Waiting for a seller who delivers in slots to confirm it.'}
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   if (order.deliveryDate) {
     return (

@@ -38,6 +38,9 @@ type Confirming = null | 'cancel' | 'delivered' | 'cash' | 'reject' | 'problem' 
 // Orders whose delivery date the supplier can still set or change
 const DATED_STATUSES = ['CONFIRMED', 'READY_FOR_PICKUP', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'];
 
+const SLOT_WINDOW = { MORNING: 'Morning, 7 to 11 am', MIDDAY: 'Midday, 11 am to 3 pm', EVENING: 'Evening, 3 to 7 pm' } as const;
+const slotText = (s: { date: string; window: keyof typeof SLOT_WINDOW }) => `${formatDeliveryDate(s.date)}, ${SLOT_WINDOW[s.window]}`;
+
 function timeLeft(iso?: string) {
   if (!iso) return null;
   const m = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
@@ -180,10 +183,21 @@ function OrderCard({ order, onDone }: { order: SupplierOrder; onDone: () => void
                   On order: the buyer was told you will confirm the delivery date within 24 hours. Pick the date when you accept.
                 </p>
               )}
+              {order.deliverySlot && (
+                <p className="flex items-start gap-2 rounded-lg bg-lime/40 px-3 py-2 text-[14px]">
+                  <span className="material-symbols-outlined text-[20px]" aria-hidden="true">schedule</span>
+                  <span>The buyer booked a delivery slot: <span className="font-semibold">{slotText(order.deliverySlot)}</span>. Accept only if you can deliver in that window.</span>
+                </p>
+              )}
               <div className="flex flex-wrap gap-2">
-                <button type="button" disabled={busy} onClick={() => setConfirming('accept')} className="btn-lime">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => (order.deliverySlot ? run(() => acceptSupplierOrder(client, order._id, order.deliverySlot!.date)) : setConfirming('accept'))}
+                  className="btn-lime"
+                >
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">check</span>
-                  Accept order
+                  {order.deliverySlot ? 'Accept slot' : 'Accept order'}
                 </button>
                 <button type="button" disabled={busy} onClick={() => setConfirming('reject')} className="btn-ghost">Reject</button>
               </div>
@@ -219,7 +233,13 @@ function OrderCard({ order, onDone }: { order: SupplierOrder; onDone: () => void
             </div>
           )}
 
-          {confirming === null && dated && (
+          {confirming === null && dated && order.deliverySlot && (
+            <p className="flex items-center gap-2 rounded-xl bg-lime/40 px-4 py-3 text-[15px]">
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">schedule</span>
+              Booked slot: <span className="font-semibold">{slotText(order.deliverySlot)}</span>
+            </p>
+          )}
+          {confirming === null && dated && !order.deliverySlot && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-sand-2 px-4 py-3">
               <p className="flex items-center gap-2 text-[15px]">
                 <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{order.deliveryDate ? 'event_available' : 'event'}</span>

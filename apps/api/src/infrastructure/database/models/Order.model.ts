@@ -88,6 +88,8 @@ export interface IOrder extends Document {
   // Calendar date (YYYY-MM-DD, India) the supplier confirmed; can be changed later, buyer is told
   deliveryDate?: string;
   deliveryDateSetAt?: Date;
+  // Delivery slot the buyer booked (features/orders/delivery-slots.ts); fixes deliveryDate on accept
+  deliverySlot?: { date: string; window: 'MORNING' | 'MIDDAY' | 'EVENING' };
   // Something in the order is made or ordered from the company for the buyer: in process until the supplier confirms
   onOrder?: boolean;
   // No supplier delivers to this PIN yet: Sthiva's team finds one (allocation NEEDS_OPS), the buyer is told within 24 hours
@@ -222,6 +224,11 @@ const orderSchema = new Schema<IOrder>(
     expectedDelivery: { minDays: Number, maxDays: Number },
     deliveryDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
     deliveryDateSetAt: Date,
+    deliverySlot: {
+      _id: false,
+      date: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
+      window: { type: String, enum: ['MORNING', 'MIDDAY', 'EVENING'] },
+    },
     onOrder: Boolean,
     outOfArea: Boolean,
     driverOffer: {

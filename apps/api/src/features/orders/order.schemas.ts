@@ -16,8 +16,15 @@ const cartItems = z
 // Format is checked by the serviceability service so every client gets PINCODE_INVALID
 const pincodeInput = z.string().trim().max(10);
 
+// Optional delivery slot (features/orders/delivery-slots.ts): date YYYY-MM-DD, India time
+const deliverySlot = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a delivery date'),
+  window: z.enum(['MORNING', 'MIDDAY', 'EVENING']),
+}).strict();
+
 export const quoteSchema = z.object({
   items: cartItems,
+  deliverySlot: deliverySlot.optional(),
   // Confirmed delivery PIN. Optional only for older mobile clients.
   deliveryPincode: pincodeInput.optional(),
   // The pinned delivery point, if any (else the PIN's post office is used to price delivery)
@@ -52,6 +59,7 @@ export const createOrderSchema = z.object({
     businessName: z.string().trim().min(2, 'Enter the business name on the GST certificate').max(120),
   }).optional(),
   deliveryMethod: z.enum(['STANDARD', 'EXPRESS']).default('STANDARD'),
+  deliverySlot: deliverySlot.optional(),
   // Total the buyer saw on the summary screen; if prices moved since, the order is refused
   expectedTotal: z.number().finite().nonnegative().optional(),
 });

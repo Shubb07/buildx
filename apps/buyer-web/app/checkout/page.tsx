@@ -12,6 +12,7 @@ import { EmptyState, ErrorNote, PageHead, SummaryRow } from '@/components/accoun
 import { useCart, clearCart } from '@/lib/cart';
 import { checkoutPrefill, forgetAddress, quoteCart, placeOrder, type Quote, type SavedAddress } from '@/lib/orders';
 import { rupees } from '@/lib/format';
+import { SlotPicker, slotText, type DeliverySlot, type SlotOptions } from '@/components/checkout/SlotPicker';
 
 const LABELS = ['Site', 'Home', 'Office', 'Warehouse'];
 
@@ -56,6 +57,9 @@ function CheckoutForm() {
   const [gstName, setGstName] = useState('');
   // Step being filled in (finished steps fold into a summary)
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Optional booked delivery slot; slotOptions comes from the last successful quote
+  const [slot, setSlot] = useState<DeliverySlot | null>(null);
+  const [slotOptions, setSlotOptions] = useState<SlotOptions>({ available: false });
   // Addresses remembered from earlier orders (newest first), the chosen one, or 'new'
   const [saved, setSaved] = useState<SavedAddress[]>([]);
   const [chosen, setChosen] = useState<string>('new');
@@ -107,15 +111,19 @@ function CheckoutForm() {
     if (!cart || cart.items.length === 0) return;
     let cancelled = false;
     setQuote({ status: 'loading' });
-    quoteCart(client, items, location?.pincode)
-      .then((data) => { if (!cancelled) setQuote({ status: 'success', data }); })
+    quoteCart(client, items, location?.pincode, slot)
+      .then((data) => {
+        if (cancelled) return;
+        setQuote({ status: 'success', data });
+        if (data.slots) setSlotOptions(data.slots);
+      })
       .catch((err) => {
         if (cancelled) return;
         setQuote({ status: 'error', message: err instanceof Error ? err.message : 'Could not price your cart' });
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, JSON.stringify(items), location?.pincode]);
+  }, [client, JSON.stringify(items), location?.pincode, slot?.date, slot?.window]);
 
   if (!cart || cart.items.length === 0) {
     return (
@@ -156,6 +164,7 @@ function CheckoutForm() {
           deliveryAddress: { label, fullAddress, pincode: location?.pincode, contactPhone },
           expectedTotal: quote.data.total,
           ...(wantGst ? { buyerGst: { gstin, businessName: gstName.trim() } } : {}),
+          ...(slot ? { deliverySlot: slot } : {}),
         },
         idempotencyKey
       );
@@ -309,6 +318,7 @@ function CheckoutForm() {
             quote.status === 'success' ? (
               <p className="text-stone">
                 {quote.data.items.length} item{quote.data.items.length === 1 ? '' : 's'}
+                {slot ? `, slot ${slotText(slot)}` : ''}
                 {wantGst && gstCheck?.ok ? `, GST invoice to ${gstName.trim()}` : ''}
               </p>
             ) : null
@@ -316,6 +326,9 @@ function CheckoutForm() {
         >
           {quote.status === 'loading' && <div className="skeleton h-24" role="status" aria-label="Pricing your cart" />}
           {quote.status === 'error' && <p role="alert" className="text-[15px] text-error">{quote.message}</p>}
+          {quote.status === 'error' && slot && (
+            <button type="button" onClick={() => setSlot(null)} className="btn-ghost mt-3">Use standard delivery instead</button>
+          )}
           {quote.status === 'success' && (
             <>
               <ul className="flex flex-col divide-y divide-sand-4 rounded-xl border border-sand-4">
@@ -339,6 +352,8 @@ function CheckoutForm() {
               </Link>
             </>
           )}
+
+          <SlotPicker options={slotOptions} value={slot} onChange={setSlot} />
 
           <label className="mt-6 flex cursor-pointer items-start gap-3">
             <input type="checkbox" checked={wantGst} onChange={(e) => setWantGst(e.target.checked)} className="mt-1 h-5 w-5 accent-ink" />
@@ -441,6 +456,13 @@ function CheckoutForm() {
                     {quote.data.outOfArea
                       ? 'No supplier delivers to your PIN yet. Sthiva finds one and tells you the delivery date and charge within 24 hours. You can cancel if it does not suit you.'
                       : 'Something here is ordered from the company or made for you. The supplier confirms the delivery date within 24 hours and you will be notified.'}
+                  </span>
+                </p>
+              ) : slot ? (
+                <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-white/[0.06] px-4 py-3 text-[14px] text-sand/80">
+                  <span className="material-symbols-outlined mt-0.5 text-[18px] text-lime" aria-hidden="true">schedule</span>
+                  <span>
+                    Delivery slot <strong className="font-semibold text-sand">{slotText(slot)}</strong>. The seller confirms it when they accept your order.
                   </span>
                 </p>
               ) : quote.data.expectedDelivery && (

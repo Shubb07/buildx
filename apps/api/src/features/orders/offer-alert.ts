@@ -4,6 +4,7 @@
 // commission. Not the buyer's total: that includes Sthiva's share and misleads the decision.
 
 import { supplierEarnings } from './commission';
+import { slotLabel, type DeliverySlot } from './delivery-slots';
 
 const UNIT: Record<string, [string, string]> = {
   KG: ['kg', 'kg'], TON: ['tonne', 'tonnes'], PIECE: ['piece', 'pieces'], BAG: ['bag', 'bags'], BUNDLE: ['bundle', 'bundles'],
@@ -17,6 +18,7 @@ type AlertOrder = Parameters<typeof supplierEarnings>[0] & {
   orderNumber: string;
   items: AlertItem[];
   deliveryAddress?: { pincode?: string; district?: string };
+  deliverySlot?: DeliverySlot | null;
 };
 
 /** "50 bags UltraTech PPC Cement, 2 tonnes TMT 12 mm and 1 more" (at most `max` lines named) */
@@ -41,7 +43,10 @@ export function earningsPhrase(order: AlertOrder, canDeliver: boolean): string {
 }
 
 export function offerAlert(order: AlertOrder, opts: { canDeliver: boolean; minutes: number | null }) {
-  const items = itemsSummary(order.items);
+  const named = itemsSummary(order.items);
+  // A booked slot is part of the promise the seller is accepting
+  const slot = order.deliverySlot ? `delivery slot ${slotLabel(order.deliverySlot)}` : '';
+  const items = slot ? `${named}; ${slot}` : named;
   const earn = earningsPhrase(order, opts.canDeliver);
   const where = [order.deliveryAddress?.pincode, order.deliveryAddress?.district].filter(Boolean).join(' ');
   const minutes = Math.max(opts.minutes ?? 0, 1);

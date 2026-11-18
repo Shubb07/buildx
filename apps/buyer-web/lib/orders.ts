@@ -33,20 +33,24 @@ export const quoteSchema = z.object({
   // In process until confirmed: something is ordered from the company / made, or no supplier serves the PIN yet
   onOrder: z.boolean().optional(),
   outOfArea: z.boolean().optional(),
+  // Can the cart be delivered in a booked slot near this PIN, and from which day
+  slots: z.object({ available: z.boolean(), earliest: z.string().optional(), latest: z.string().optional() }).passthrough().optional(),
 });
 export type Quote = z.infer<typeof quoteSchema>;
+export type DeliverySlotInput = { date: string; window: 'MORNING' | 'MIDDAY' | 'EVENING' };
 
 export async function quoteCart(
   client: ApiClient,
   items: { productId: string; quantity: number }[],
-  deliveryPincode?: string
+  deliveryPincode?: string,
+  deliverySlot?: DeliverySlotInput | null
 ): Promise<Quote> {
   return client.request('/orders/quote', {
     method: 'POST',
     auth: true,
     envelope: true,
     schema: quoteSchema,
-    body: { items, deliveryPincode },
+    body: { items, deliveryPincode, ...(deliverySlot ? { deliverySlot } : {}) },
   });
 }
 
@@ -77,6 +81,8 @@ export async function placeOrder(
     notes?: string;
     // Optional GST invoice: the supplier bills this GSTIN
     buyerGst?: { gstin: string; businessName: string };
+    // Optional booked delivery slot (only sellers who offer slots get the order)
+    deliverySlot?: DeliverySlotInput;
   },
   idempotencyKey: string
 ): Promise<PlaceOrderResult> {
@@ -120,6 +126,8 @@ export const orderSchema = z
     // Usual delivery time, then the date the supplier confirmed (YYYY-MM-DD) once they accept
     expectedDelivery: z.object({ minDays: z.number(), maxDays: z.number() }).optional(),
     deliveryDate: z.string().optional(),
+    // The slot the buyer booked at checkout, if any
+    deliverySlot: z.object({ date: z.string(), window: z.enum(['MORNING', 'MIDDAY', 'EVENING']) }).optional(),
     onOrder: z.boolean().optional(),
     outOfArea: z.boolean().optional(),
     buyerGst: z.object({ gstin: z.string(), businessName: z.string() }).optional(),

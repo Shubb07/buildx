@@ -192,6 +192,7 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
   // process and you confirm the date within 24 hours
   const [supply, setSupply] = useState<'IN_STOCK' | 'ON_ORDER'>(product?.supply === 'ON_ORDER' ? 'ON_ORDER' : 'IN_STOCK');
   const onOrder = supply === 'ON_ORDER';
+  const [slotDelivery, setSlotDelivery] = useState(product?.slotDelivery === true);
   const [stockQuantity, setStockQuantity] = useState(product && product.supply !== 'ON_ORDER' ? String(product.stockQuantity) : '');
   const [lowStockAlert, setLowStockAlert] = useState(start?.lowStockAlert !== undefined ? String(start.lowStockAlert) : '10');
   const [minOrderQuantity, setMinOrderQuantity] = useState(start?.minOrderQuantity ? String(start.minOrderQuantity) : '1');
@@ -347,6 +348,7 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
       ...(hsn !== '' || start?.hsn ? { hsn } : {}),
       bulkPricing: tierValues,
       supply,
+      slotDelivery,
       // On order never runs out (the server keeps it available); in stock needs a real figure
       ...(onOrder ? {} : { stockQuantity: stockQuantity === '' ? 0 : Number(stockQuantity) }),
       lowStockAlert: lowStockAlert === '' ? 0 : Number(lowStockAlert),
@@ -709,6 +711,17 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
               </Field>
             </div>
           </div>
+
+          <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-sand-4 p-4">
+            <input type="checkbox" checked={slotDelivery} onChange={(e) => { touch(); setSlotDelivery(e.target.checked); }} className="mt-1 h-5 w-5 accent-ink" />
+            <span>
+              <span className="block text-[15px] font-semibold">Offer delivery slots for this product</span>
+              <span className="mt-0.5 block text-[13px] text-stone">
+                Buyers can book a day and a time: Morning (7 to 11 am), Midday (11 am to 3 pm) or Evening (3 to 7 pm), from {Number(deliveryDays) > 1 ? `${deliveryDays} days` : 'the next day'} after ordering.
+                Tick it only if you can keep the time: a booked slot cannot be moved. Good for cement or steel for a slab pour, or anything a crew is waiting for.
+              </span>
+            </span>
+          </label>
         </Step>
 
         <Step n={++n} title="Photos" hint="Real photos of your stock. The first one is shown in search.">

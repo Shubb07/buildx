@@ -154,6 +154,13 @@ export async function getProduct(req: Request, res: Response, next: NextFunction
           supplierId: { $in: await eligibleSupplierIds(eligibility.serviceable ? destination?.pincode : undefined) },
         })).length
       : isPaused(product) ? 0 : 1;
+    // Some seller here offers delivery in a chosen slot for this item
+    const slotDelivery = catalogItemId
+      ? !!(await Product.exists({
+          catalogItemId, ...orderable(), slotDelivery: true,
+          supplierId: { $in: await eligibleSupplierIds(eligibility.serviceable ? destination?.pincode : undefined) },
+        }))
+      : !!(product as { slotDelivery?: boolean }).slotDelivery && !isPaused(product);
     // Nobody can take it now: say when this listing's seller is back
     const backOn = sellerCount === 0 && isPaused(product) ? product.pausedUntil : undefined;
 
@@ -161,6 +168,7 @@ export async function getProduct(req: Request, res: Response, next: NextFunction
       ...priced,
       sellerCount: Math.max(1, sellerCount),
       ...(backOn ? { backOn } : {}),
+      slotDelivery,
       // Only present when a PIN was given: can this product be delivered there?
       ...(destination && {
         availability: {

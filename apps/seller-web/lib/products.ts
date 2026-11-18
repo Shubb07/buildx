@@ -20,6 +20,7 @@ export const supplierProductSchema = z
     deliveryDays: z.number().optional(),
     deliveryDaysMax: z.number().optional(),
     supply: z.enum(['IN_STOCK', 'ON_ORDER']).optional(),
+    slotDelivery: z.boolean().optional(),
     gstRate: z.number().optional(),
     isGstInclusive: z.boolean().optional(),
     hsn: z.string().optional(),
@@ -49,6 +50,8 @@ export type ProductInput = {
   deliveryDays?: number;
   deliveryDaysMax?: number;
   supply?: 'IN_STOCK' | 'ON_ORDER';
+  // Offer delivery in a buyer-chosen slot (Morning, Midday, Evening) for this listing
+  slotDelivery?: boolean;
   gstRate?: number;
   isGstInclusive?: boolean;
   hsn?: string;

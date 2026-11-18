@@ -370,6 +370,15 @@ export default function OrderPage() {
           <dl className="flex flex-col gap-3 text-[15px]">
             <div><dt className="eyebrow text-stone">Buyer</dt><dd className="mt-1">{buyer?.name ?? 'Unknown'} · <a className="font-mono text-cobalt hover:underline" href={`tel:${buyer?.phone ?? a.contactPhone}`}>{buyer?.phone ?? a.contactPhone}</a></dd></div>
             <div><dt className="eyebrow text-stone">Supplier</dt><dd className="mt-1">{supplier?.businessName ?? 'Unknown'}{supplier?.whatsappNumber && <> · <a className="font-mono text-cobalt hover:underline" href={`tel:${supplier.whatsappNumber}`}>{supplier.whatsappNumber}</a></>}</dd></div>
+            {o.deliverySlot && (
+              <div>
+                <dt className="eyebrow text-stone">Booked slot</dt>
+                <dd className="mt-1 font-semibold">
+                  {new Date(`${o.deliverySlot.date}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })},{' '}
+                  {{ MORNING: 'Morning, 7 to 11 am', MIDDAY: 'Midday, 11 am to 3 pm', EVENING: 'Evening, 3 to 7 pm' }[o.deliverySlot.window]}
+                </dd>
+              </div>
+            )}
             <div><dt className="eyebrow text-stone">Driver</dt><dd className="mt-1">{driver ? <>{driver.name ?? 'Driver'} · <a className="font-mono text-cobalt hover:underline" href={`tel:${driver.phone}`}>{driver.phone}</a></> : <span className="text-stone">None</span>}</dd></div>
           </dl>
         </Panel>

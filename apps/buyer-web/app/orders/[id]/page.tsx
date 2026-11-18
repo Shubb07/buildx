@@ -12,6 +12,7 @@ import { ErrorNote, StatusPill, SummaryRow } from '@/components/account/AccountU
 import { fetchOrder, cancelBuyerOrder, type BuyerOrder } from '@/lib/orders';
 import { OrderTimeline } from '@/components/OrderTimeline';
 import { DeliveryDateCard } from '@/components/account/DeliveryDateCard';
+import { OrderReview } from '@/components/account/OrderReview';
 import { rupees, shortDate } from '@/lib/format';
 
 function OrderDetail({ id }: { id: string }) {
@@ -80,6 +81,7 @@ function OrderDetail({ id }: { id: string }) {
       </section>
 
       <DeliveryDateCard order={order} />
+      {order.status === 'DELIVERED' && <OrderReview orderId={order._id} />}
       {(order.status === 'PICKED_UP' || order.status === 'IN_TRANSIT') && order.deliveryMode !== 'SUPPLIER' && (
         <LiveTracking orderId={order._id} onStatusChange={load} />
       )}

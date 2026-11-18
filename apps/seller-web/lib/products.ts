@@ -21,6 +21,7 @@ export const supplierProductSchema = z
     deliveryDaysMax: z.number().optional(),
     supply: z.enum(['IN_STOCK', 'ON_ORDER']).optional(),
     slotDelivery: z.boolean().optional(),
+    warranty: z.object({ months: z.number(), by: z.enum(['MANUFACTURER', 'SELLER']), note: z.string().optional() }).nullable().optional(),
     gstRate: z.number().optional(),
     isGstInclusive: z.boolean().optional(),
     hsn: z.string().optional(),
@@ -52,6 +53,8 @@ export type ProductInput = {
   supply?: 'IN_STOCK' | 'ON_ORDER';
   // Offer delivery in a buyer-chosen slot (Morning, Midday, Evening) for this listing
   slotDelivery?: boolean;
+  // Warranty buyers see; null removes it
+  warranty?: { months: number; by: 'MANUFACTURER' | 'SELLER'; note?: string } | null;
   gstRate?: number;
   isGstInclusive?: boolean;
   hsn?: string;

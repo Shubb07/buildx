@@ -10,7 +10,7 @@ import { ProductGallery } from '@/components/ProductGallery';
 import { DeliveryCheck } from '@/components/catalog/DeliveryCheck';
 import { QuantityHelper } from '@/components/catalog/QuantityHelper';
 import { useProduct } from '@/lib/products';
-import { useSupplierReviews } from '@/lib/reviews';
+import { useProductReviews } from '@/lib/reviews';
 import { addToCart } from '@/lib/cart';
 import { buyerDeliveryPhrase, matchCatalogItem } from '@sthiva/web-core';
 import { rupees } from '@/lib/format';
@@ -60,7 +60,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const product = useProduct(id, location?.pincode ?? null);
   const data = product.status === 'success' ? product.data : undefined;
-  const reviews = useSupplierReviews(data?.supplierId?._id);
+  const reviews = useProductReviews(data?._id);
 
   const minQty = data?.minOrderQuantity ?? 1;
   const qty = Math.max(quantity ?? minQty, minQty);
@@ -167,6 +167,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         </div>
                       ))}
                     </dl>
+                  </section>
+                )}
+
+                {data.warranty && (
+                  <section className="flex items-start gap-4 rounded-2xl border border-sand-4 bg-sand-2 p-5" aria-label="Warranty">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-lime text-ink">
+                      <span className="material-symbols-outlined text-[22px]" aria-hidden="true">verified_user</span>
+                    </span>
+                    <div>
+                      <p className="text-[16px] font-semibold">
+                        {data.warranty.months % 12 === 0 ? `${data.warranty.months / 12} year${data.warranty.months === 12 ? '' : 's'}` : `${data.warranty.months} months`} warranty
+                      </p>
+                      <p className="text-[14px] text-stone">
+                        {data.warranty.by === 'MANUFACTURER' ? 'From the manufacturer.' : 'From the seller.'}{data.warranty.note ? ` ${data.warranty.note}` : ''} Keep your Sthiva invoice for claims.
+                      </p>
+                    </div>
                   </section>
                 )}
 
@@ -392,20 +408,32 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </div>
               <div className="card p-6 md:col-span-2 sm:p-8">
                 <h2 id="reviews-title" className="font-display text-xl font-semibold tracking-tight">Buyer reviews</h2>
+                {reviews.status === 'success' && reviews.data.summary.count > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px]">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="font-display text-2xl font-bold tabular-nums">{reviews.data.summary.average.toFixed(1)}</span>
+                      <Stars value={reviews.data.summary.average} size="text-[16px]" />
+                      <span className="text-stone">({reviews.data.summary.count})</span>
+                    </span>
+                    {reviews.data.summary.onTimePercent !== undefined && <span className="text-stone"><span className="font-semibold text-ink">{reviews.data.summary.onTimePercent}%</span> delivered on time</span>}
+                    {reviews.data.summary.asListedPercent !== undefined && <span className="text-stone"><span className="font-semibold text-ink">{reviews.data.summary.asListedPercent}%</span> got what was listed</span>}
+                  </div>
+                )}
+                <p className="mt-1 text-[13px] text-stone">From buyers who received this item, from any Sthiva seller.</p>
                 <div className="mt-5">
                   {reviews.status === 'loading' && <div className="skeleton h-20" />}
                   {reviews.status === 'error' && <p className="text-[15px] text-error">Couldn&apos;t load reviews.</p>}
-                  {reviews.status === 'success' && reviews.data.length === 0 && (
+                  {reviews.status === 'success' && reviews.data.reviews.length === 0 && (
                     <p className="text-[15px] text-stone">No reviews yet. Reviews appear here after buyers receive their orders.</p>
                   )}
-                  {reviews.status === 'success' && reviews.data.length > 0 && (
+                  {reviews.status === 'success' && reviews.data.reviews.length > 0 && (
                     <ul className="flex flex-col gap-6">
-                      {reviews.data.map((r) => (
+                      {reviews.data.reviews.map((r) => (
                         <li key={r._id} className="flex gap-4">
-                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sand-3 font-semibold">{r.reviewerId?.name?.[0] ?? 'B'}</span>
+                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sand-3 font-semibold">{r.name?.[0] ?? 'B'}</span>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-baseline justify-between gap-3">
-                              <p className="text-[15px] font-semibold">{r.reviewerId?.name ?? 'Buyer'}</p>
+                              <p className="text-[15px] font-semibold">{r.name ?? 'Buyer'}</p>
                               <span className="font-mono text-[11px] uppercase text-stone">{timeAgo(r.createdAt)}</span>
                             </div>
                             <div className="mt-1"><Stars value={r.rating} size="text-[14px]" /></div>

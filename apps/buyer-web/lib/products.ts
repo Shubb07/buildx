@@ -45,6 +45,8 @@ export const productDetailSchema = z
     backOn: z.string().optional(),
     // Some seller offers delivery in a booked slot for this item
     slotDelivery: z.boolean().optional(),
+    // Warranty stated by the seller (absent = none stated)
+    warranty: z.object({ months: z.number(), by: z.enum(['MANUFACTURER', 'SELLER']), note: z.string().optional() }).optional(),
     // Present only when a PIN was given to the API
     availability: z.object({ deliverable: z.boolean(), reason: z.string().optional() }).optional(),
   })

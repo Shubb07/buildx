@@ -193,6 +193,11 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
   const [supply, setSupply] = useState<'IN_STOCK' | 'ON_ORDER'>(product?.supply === 'ON_ORDER' ? 'ON_ORDER' : 'IN_STOCK');
   const onOrder = supply === 'ON_ORDER';
   const [slotDelivery, setSlotDelivery] = useState(product?.slotDelivery === true);
+  // Optional warranty (taps, wires, CCTV, inverters, waterproofing...)
+  const [hasWarranty, setHasWarranty] = useState(!!product?.warranty);
+  const [warrantyMonths, setWarrantyMonths] = useState(String(product?.warranty?.months ?? 12));
+  const [warrantyBy, setWarrantyBy] = useState<'MANUFACTURER' | 'SELLER'>(product?.warranty?.by ?? 'MANUFACTURER');
+  const [warrantyNote, setWarrantyNote] = useState(product?.warranty?.note ?? '');
   const [stockQuantity, setStockQuantity] = useState(product && product.supply !== 'ON_ORDER' ? String(product.stockQuantity) : '');
   const [lowStockAlert, setLowStockAlert] = useState(start?.lowStockAlert !== undefined ? String(start.lowStockAlert) : '10');
   const [minOrderQuantity, setMinOrderQuantity] = useState(start?.minOrderQuantity ? String(start.minOrderQuantity) : '1');
@@ -349,6 +354,10 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
       bulkPricing: tierValues,
       supply,
       slotDelivery,
+      // Only send it when it is set, or when an existing one is being removed
+      ...(hasWarranty && /^\d+$/.test(warrantyMonths) && Number(warrantyMonths) >= 1 && Number(warrantyMonths) <= 360
+        ? { warranty: { months: Number(warrantyMonths), by: warrantyBy, ...(warrantyNote.trim() ? { note: warrantyNote.trim() } : {}) } }
+        : !hasWarranty && product?.warranty ? { warranty: null } : {}),
       // On order never runs out (the server keeps it available); in stock needs a real figure
       ...(onOrder ? {} : { stockQuantity: stockQuantity === '' ? 0 : Number(stockQuantity) }),
       lowStockAlert: lowStockAlert === '' ? 0 : Number(lowStockAlert),
@@ -722,6 +731,40 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
               </span>
             </span>
           </label>
+
+          <div className="mt-3 rounded-xl border border-sand-4 p-4">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input type="checkbox" checked={hasWarranty} onChange={(e) => { touch(); setHasWarranty(e.target.checked); }} className="mt-1 h-5 w-5 accent-ink" />
+              <span>
+                <span className="block text-[15px] font-semibold">This product has a warranty</span>
+                <span className="mt-0.5 block text-[13px] text-stone">Buyers see it on the product page. Common for taps, wires, switches, CCTV, inverters, pumps and waterproofing.</span>
+              </span>
+            </label>
+            {hasWarranty && (
+              <div className="mt-4 grid gap-4 sm:grid-cols-[160px_1fr]">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold">Months</span>
+                  <input type="number" inputMode="numeric" min="1" max="360" step="1" value={warrantyMonths} onChange={(e) => { touch(); setWarrantyMonths(e.target.value); }} className="field font-mono" />
+                  <span className="flex flex-wrap gap-1.5">
+                    {[6, 12, 24, 60].map((m) => (
+                      <button key={m} type="button" onClick={() => { touch(); setWarrantyMonths(String(m)); }} className={`rounded-full px-2.5 py-1 text-[12px] ${warrantyMonths === String(m) ? 'bg-ink text-sand' : 'bg-sand-3'}`}>
+                        {m >= 12 ? `${m / 12} yr` : `${m} mo`}
+                      </button>
+                    ))}
+                  </span>
+                </label>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold">Given by</span>
+                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Warranty given by">
+                    {([['MANUFACTURER', 'The manufacturer (brand)'], ['SELLER', 'My shop']] as const).map(([v, l]) => (
+                      <button key={v} type="button" role="radio" aria-checked={warrantyBy === v} onClick={() => { touch(); setWarrantyBy(v); }} className={`rounded-full px-4 py-2 text-[14px] ${warrantyBy === v ? 'bg-ink text-sand' : 'border border-sand-4 bg-sand'}`}>{l}</button>
+                    ))}
+                  </div>
+                  <input value={warrantyNote} onChange={(e) => { touch(); setWarrantyNote(e.target.value.slice(0, 200)); }} placeholder="How to claim (optional), e.g. keep the bill and the box" className="field mt-1" aria-label="Warranty note" />
+                </div>
+              </div>
+            )}
+          </div>
         </Step>
 
         <Step n={++n} title="Photos" hint="Real photos of your stock. The first one is shown in search.">

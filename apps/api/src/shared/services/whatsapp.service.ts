@@ -11,7 +11,7 @@ import { logger } from '../logger/logger';
 // Phone numbers and message text are never logged.
 
 export const TEMPLATES = {
-  /** To a supplier: {{1}} order number, {{2}} order total, {{3}} minutes to answer */
+  /** To a supplier: {{1}} order number, {{2}} items, {{3}} what they earn after commission, {{4}} minutes to answer */
   SUPPLIER_NEW_ORDER: 'sthiva_supplier_new_order',
   /** To a driver who turned alerts on: {{1}} order number, {{2}} load and distance, {{3}} minutes */
   DRIVER_NEW_JOB: 'sthiva_driver_new_job',

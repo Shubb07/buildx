@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { useApiClient, type ApiClient, type PaginationMeta } from '@sthiva/web-core';
 
@@ -122,10 +122,13 @@ export function useSupplierOrders(page: number, statusFilter?: string, cashPendi
     | { status: 'error'; error: unknown }
   >({ status: 'loading' });
   const [reloadKey, setReloadKey] = useState(0);
+  // A background refresh (new order alert) keeps the current list on screen instead of a skeleton
+  const quiet = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
-    setState({ status: 'loading' });
+    if (!quiet.current) setState({ status: 'loading' });
+    quiet.current = false;
     fetchSupplierOrders(client, { page, status: statusFilter, cashPending })
       .then(({ data, meta }) => setState({ status: 'success', orders: data, meta }))
       .catch((error) => {
@@ -136,5 +139,6 @@ export function useSupplierOrders(page: number, statusFilter?: string, cashPendi
   }, [client, page, statusFilter, cashPending, reloadKey]);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
-  return { ...state, reload };
+  const refresh = useCallback(() => { quiet.current = true; setReloadKey((k) => k + 1); }, []);
+  return { ...state, reload, refresh };
 }

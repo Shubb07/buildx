@@ -55,10 +55,12 @@ plain transactional messages.
 
 Body:
 
-> New Sthiva order {{1}} for {{2}}. Please accept or reject it in the Sthiva Partner app or on
-> seller.sthiva.com within {{3}} minutes, or it will go to another supplier.
+> New Sthiva order {{1}}: {{2}}. You earn {{3}} after Sthiva's commission. Please accept or reject
+> it in the Sthiva Partner app or on seller.sthiva.com within {{4}} minutes, or it will go to another
+> supplier.
 
-Sample values for review: `{{1}}` = `STV-482913`, `{{2}}` = `Rs 3,800`, `{{3}}` = `15`
+Sample values for review: `{{1}}` = `STV-482913`, `{{2}}` = `50 bags UltraTech PPC Cement, 2 tonnes TMT 12 mm`,
+`{{3}}` = `₹21,450 (₹22,950 if you deliver)`, `{{4}}` = `15`
 
 ### `sthiva_driver_new_job` (Utility, English)
 

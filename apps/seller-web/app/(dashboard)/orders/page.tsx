@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { deliveryTimePhrase, formatDeliveryDate, hasInvoice, istDate, useApiClient } from '@sthiva/web-core';
 import { InvoiceButton } from '../../../components/InvoiceButton';
 import {
@@ -10,6 +10,7 @@ import {
 import { productErrorText } from '../../../lib/products';
 import { Chip, ChipRow, EmptyState, ErrorNote, ORDER_STATUS, PageHead, Pager, Pill, rupees, shortDate, unitLabel } from '../../../components/ui';
 import { DeliveryDatePicker } from '../../../components/DeliveryDatePicker';
+import { OFFERS_CHANGED } from '../../../components/NewOrderWatcher';
 
 // Tabs follow what the seller has to do next, not the raw status names
 type Tab = { key: string; label: string; status?: string; cashPending?: boolean; empty: string };
@@ -361,6 +362,12 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState<Tab>(TABS[0]);
   const list = useSupplierOrders(page, tab.status, tab.cashPending);
+  // The new order banner (components/NewOrderWatcher.tsx) says when offers change: refresh in place
+  const { refresh } = list;
+  useEffect(() => {
+    window.addEventListener(OFFERS_CHANGED, refresh);
+    return () => window.removeEventListener(OFFERS_CHANGED, refresh);
+  }, [refresh]);
 
   return (
     <div className="flex flex-col gap-6">

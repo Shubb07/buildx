@@ -14,6 +14,7 @@
 // returned to the old supplier's listings and taken from the new one's in the same transaction.
 
 import mongoose, { ClientSession, Types } from 'mongoose';
+import { offerAlert } from './offer-alert';
 import { Order, IOrder } from '../../infrastructure/database/models/Order.model';
 import { Product } from '../../infrastructure/database/models/Product.model';
 import { SupplierProfile } from '../../infrastructure/database/models/SupplierProfile.model';
@@ -234,19 +235,16 @@ async function moveOn(params: {
 }
 
 function notifyOffer(order: LeanOrder, supplierId: Types.ObjectId) {
-  SupplierProfile.findById(supplierId).select('userId whatsappNumber').lean().then((sp) => {
+  SupplierProfile.findById(supplierId).select('userId whatsappNumber canDeliver').lean().then((sp) => {
     if (!sp?.userId) return;
     const minutes = order.allocation?.expiresAt ? Math.round((order.allocation.expiresAt.getTime() - Date.now()) / 60000) : null;
+    // Items, delivery area and what the supplier earns after commission (features/orders/offer-alert.ts)
+    const alert = offerAlert(order, { canDeliver: !!sp.canDeliver, minutes });
     // WhatsApp too: the supplier gave this number "for order updates" in business setup (their opt-in)
-    void sendTemplate({
-      to: sp.whatsappNumber,
-      template: TEMPLATES.SUPPLIER_NEW_ORDER,
-      values: [order.orderNumber, `Rs ${order.total.toLocaleString('en-IN')}`, String(Math.max(minutes ?? 0, 1))],
-    });
+    void sendTemplate({ to: sp.whatsappNumber, template: TEMPLATES.SUPPLIER_NEW_ORDER, values: alert.whatsapp });
     return notifyUser(sp.userId.toString(), {
-      title: 'New order: accept or reject',
-      body: `Order ${order.orderNumber}: ₹${order.total.toLocaleString('en-IN')}${minutes ? `. Answer within ${minutes} min.` : ''}`,
-      data: { screen: 'supplier_orders', orderId: order._id.toString() },
+      ...alert.push,
+      data: { screen: 'supplier_orders', orderId: order._id.toString(), kind: 'NEW_ORDER' },
     });
   }).catch((err) => logger.error('Offer notification failed', { orderId: order._id.toString(), error: err?.message }));
 }

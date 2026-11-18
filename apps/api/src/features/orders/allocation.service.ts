@@ -26,6 +26,7 @@ import { priceLine, toPaise, PricingError } from './pricing';
 import { expireDriverOffers } from '../delivery/driver-offers';
 import { sendWeeklyReminders } from '../suppliers/weekly';
 import { sendDocumentExpiryReminders } from '../suppliers/document-expiry';
+import { sendTemplate, TEMPLATES } from '../../shared/services/whatsapp.service';
 import { clearFinishedLocations } from '../delivery/tracking';
 import { checkDeliveryDate, deliveryWindow } from './delivery-window';
 import { deliveryPoint, distanceKm } from '../delivery/delivery-pricing';
@@ -233,9 +234,15 @@ async function moveOn(params: {
 }
 
 function notifyOffer(order: LeanOrder, supplierId: Types.ObjectId) {
-  SupplierProfile.findById(supplierId).select('userId').lean().then((sp) => {
+  SupplierProfile.findById(supplierId).select('userId whatsappNumber').lean().then((sp) => {
     if (!sp?.userId) return;
     const minutes = order.allocation?.expiresAt ? Math.round((order.allocation.expiresAt.getTime() - Date.now()) / 60000) : null;
+    // WhatsApp too: the supplier gave this number "for order updates" in business setup (their opt-in)
+    void sendTemplate({
+      to: sp.whatsappNumber,
+      template: TEMPLATES.SUPPLIER_NEW_ORDER,
+      values: [order.orderNumber, `Rs ${order.total.toLocaleString('en-IN')}`, String(Math.max(minutes ?? 0, 1))],
+    });
     return notifyUser(sp.userId.toString(), {
       title: 'New order: accept or reject',
       body: `Order ${order.orderNumber}: ₹${order.total.toLocaleString('en-IN')}${minutes ? `. Answer within ${minutes} min.` : ''}`,

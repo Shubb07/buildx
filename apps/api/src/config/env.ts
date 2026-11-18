@@ -29,8 +29,13 @@ const envSchema = z.object({
   RAZORPAY_KEY_SECRET: z.string().default(''),
   RAZORPAY_WEBHOOK_SECRET: z.string().default(''),
 
-  // WhatsApp (Interakt)
-  INTERAKT_API_KEY: z.string().optional(),
+  // WhatsApp order alerts through Meta's WhatsApp Cloud API (owner decision 2026-11-18: Meta directly).
+  // Off unless WHATSAPP_ENABLED=true and the token and phone number ID are set. See docs/WHATSAPP.md.
+  WHATSAPP_ENABLED: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  WHATSAPP_TOKEN: z.string().default(''),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().default(''),
+  WHATSAPP_GRAPH_VERSION: z.string().default('v23.0'),
+  WHATSAPP_TEMPLATE_LANG: z.string().default('en'),
 
   // Anthropic — optional, AI chat disabled if not set
   ANTHROPIC_API_KEY: z.string().default(''),

@@ -43,6 +43,21 @@ export default function DriverProfileScreen() {
             </View>
             {isError ? <Notice tone="error" style={styles.notice}>We could not change your status. Try again.</Notice> : null}
 
+            <View style={styles.toggle}>
+              <View style={styles.flex}>
+                <Text style={styles.toggleTitle}>WhatsApp job alerts</Text>
+                <Text style={styles.toggleSub}>Also get new delivery jobs on WhatsApp, on your registered number.</Text>
+              </View>
+              <Switch
+                value={profile.whatsappAlerts ?? false}
+                onValueChange={(value) => updateProfile({ whatsappAlerts: value })}
+                disabled={isPending}
+                trackColor={{ false: Colors.sand4, true: Colors.ink }}
+                thumbColor={profile.whatsappAlerts ? Colors.lime : Colors.sand2}
+                accessibilityLabel="WhatsApp job alerts"
+              />
+            </View>
+
             <StatTiles
               items={[
                 { label: 'Deliveries', value: stats?.totalDeliveries ?? 0 },

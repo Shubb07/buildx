@@ -10,6 +10,8 @@ export type DriverProfile = {
   licenseNumber: string;
   serviceAreas: string[];
   isAvailable: boolean;
+  // Also get new job alerts on WhatsApp (off until the driver turns it on)
+  whatsappAlerts?: boolean;
   totalDeliveries: number;
   avgRating: number;
   totalReviews: number;

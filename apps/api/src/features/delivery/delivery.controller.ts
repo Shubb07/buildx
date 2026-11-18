@@ -180,7 +180,10 @@ export async function getProfile(req: Request, res: Response, next: NextFunction
 // PATCH /delivery/me — update availability and service areas
 export async function updateProfile(req: Request, res: Response, next: NextFunction) {
   try {
-    const allowed = ['isAvailable', 'serviceAreas', 'vehicleType', 'vehicleNumber'];
+    const allowed = ['isAvailable', 'serviceAreas', 'vehicleType', 'vehicleNumber', 'whatsappAlerts'];
+    if (req.body.whatsappAlerts !== undefined && typeof req.body.whatsappAlerts !== 'boolean') {
+      throw AppError.badRequest('whatsappAlerts must be true or false');
+    }
     const update: Record<string, unknown> = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) update[key] = req.body[key];

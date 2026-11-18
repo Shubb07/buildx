@@ -14,6 +14,7 @@ import { Types } from 'mongoose';
 import { Order, IOrder } from '../../infrastructure/database/models/Order.model';
 import { DeliveryPartner, isDriverVerified } from '../../infrastructure/database/models/DeliveryPartner.model';
 import { User } from '../../infrastructure/database/models/User.model';
+import { sendTemplate, TEMPLATES } from '../../shared/services/whatsapp.service';
 import { VehicleType } from '../../infrastructure/database/models/VehicleType.model';
 import { getPlatformSettings } from '../../infrastructure/database/models/PlatformSettings.model';
 import { AppError } from '../../shared/errors/AppError';
@@ -69,6 +70,19 @@ function notifyDriver(order: LeanOrder, driverUserId: Types.ObjectId) {
     body: `Order ${order.orderNumber}${order.delivery ? `: ${order.delivery.weightKg} kg, about ${order.delivery.distanceKm} km` : ''}. Accept or decline${minutes ? ` within ${minutes} min` : ''}.`,
     data: { screen: 'driver_available', orderId: order._id.toString() },
   });
+  // WhatsApp only for drivers who switched it on in their profile (WhatsApp requires the opt-in)
+  DeliveryPartner.findOne({ userId: driverUserId, whatsappAlerts: true }).select('_id').lean()
+    .then((p) => p ? User.findById(driverUserId).select('phone').lean() : null)
+    .then((u) => u?.phone ? sendTemplate({
+      to: u.phone,
+      template: TEMPLATES.DRIVER_NEW_JOB,
+      values: [
+        order.orderNumber,
+        order.delivery ? `${order.delivery.weightKg} kg, about ${order.delivery.distanceKm} km` : 'see the app',
+        String(Math.max(minutes ?? 0, 1)),
+      ],
+    }) : null)
+    .catch(() => undefined);
 }
 
 /**

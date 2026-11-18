@@ -12,6 +12,8 @@ export interface IDeliveryPartner extends Document {
   // existed have no value and are treated as verified.
   verificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED';
   totalDeliveries: number;
+  // Driver chose to also get new job alerts on WhatsApp (WhatsApp requires this opt-in)
+  whatsappAlerts?: boolean;
   avgRating: number;
   totalReviews: number;
   createdAt: Date;
@@ -32,6 +34,7 @@ const deliveryPartnerSchema = new Schema<IDeliveryPartner>(
     isAvailable: { type: Boolean, default: true },
     verificationStatus: { type: String, enum: ['PENDING', 'VERIFIED', 'REJECTED'], default: 'PENDING' },
     totalDeliveries: { type: Number, default: 0 },
+    whatsappAlerts: { type: Boolean, default: false },
     avgRating: { type: Number, default: 0, min: 0, max: 5 },
     totalReviews: { type: Number, default: 0 },
   },

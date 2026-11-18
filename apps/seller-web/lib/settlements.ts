@@ -7,7 +7,7 @@ export const statementSchema = z
   .object({
     _id: z.string(), number: z.string(), orders: z.array(lineSchema),
     earned: z.number(), cashHeld: z.number(), net: z.number(),
-    status: z.enum(['PENDING', 'PAID', 'CANCELLED']), reference: z.string().optional(), paidAt: z.string().optional(), createdAt: z.string(),
+    status: z.enum(['PENDING', 'PAID', 'CANCELLED']), reference: z.string().optional(), paidTo: z.string().optional(), paidAt: z.string().optional(), createdAt: z.string(),
   })
   .passthrough();
 export type Statement = z.infer<typeof statementSchema>;
@@ -19,4 +19,36 @@ export type Payouts = z.infer<typeof payoutsSchema>;
 
 export async function fetchPayouts(client: ApiClient): Promise<Payouts> {
   return client.request('/suppliers/me/settlements', { auth: true, envelope: true, schema: payoutsSchema });
+}
+
+// ─── Payout account: where Sthiva sends the money (apps/api features/suppliers/payout-account.ts) ───
+export const payoutAccountSchema = z.object({
+  method: z.enum(['BANK', 'UPI']),
+  holderName: z.string(),
+  masked: z.string(),
+  ifsc: z.string().optional(),
+  status: z.enum(['SUBMITTED', 'VERIFIED', 'REJECTED']),
+  note: z.string().optional(),
+  submittedAt: z.string(),
+  reviewedAt: z.string().optional(),
+  holdUntil: z.string().optional(),
+});
+export type PayoutAccount = z.infer<typeof payoutAccountSchema>;
+const payoutAccountResponse = z.object({ account: payoutAccountSchema.nullable(), holdHours: z.number().optional() });
+
+export async function fetchPayoutAccount(client: ApiClient): Promise<PayoutAccount | null> {
+  return (await client.request('/suppliers/me/payout-account', { auth: true, envelope: true, schema: payoutAccountResponse })).account;
+}
+
+/** Multipart, so it goes through fetch directly with the same base URL and token */
+export async function savePayoutAccount(baseUrl: string, token: string, fields: Record<string, string>, proof: File | null): Promise<PayoutAccount> {
+  const form = new FormData();
+  for (const [k, v] of Object.entries(fields)) form.append(k, v);
+  if (proof) form.append('file', proof);
+  const res = await fetch(`${baseUrl}/suppliers/me/payout-account`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` }, body: form });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || json?.success !== true) throw new Error(json?.error?.message ?? 'Could not save. Check your connection and try again.');
+  const account = payoutAccountResponse.parse(json.data).account;
+  if (!account) throw new Error('Could not save. Try again.');
+  return account;
 }

@@ -47,6 +47,13 @@ const envSchema = z.object({
   // without a delivery PIN are accepted and flagged for ops. Set to "true" to require a PIN.
   ORDERS_REQUIRE_DELIVERY_PINCODE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 
+  // Encrypts seller payout accounts (shared/secret-box.ts): 32 random bytes, base64. Without it
+  // sellers cannot save payout details and Sthiva cannot mark supplier payouts paid.
+  PAYOUT_ENCRYPTION_KEY: z.string().default('').refine(
+    (v) => !v || Buffer.from(v, 'base64').length === 32,
+    'PAYOUT_ENCRYPTION_KEY must be 32 random bytes in base64'
+  ),
+
   API_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
   API_RATE_LIMIT_MAX: z.coerce.number().default(100),
 });

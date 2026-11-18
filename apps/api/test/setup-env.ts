@@ -5,3 +5,5 @@ process.env.NODE_ENV = 'test';
 process.env.MONGODB_URI = 'mongodb://placeholder-overridden-by-memory-server';
 process.env.API_RATE_LIMIT_MAX = '100000';
 process.env.ANTHROPIC_API_KEY = 'test-key-not-real';
+// Fixed test key for payout account encryption (shared/secret-box.ts); not used anywhere real
+process.env.PAYOUT_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');

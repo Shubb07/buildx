@@ -22,6 +22,7 @@ import { bulkPricingProblem } from './product-rules';
 import { supplierSearch } from '../catalog/catalog.controller';
 import { supplierInvoice } from '../invoices/invoice.controller';
 import { bulkUpload, downloadSheet, uploadSheet } from './bulk';
+import { myPayoutAccount, savePayoutAccount } from './payout-account';
 
 // Strings are format-checked per item in the controller so each bad entry gets its own reason
 const addPincodesSchema = z.object({
@@ -140,6 +141,9 @@ router.get('/me/bulk.xlsx', downloadSheet);
 router.post('/me/bulk', bulkUpload, uploadSheet);
 router.post('/me/weekly', validate(weeklyConfirmSchema), confirmWeekly);
 router.post('/me/documents', documentUpload, uploadDocument);
+// Where Sthiva sends this seller's money (features/suppliers/payout-account.ts); same upload rules as documents
+router.get('/me/payout-account', myPayoutAccount);
+router.put('/me/payout-account', documentUpload, savePayoutAccount);
 
 router.get('/me/orders', listSupplierOrders);
 router.get('/me/orders/:id/invoice', supplierInvoice);

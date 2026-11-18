@@ -105,6 +105,10 @@ export const supplierSchema = z
         expired: z.array(z.string()).optional(), expiringSoon: z.array(z.string()).optional(),
       }),
     }).optional(),
+    // Where Sthiva pays the seller, masked (features/suppliers/payout-account.ts)
+    payoutAccount: z.object({
+      method: z.enum(['BANK', 'UPI']), masked: z.string(), status: z.enum(['SUBMITTED', 'VERIFIED', 'REJECTED']), holdUntil: z.string().optional(),
+    }).passthrough().optional(),
     // Audit trail, oldest first
     verificationLog: z.array(z.object({
       at: z.string(), actor: z.string(), action: z.string(), note: z.string().optional(), by: z.string().optional(),
@@ -184,6 +188,19 @@ export const opsApi = {
   })),
   reviewDocument: (c: ApiClient, id: string, type: string, status: 'ACCEPTED' | 'REJECTED', note?: string, expiresOn?: string | null) =>
     send(c, 'PATCH', `/ops/suppliers/${id}/documents/${type}`, { status, ...(note ? { note } : {}), ...(expiresOn !== undefined ? { expiresOn } : {}) }, z.unknown()),
+  // Full payout details (each view is logged by the API) and the check against the cheque or passbook
+  payoutAccount: (c: ApiClient, id: string) => get(c, `/ops/suppliers/${id}/payout-account`, z.object({
+    businessName: z.string(),
+    gstin: z.string().nullable(),
+    account: z.object({
+      method: z.enum(['BANK', 'UPI']), holderName: z.string(), masked: z.string(), ifsc: z.string().optional(),
+      accountNumber: z.string().optional(), upiId: z.string().optional(), proofUrl: z.string().nullable(),
+      status: z.enum(['SUBMITTED', 'VERIFIED', 'REJECTED']), note: z.string().optional(),
+      submittedAt: z.string(), reviewedAt: z.string().optional(), holdUntil: z.string().optional(),
+    }).nullable(),
+  })),
+  reviewPayout: (c: ApiClient, id: string, status: 'VERIFIED' | 'REJECTED', submittedAt: string, note?: string) =>
+    send(c, 'PATCH', `/ops/suppliers/${id}/payout-account`, { status, submittedAt, ...(note ? { note } : {}) }, z.unknown()),
   verify: (c: ApiClient, id: string, status: 'VERIFIED' | 'REJECTED', note?: string) =>
     send(c, 'PATCH', `/ops/suppliers/${id}/verification`, { status, ...(note ? { note } : {}) }, supplierSchema),
 };
@@ -271,7 +288,7 @@ export const settlementSchema = z
     orders: z.array(z.object({ orderId: z.string(), orderNumber: z.string(), deliveredAt: z.string().optional(), earned: z.number(), cashHeld: z.number() })),
     earned: z.number(), cashHeld: z.number(), net: z.number(),
     status: z.enum(['PENDING', 'PAID', 'CANCELLED']),
-    reference: z.string().optional(), note: z.string().optional(), cancelReason: z.string().optional(),
+    reference: z.string().optional(), paidTo: z.string().optional(), note: z.string().optional(), cancelReason: z.string().optional(),
     paidAt: z.string().optional(), createdAt: z.string(),
   })
   .passthrough();

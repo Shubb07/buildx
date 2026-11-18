@@ -14,6 +14,7 @@ import {
 } from './ops.schemas';
 import { opsList, opsGet, opsCreate, opsUpdate, opsMerge } from '../catalog/catalog.controller';
 import { opsDocuments, reviewDocument } from '../suppliers/documents';
+import { opsPayoutAccount, reviewPayoutAccount, payoutReviewSchema } from '../suppliers/payout-account';
 import { z } from 'zod';
 
 const documentReviewSchema = z.object({
@@ -58,6 +59,9 @@ router.get('/suppliers', validate(supplierListQuery, 'query'), listSuppliers);
 router.patch('/suppliers/:id/verification', validate(supplierVerificationSchema), setSupplierVerification);
 router.get('/suppliers/:id/documents', opsDocuments);
 router.patch('/suppliers/:id/documents/:type', validate(documentReviewSchema), reviewDocument);
+// Seller payout accounts: full details are shown to ops only here, and every view is logged
+router.get('/suppliers/:id/payout-account', opsPayoutAccount);
+router.patch('/suppliers/:id/payout-account', validate(payoutReviewSchema), reviewPayoutAccount);
 
 router.get('/users', validate(usersQuery, 'query'), listUsers);
 router.get('/analytics', validate(analyticsQuery, 'query'), getAnalytics);

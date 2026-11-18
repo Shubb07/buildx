@@ -7,6 +7,7 @@
 // Amounts come from the same rules the supplier already sees on each order (commission.ts).
 
 import mongoose, { Types, type ClientSession } from 'mongoose';
+import { payoutDestination } from '../suppliers/payout-account';
 import { randomBytes } from 'crypto';
 import { Order, type IOrder } from '../../infrastructure/database/models/Order.model';
 import { Settlement, type SettlementParty, type ISettlementOrder } from '../../infrastructure/database/models/Settlement.model';
@@ -178,9 +179,14 @@ export async function createSettlement(party: SettlementParty, partyId: string, 
 
 export async function markPaid(id: string, adminUserId: string, reference: string, note?: string) {
   if (!Types.ObjectId.isValid(id)) throw AppError.badRequest('Invalid settlement ID');
+  // Sthiva paying a seller: only to their verified payout account, outside the pause after a change
+  const pending = await Settlement.findOne({ _id: id, status: 'PENDING' }).select('party supplierId net').lean();
+  const paidTo = pending?.party === 'SUPPLIER' && pending.net > 0 && pending.supplierId
+    ? await payoutDestination(String(pending.supplierId))
+    : undefined;
   const doc = await Settlement.findOneAndUpdate(
     { _id: id, status: 'PENDING' },
-    { $set: { status: 'PAID', paidAt: new Date(), paidBy: adminUserId, reference, ...(note ? { note } : {}) } },
+    { $set: { status: 'PAID', paidAt: new Date(), paidBy: adminUserId, reference, ...(note ? { note } : {}), ...(paidTo ? { paidTo } : {}) } },
     { new: true }
   ).lean();
   if (doc) return doc;

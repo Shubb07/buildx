@@ -40,6 +40,10 @@ services:
       # Optional: AI chat stays disabled without it
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Encrypts seller payout accounts (apps/api/src/shared/secret-box.ts). Without it sellers cannot
+      # add payout details and supplier payouts cannot be marked paid. Never change it once set.
+      - key: PAYOUT_ENCRYPTION_KEY
+        sync: false
       # Optional: GPS-to-PIN lookup stays disabled without it
       - key: GOOGLE_MAPS_API_KEY
         sync: false

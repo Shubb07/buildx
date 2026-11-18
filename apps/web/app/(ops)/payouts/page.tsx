@@ -81,6 +81,7 @@ function StatementCard({ s, canEdit, onDone }: { s: Settlement; canEdit: boolean
       <p className="text-[15px]"><Net net={s.net} /></p>
       <p className="text-[13px] text-stone">Earned {rupees.format(s.earned)} · cash they kept {rupees.format(s.cashHeld)}</p>
       {s.status === 'PAID' && <p className="text-[13px] text-stone">Reference <span className="font-mono">{s.reference}</span>{s.paidAt && <> · {shortDate.format(new Date(s.paidAt))}</>}</p>}
+      {s.paidTo && <p className="text-[13px] text-stone">Paid to {s.paidTo}</p>}
       {s.status === 'CANCELLED' && s.cancelReason && <p className="text-[13px] text-stone">Reason: {s.cancelReason}</p>}
 
       <button type="button" onClick={() => setOpen((v) => !v)} className="self-start text-[14px] font-medium text-cobalt hover:underline" aria-expanded={open}>

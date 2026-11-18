@@ -48,6 +48,24 @@ export interface ISupplierProfile extends Document {
     note?: string;
   }[];
   // Weekly availability check (features/suppliers/weekly.ts)
+  // Where Sthiva sends this seller's money (features/suppliers/payout-account.ts). The full account
+  // number or UPI ID is encrypted (shared/secret-box.ts); it and the proof file are never selected
+  // unless asked for with "+payoutAccount.secret".
+  payoutAccount?: {
+    method: 'BANK' | 'UPI';
+    holderName: string;
+    secret: string;          // sealed account number or UPI ID
+    masked: string;          // e.g. "•••• 1234" or "ra••••@okhdfcbank", safe to show
+    ifsc?: string;           // BANK only
+    proofPublicId?: string;  // private photo or PDF of a cancelled cheque or passbook page (BANK)
+    proofFormat?: string;
+    status: 'SUBMITTED' | 'VERIFIED' | 'REJECTED';
+    note?: string;
+    submittedAt: Date;
+    reviewedAt?: Date;
+    reviewedBy?: Types.ObjectId;
+    holdUntil?: Date;        // payouts paused until then, after a verified account was changed
+  };
   weeklyConfirmedAt?: Date;
   weeklyReminderFor?: Date; // week start of the last Monday reminder sent
   weeklyHiddenNoticeFor?: Date; // week start of the last "your items are hidden" notice
@@ -107,6 +125,24 @@ const supplierProfileSchema = new Schema<ISupplierProfile>(
         note: { type: String, trim: true, maxlength: 300 },
       }],
       default: [],
+    },
+    payoutAccount: {
+      type: new Schema({
+        method: { type: String, enum: ['BANK', 'UPI'], required: true },
+        holderName: { type: String, required: true, trim: true, maxlength: 100 },
+        secret: { type: String, required: true, select: false },
+        masked: { type: String, required: true },
+        ifsc: { type: String, uppercase: true, match: /^[A-Z]{4}0[A-Z0-9]{6}$/ },
+        proofPublicId: { type: String, select: false },
+        proofFormat: String,
+        status: { type: String, enum: ['SUBMITTED', 'VERIFIED', 'REJECTED'], required: true },
+        note: { type: String, trim: true, maxlength: 300 },
+        submittedAt: { type: Date, required: true },
+        reviewedAt: Date,
+        reviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+        holdUntil: Date,
+      }, { _id: false }),
+      required: false,
     },
     weeklyConfirmedAt: Date,
     weeklyReminderFor: Date,

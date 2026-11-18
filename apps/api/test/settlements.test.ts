@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { seedUser, seedSupplier, seedDriver, seedOrder, startDb, stopDb, clearDb, makeApp } from './helpers';
 import { Order } from '../src/infrastructure/database/models/Order.model';
+import { SupplierProfile } from '../src/infrastructure/database/models/SupplierProfile.model';
+import { seal } from '../src/shared/secret-box';
 
 const app = makeApp();
 const api = (path: string) => `/api/v1${path}`;
@@ -94,6 +96,10 @@ describe('settlement statements', () => {
 
   it('marks paid with a reference; a paid statement cannot be cancelled', async () => {
     await viaDriver();
+    // Sthiva pays sellers only to a verified payout account (test/payout-account.test.ts)
+    await SupplierProfile.updateOne({ _id: supplier.profile._id }, { $set: { payoutAccount: {
+      method: 'UPI', holderName: 'Supplier', secret: seal('supplier@okaxis'), masked: 'su••••@okaxis', status: 'VERIFIED', submittedAt: new Date(),
+    } } });
     const id = (await create(admin, 'SUPPLIER', supplier.profile._id)).body.data._id;
     expect((await request(app).post(api(`/ops/settlements/${id}/paid`)).set(admin.headers).send({})).status).toBe(400);
     expect((await request(app).post(api(`/ops/settlements/${id}/paid`)).set(operator.headers).send({ reference: 'UTR123' })).status).toBe(403);

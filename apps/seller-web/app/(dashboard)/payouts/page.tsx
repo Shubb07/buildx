@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useApiClient } from '@sthiva/web-core';
 import { EmptyState, ErrorNote, PageHead, Pill, rupees, shortDate } from '../../../components/ui';
 import { fetchPayouts, type Payouts, type Statement } from '../../../lib/settlements';
+import { PayoutAccountCard } from '../../../components/PayoutAccount';
 
 // What Sthiva owes the supplier for delivered orders, less cash they collected from buyers.
 // Sthiva's team creates a statement, pays it, and marks it paid with the payment reference.
@@ -27,6 +28,7 @@ function StatementCard({ s }: { s: Statement }) {
         Earned {rupees.format(s.earned)} · cash you collected {rupees.format(s.cashHeld)} · {shortDate.format(new Date(s.createdAt))}
       </p>
       {s.status === 'PAID' && <p className="text-[14px] text-stone">Reference <span className="font-mono">{s.reference}</span>{s.paidAt && <> · {shortDate.format(new Date(s.paidAt))}</>}</p>}
+      {s.paidTo && <p className="text-[14px] text-stone">Paid to {s.paidTo}</p>}
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="self-start text-[14px] font-medium text-cobalt hover:underline">
         {open ? 'Hide' : 'Show'} {s.orders.length} order{s.orders.length === 1 ? '' : 's'}
       </button>
@@ -59,6 +61,8 @@ export default function PayoutsPage() {
       <PageHead eyebrow="Money" title="Payouts">
         <p className="max-w-sm text-[15px] text-stone">Your earnings on delivered orders, less any cash you collected from buyers.</p>
       </PageHead>
+
+      <PayoutAccountCard />
 
       {state.status === 'loading' && <div className="skeleton h-48" role="status" aria-label="Loading payouts" />}
       {state.status === 'error' && <ErrorNote>Couldn’t load your payouts. Check your connection and try again.</ErrorNote>}

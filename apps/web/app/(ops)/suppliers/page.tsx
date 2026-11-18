@@ -33,6 +33,8 @@ const LOG_ACTION: Record<string, string> = {
   VERIFIED: 'Verified', REJECTED: 'Rejected', DOC_UPLOADED: 'Uploaded a document', DOC_ACCEPTED: 'Document accepted',
   DOC_REJECTED: 'Document rejected', GSTIN_CHANGED: 'Changed GSTIN', GSTIN_REMOVED: 'Removed GSTIN',
   NAME_CHANGED: 'Changed business name', RE_REVIEW: 'Sent back for review', DOC_EXPIRED: 'Document expired',
+  PAYOUT_ADDED: 'Added a payout account', PAYOUT_CHANGED: 'Changed the payout account', PAYOUT_VERIFIED: 'Payout account verified',
+  PAYOUT_REJECTED: 'Payout account rejected',
 };
 const LOG_ACTOR: Record<string, string> = { SUPPLIER: 'Seller', OPS: 'Sthiva team', SYSTEM: 'Automatic' };
 
@@ -148,6 +150,103 @@ function Documents({ supplierId, count }: { supplierId: string; count: number })
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// Seller payout account: ops compare the details with the cheque or passbook photo, then verify.
+// The review sends the submittedAt seen here, so an account changed meanwhile cannot be approved unseen.
+const PAYOUT_STATUS: Record<string, { label: string; tone: Tone }> = {
+  SUBMITTED: { label: 'To check', tone: 'wait' },
+  VERIFIED: { label: 'Verified', tone: 'done' },
+  REJECTED: { label: 'Rejected', tone: 'bad' },
+};
+
+function PayoutAccountPanel({ supplierId, summary }: { supplierId: string; summary: OpsSupplier['payoutAccount'] }) {
+  const client = useApiClient();
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<Awaited<ReturnType<typeof opsApi.payoutAccount>> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setError(null);
+    try { setData(await opsApi.payoutAccount(client, supplierId)); } catch (err) { setError(errorText(err, 'Couldn’t load the payout account.')); }
+  };
+  const review = async (status: 'VERIFIED' | 'REJECTED') => {
+    if (!data?.account) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await opsApi.reviewPayout(client, supplierId, status, data.account.submittedAt, status === 'REJECTED' ? note.trim() : undefined);
+      setRejecting(false); setNote(''); await load();
+    } catch (err) {
+      setError(errorText(err, 'Couldn’t save.'));
+      await load();
+    } finally { setBusy(false); }
+  };
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => { setOpen(true); load(); }} className="btn-ghost self-start">
+        <span className="material-symbols-outlined text-[20px]" aria-hidden="true">account_balance</span>
+        {summary ? `Payout account (${PAYOUT_STATUS[summary.status].label.toLowerCase()})` : 'Payout account (not added)'}
+      </button>
+    );
+  }
+  const a = data?.account;
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-sand-4 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[14px] font-semibold">Payout account</p>
+        {a && <Pill tone={PAYOUT_STATUS[a.status].tone}>{PAYOUT_STATUS[a.status].label}</Pill>}
+      </div>
+      {error && <p className="text-[13px] text-error">{error}</p>}
+      {!data && !error && <div className="skeleton h-16" role="status" aria-label="Loading payout account" />}
+      {data && !a && <p className="text-[14px] text-stone">The seller hasn’t added one yet. They do it on the Payouts page of the seller website.</p>}
+      {a && (
+        <>
+          <dl className="grid gap-x-6 gap-y-1 text-[14px] sm:grid-cols-[auto_1fr]">
+            <dt className="text-stone">Holder</dt><dd className="font-medium">{a.holderName}</dd>
+            <dt className="text-stone">Business</dt><dd>{data.businessName}{data.gstin && <> · <span className="font-mono">{data.gstin}</span></>}</dd>
+            {a.method === 'BANK' ? (
+              <>
+                <dt className="text-stone">Account</dt><dd className="font-mono">{a.accountNumber}</dd>
+                <dt className="text-stone">IFSC</dt><dd className="font-mono">{a.ifsc}</dd>
+              </>
+            ) : (
+              <><dt className="text-stone">UPI ID</dt><dd className="font-mono">{a.upiId}</dd></>
+            )}
+            <dt className="text-stone">Added</dt><dd>{ago(a.submittedAt)}</dd>
+          </dl>
+          {a.proofUrl && <a href={a.proofUrl} target="_blank" rel="noreferrer" className="self-start text-[14px] font-medium text-cobalt hover:underline">Open cheque or passbook (link works for 10 min)</a>}
+          {a.holdUntil && Date.parse(a.holdUntil) > Date.now() && (
+            <p className="text-[13px] font-semibold text-[#5C4300]">Changed recently: payouts paused until {new Date(a.holdUntil).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}. Call the seller on their registered number to confirm the change.</p>
+          )}
+          {a.status === 'REJECTED' && a.note && <p className="text-[13px] text-stone">Reason sent: {a.note}</p>}
+          <p className="text-[13px] text-stone">
+            {a.method === 'BANK'
+              ? 'Check that the name and number match the photo, and that the name matches the business or its owner.'
+              : 'Send ₹1 to this UPI ID and check that the name your UPI app shows matches the business or its owner.'}
+          </p>
+          {rejecting ? (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder="Reason, sent to the seller" className="field flex-1" aria-label="Reason for rejecting the payout account" />
+              <div className="flex gap-2">
+                <button type="button" disabled={busy || note.trim().length < 3} onClick={() => review('REJECTED')} className="btn bg-error text-white hover:bg-[#A51F24]">Reject</button>
+                <button type="button" disabled={busy} onClick={() => setRejecting(false)} className="btn-ghost">Back</button>
+              </div>
+            </div>
+          ) : a.status === 'SUBMITTED' && (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={busy} onClick={() => review('VERIFIED')} className="btn-lime px-4">Verify account</button>
+              <button type="button" disabled={busy} onClick={() => setRejecting(true)} className="btn-ghost">Reject</button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -279,6 +378,7 @@ function SupplierCard({ supplier, onChanged }: { supplier: OpsSupplier; onChange
           </p>
         )}
         <Documents supplierId={supplier._id} count={((supplier as { kycDocuments?: { publicId?: string }[] }).kycDocuments ?? []).filter((d) => d.publicId).length} />
+        <PayoutAccountPanel supplierId={supplier._id} summary={supplier.payoutAccount} />
         <History log={supplier.verificationLog ?? []} />
         {error && <ErrorNote>{error}</ErrorNote>}
       </div>

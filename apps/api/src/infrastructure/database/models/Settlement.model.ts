@@ -30,6 +30,7 @@ export interface ISettlement extends Document {
   paidAt?: Date;
   paidBy?: Types.ObjectId;
   reference?: string;   // UPI / bank reference, or "cash"
+  paidTo?: string;      // where a supplier payout went, masked (features/suppliers/payout-account.ts)
   note?: string;
   cancelledAt?: Date;
   cancelledBy?: Types.ObjectId;
@@ -63,6 +64,7 @@ const settlementSchema = new Schema<ISettlement>(
     paidAt: Date,
     paidBy: { type: Schema.Types.ObjectId, ref: 'User' },
     reference: { type: String, trim: true, maxlength: 100 },
+    paidTo: String,
     note: { type: String, trim: true, maxlength: 500 },
     cancelledAt: Date,
     cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },

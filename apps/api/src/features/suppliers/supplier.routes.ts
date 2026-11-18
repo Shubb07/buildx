@@ -24,6 +24,7 @@ import { supplierInvoice } from '../invoices/invoice.controller';
 import { bulkUpload, downloadSheet, uploadSheet } from './bulk';
 import { pauseProduct, pauseSchema } from './product-pause';
 import { myPayoutAccount, savePayoutAccount } from './payout-account';
+import { myGoLive, acceptAgreement, agreementSchema } from './go-live';
 
 // Strings are format-checked per item in the controller so each bad entry gets its own reason
 const addPincodesSchema = z.object({
@@ -133,6 +134,9 @@ const router = Router();
 router.use(requireAuth, requireRole('SUPPLIER'));
 
 router.get('/me', getProfile);
+// Onboarding checklist and the seller agreement (features/suppliers/go-live.ts)
+router.get('/me/go-live', myGoLive);
+router.post('/me/agreement', validate(agreementSchema), acceptAgreement);
 router.patch('/me', validate(updateProfileSchema), updateProfile);
 router.get('/me/stats', getStats);
 router.get('/me/analytics', getAnalytics);

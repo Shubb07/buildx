@@ -34,7 +34,7 @@ const LOG_ACTION: Record<string, string> = {
   DOC_REJECTED: 'Document rejected', GSTIN_CHANGED: 'Changed GSTIN', GSTIN_REMOVED: 'Removed GSTIN',
   NAME_CHANGED: 'Changed business name', RE_REVIEW: 'Sent back for review', DOC_EXPIRED: 'Document expired',
   PAYOUT_ADDED: 'Added a payout account', PAYOUT_CHANGED: 'Changed the payout account', PAYOUT_VERIFIED: 'Payout account verified',
-  PAYOUT_REJECTED: 'Payout account rejected',
+  PAYOUT_REJECTED: 'Payout account rejected', TERMS_ACCEPTED: 'Accepted the seller agreement',
 };
 const LOG_ACTOR: Record<string, string> = { SUPPLIER: 'Seller', OPS: 'Sthiva team', SYSTEM: 'Automatic' };
 
@@ -378,6 +378,20 @@ function SupplierCard({ supplier, onChanged }: { supplier: OpsSupplier; onChange
           </p>
         )}
         <Documents supplierId={supplier._id} count={((supplier as { kycDocuments?: { publicId?: string }[] }).kycDocuments ?? []).filter((d) => d.publicId).length} />
+        {supplier.goLive && (
+          <div className="flex flex-col gap-2">
+            <p className="text-[14px] font-semibold">Onboarding ({supplier.goLive.filter((s) => s.status === 'DONE').length} of {supplier.goLive.length} done)</p>
+            <ul className="flex flex-wrap gap-1.5">
+              {supplier.goLive.map((s) => (
+                <li key={s.key} title={s.detail}>
+                  <Pill tone={s.status === 'DONE' ? 'done' : s.status === 'WAITING' ? 'wait' : s.status === 'PROBLEM' ? 'bad' : 'muted'}>
+                    {s.label}{s.status === 'WAITING' ? ': to check' : s.status === 'TODO' ? ': missing' : s.status === 'PROBLEM' ? ': rejected' : ''}
+                  </Pill>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <PayoutAccountPanel supplierId={supplier._id} summary={supplier.payoutAccount} />
         <History log={supplier.verificationLog ?? []} />
         {error && <ErrorNote>{error}</ErrorNote>}

@@ -66,6 +66,8 @@ export interface ISupplierProfile extends Document {
     reviewedBy?: Types.ObjectId;
     holdUntil?: Date;        // payouts paused until then, after a verified account was changed
   };
+  // The seller agreement version they accepted, when, and from where (features/suppliers/go-live.ts)
+  termsAcceptance?: { version: string; at: Date; ip?: string; userAgent?: string };
   weeklyConfirmedAt?: Date;
   weeklyReminderFor?: Date; // week start of the last Monday reminder sent
   weeklyHiddenNoticeFor?: Date; // week start of the last "your items are hidden" notice
@@ -143,6 +145,13 @@ const supplierProfileSchema = new Schema<ISupplierProfile>(
         holdUntil: Date,
       }, { _id: false }),
       required: false,
+    },
+    termsAcceptance: {
+      _id: false,
+      version: String,
+      at: Date,
+      ip: String,
+      userAgent: String,
     },
     weeklyConfirmedAt: Date,
     weeklyReminderFor: Date,

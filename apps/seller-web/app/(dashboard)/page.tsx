@@ -6,7 +6,9 @@ import { useApiClient } from '@sthiva/web-core';
 import { useSupplierStats } from '../../lib/stats';
 import { useSupplierOrders } from '../../lib/orders';
 import { fetchSupplierProfile, type SupplierProfile } from '../../lib/auth';
-import { isSetupComplete, setupGaps } from '../../lib/setup';
+import { useGoLive } from '../../lib/go-live';
+import { isSetupComplete } from '../../lib/setup';
+import { GoLiveChecklist } from '../../components/GoLiveChecklist';
 import { useAuth } from '../../components/auth/AuthProvider';
 import { ORDER_STATUS, Pill, rupees, shortDate } from '../../components/ui';
 
@@ -39,6 +41,7 @@ export default function DashboardPage() {
     fetchSupplierProfile(client).then(setProfile).catch(() => {});
   }, [client]);
 
+  const goLive = useGoLive();
   // Unknown until the profile loads: treat as done so nothing flashes a wrong 'finish setup' hint
   const setupDone = profile ? isSetupComplete(profile) : true;
   const hour = new Date().getHours();
@@ -61,41 +64,9 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {profile && (() => {
-        const gaps = setupGaps(profile);
-        const left = [gaps.business && 'business details', gaps.area && 'delivery PIN codes', gaps.range && 'categories and brands'].filter(Boolean) as string[];
-        if (left.length === 0) return null;
-        return (
-          <Link href="/setup" className="group flex flex-col gap-4 rounded-2xl bg-lime p-5 text-ink sm:flex-row sm:items-center">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-ink text-lime">
-              <span className="material-symbols-outlined" aria-hidden="true">storefront</span>
-            </span>
-            <span className="flex-1">
-              <span className="block font-display text-lg font-semibold">Finish your business setup ({3 - left.length} of 3 done)</span>
-              <span className="block text-[15px] text-ink/75">Still needed: {left.join(', ')}. You can list products once this is done.</span>
-            </span>
-            <span className="btn-ink self-start px-5 sm:self-auto">Continue setup</span>
-          </Link>
-        );
-      })()}
-
-      {profile?.verificationStatus === 'PENDING' && (
-        <div className="flex items-start gap-3 rounded-2xl bg-[#FFF4D6] px-5 py-4 text-[#5C4300]">
-          <span className="material-symbols-outlined mt-0.5" aria-hidden="true">hourglass_top</span>
-          <div>
-            <p className="font-semibold">Your account is being verified</p>
-            <p className="mt-0.5 text-[15px]">{setupDone ? 'You can list products now. Buyers can order them as soon as Sthiva approves your account.' : 'Meanwhile, finish your business setup and list your products. Buyers can order once Sthiva approves your account.'}</p>
-          </div>
-        </div>
-      )}
-      {profile?.verificationStatus === 'REJECTED' && (
-        <div className="flex items-start gap-3 rounded-2xl bg-error-container px-5 py-4 text-on-error-container">
-          <span className="material-symbols-outlined mt-0.5" aria-hidden="true">error</span>
-          <div>
-            <p className="font-semibold">Verification was not approved</p>
-            <p className="mt-0.5 text-[15px]">Contact Sthiva support to find out what is needed.</p>
-          </div>
-        </div>
+      {/* Onboarding: everything to hand over before going live (hidden once live and complete) */}
+      {goLive.status === 'success' && (goLive.data.review.status !== 'VERIFIED' || goLive.data.done < goLive.data.total) && (
+        <GoLiveChecklist data={goLive.data} />
       )}
 
       <section aria-label="Today at a glance" className="on-ink grid grid-cols-2 gap-3 rounded-3xl bg-ink p-3 lg:grid-cols-4">

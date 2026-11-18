@@ -111,6 +111,9 @@ export const supplierSchema = z
     payoutAccount: z.object({
       method: z.enum(['BANK', 'UPI']), masked: z.string(), status: z.enum(['SUBMITTED', 'VERIFIED', 'REJECTED']), holdUntil: z.string().optional(),
     }).passthrough().optional(),
+    // Onboarding steps, the same list the seller sees (features/suppliers/go-live.ts)
+    goLive: z.array(z.object({ key: z.string(), label: z.string(), status: z.enum(['TODO', 'WAITING', 'DONE', 'PROBLEM']), detail: z.string() }).passthrough()).optional(),
+    termsAcceptance: z.object({ version: z.string().optional(), at: z.string().optional() }).passthrough().optional(),
     // Audit trail, oldest first
     verificationLog: z.array(z.object({
       at: z.string(), actor: z.string(), action: z.string(), note: z.string().optional(), by: z.string().optional(),

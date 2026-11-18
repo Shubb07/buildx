@@ -17,6 +17,7 @@ import { opsOfferTo, opsFindNext } from '../orders/allocation.service';
 import { supplierEarnings } from '../orders/commission';
 import { afterUnassign, markAssignedByOps } from '../delivery/driver-offers';
 import { modeFilter } from '../orders/order-state';
+import { goLiveFor } from '../suppliers/go-live';
 
 type OpsRole = 'OPERATOR' | 'ADMIN';
 
@@ -310,7 +311,8 @@ export async function listSuppliers(req: Request, res: Response, next: NextFunct
       .limit(200)
       .lean();
     const checks = await verificationChecks(suppliers);
-    res.json(ok(suppliers.map((s) => ({ ...s, checks: checks.get(String(s._id)) }))));
+    const goLive = await goLiveFor(suppliers);
+    res.json(ok(suppliers.map((s) => ({ ...s, checks: checks.get(String(s._id)), goLive: goLive.get(String(s._id)) }))));
   } catch (err) { next(err); }
 }
 

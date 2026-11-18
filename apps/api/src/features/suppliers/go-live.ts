@@ -58,7 +58,7 @@ export function goLiveSteps(p: Profile, listedProducts: number): GoLiveStep[] {
         : pay.status === 'REJECTED' ? 'Not accepted. Add it again.' : `Added (${pay.masked}). Sthiva is checking it.` },
     { key: 'agreement', label: 'Seller agreement', href: '/agreement', status: terms ? 'DONE' : 'TODO',
       detail: terms ? 'Accepted.' : p.termsAcceptance ? 'The agreement was updated. Read and accept the new version.' : 'Read and accept how selling on Sthiva works.' },
-    { key: 'products', label: 'Your products', href: '/products/new', status: listedProducts > 0 ? 'DONE' : 'TODO',
+    { key: 'products', label: 'Your products', href: '/products/quick', status: listedProducts > 0 ? 'DONE' : 'TODO',
       detail: listedProducts > 0 ? `${listedProducts} listed.` : 'List what you sell, with your price and stock.' },
   ];
 }

@@ -25,6 +25,7 @@ import { bulkUpload, downloadSheet, uploadSheet } from './bulk';
 import { pauseProduct, pauseSchema } from './product-pause';
 import { myPayoutAccount, savePayoutAccount } from './payout-account';
 import { myGoLive, acceptAgreement, agreementSchema } from './go-live';
+import { quickAddList, quickAddSave, quickAddSchema } from './quick-add';
 
 // Strings are format-checked per item in the controller so each bad entry gets its own reason
 const addPincodesSchema = z.object({
@@ -170,6 +171,9 @@ router.post('/me/orders/:id/cod', validate(codCollectedSchema), confirmCodCollec
 router.get('/me/catalog', supplierSearch);
 
 router.get('/me/products', listSupplierProducts);
+// Quick add: many catalogue items at once, price and stock only (features/suppliers/quick-add.ts)
+router.get('/me/quick-add', quickAddList);
+router.post('/me/quick-add', validate(quickAddSchema), quickAddSave);
 router.get('/me/products/:id', getSupplierProduct);
 router.post('/me/products', validate(createProductSchema), createProduct);
 router.patch('/me/products/:id', validate(updateProductSchema), updateProduct);

@@ -263,6 +263,10 @@ function Products() {
             <span className="material-symbols-outlined text-[20px]" aria-hidden="true">table_view</span>
             Excel sheet
           </Link>
+          <Link href="/products/quick" className="btn-ghost">
+            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">checklist</span>
+            Quick add
+          </Link>
           <Link href="/products/new" className="btn-lime">
             <span className="material-symbols-outlined text-[20px]" aria-hidden="true">add</span>
             List a product

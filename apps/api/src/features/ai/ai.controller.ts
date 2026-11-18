@@ -4,6 +4,7 @@ import { env } from '../../config/env';
 import { Product } from '../../infrastructure/database/models/Product.model';
 import { buyerProduct, ratesFor } from '../orders/commission';
 import { AppError } from '../../shared/errors/AppError';
+import { orderable } from '../products/availability';
 
 const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
@@ -155,7 +156,7 @@ Return ONLY valid JSON array.`,
 
         // Full-text search first, fall back to regex on name+tags
         let products = await Product.find(
-          { $text: { $search: ext.item }, status: 'ACTIVE' },
+          { $text: { $search: ext.item }, ...orderable() },
           { score: { $meta: 'textScore' } }
         )
           .sort({ score: { $meta: 'textScore' } })
@@ -166,7 +167,7 @@ Return ONLY valid JSON array.`,
         if (products.length === 0) {
           const regexParts = searchTerms.map((t) => new RegExp(t, 'i'));
           products = await Product.find({
-            status: 'ACTIVE',
+            ...orderable(),
             $or: [
               { name: { $in: regexParts } },
               { tags: { $in: regexParts } },

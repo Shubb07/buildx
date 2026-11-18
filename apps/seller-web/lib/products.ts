@@ -28,6 +28,8 @@ export const supplierProductSchema = z
     specifications: z.record(z.string(), z.string()).optional(),
     images: z.array(imageSchema).optional(),
     status: z.enum(['DRAFT', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'DISCONTINUED']),
+    // Paused until the start of this day (India time); comes back by itself
+    pausedUntil: z.string().optional(),
     // Every supplier product response populates the category (list, get, create and edit)
     categoryId: z.object({ _id: z.string(), name: z.string(), slug: z.string() }).nullable().optional(),
   })
@@ -105,6 +107,17 @@ export async function updateSupplierProduct(
     envelope: true,
     schema: supplierProductSchema,
     body: input,
+  });
+}
+
+/** Pause one listing until a date (YYYY-MM-DD, it returns by itself that morning), or null to resume now */
+export async function pauseSupplierProduct(client: ApiClient, id: string, until: string | null): Promise<SupplierProduct> {
+  return client.request(`/suppliers/me/products/${id}/pause`, {
+    method: 'POST',
+    auth: true,
+    envelope: true,
+    schema: supplierProductSchema,
+    body: { until },
   });
 }
 

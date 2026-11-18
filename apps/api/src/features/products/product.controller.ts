@@ -6,6 +6,7 @@ import { checkSupplier, eligibleSupplierIds, resolveDestination, type Destinatio
 import { deliveryPoint } from '../delivery/delivery-pricing';
 import { supplierDistances } from '../orders/allocation.service';
 import { buyerProduct, ratesFor } from '../orders/commission';
+import { orderable, isPaused } from './availability';
 
 // Public catalogue. Every client (mobile included) only sees ACTIVE products from suppliers that
 // are verified, active and not suspended. With ?pincode=, results are further limited to
@@ -42,7 +43,7 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
     const supplierIds = await eligibleSupplierIds(destination?.pincode);
 
     const onSale = await sellableCategoryIds();
-    const filter: Record<string, unknown> = { status: 'ACTIVE', supplierId: { $in: supplierIds }, categoryId: { $in: onSale } };
+    const filter: Record<string, unknown> = { ...orderable(), supplierId: { $in: supplierIds }, categoryId: { $in: onSale } };
 
     if (typeof category === 'string' && category) {
       const cat = await Category.findOne({ slug: category }).lean();
@@ -146,16 +147,20 @@ export async function getProduct(req: Request, res: Response, next: NextFunction
     // How many verified sellers carry this catalogue item (that serve the PIN, when given). Buyers
     // do not choose between them: Sthiva gives the order to the lowest price, nearest first.
     const catalogItemId = (product as { catalogItemId?: unknown }).catalogItemId;
+    // Paused listings don't count: Sthiva gives the order to a seller who can take it now
     const sellerCount = catalogItemId
       ? (await Product.distinct('supplierId', {
-          catalogItemId, status: 'ACTIVE',
+          catalogItemId, ...orderable(),
           supplierId: { $in: await eligibleSupplierIds(eligibility.serviceable ? destination?.pincode : undefined) },
         })).length
-      : 1;
+      : isPaused(product) ? 0 : 1;
+    // Nobody can take it now: say when this listing's seller is back
+    const backOn = sellerCount === 0 && isPaused(product) ? product.pausedUntil : undefined;
 
     res.json({
       ...priced,
       sellerCount: Math.max(1, sellerCount),
+      ...(backOn ? { backOn } : {}),
       // Only present when a PIN was given: can this product be delivered there?
       ...(destination && {
         availability: {

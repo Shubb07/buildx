@@ -41,6 +41,8 @@ export const productDetailSchema = z
     totalReviews: z.number().optional(),
     // Verified sellers carrying this catalogue item (serving the PIN, when given); Sthiva picks one per order
     sellerCount: z.number().optional(),
+    // Every seller paused this item: when it is back (start of that day, India time)
+    backOn: z.string().optional(),
     // Present only when a PIN was given to the API
     availability: z.object({ deliverable: z.boolean(), reason: z.string().optional() }).optional(),
   })

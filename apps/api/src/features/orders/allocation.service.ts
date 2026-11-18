@@ -31,6 +31,7 @@ import { sendTemplate, TEMPLATES } from '../../shared/services/whatsapp.service'
 import { clearFinishedLocations } from '../delivery/tracking';
 import { checkDeliveryDate, deliveryWindow } from './delivery-window';
 import { deliveryPoint, distanceKm } from '../delivery/delivery-pricing';
+import { orderable } from '../products/availability';
 
 type LeanOrder = IOrder & { _id: Types.ObjectId };
 type Outcome = 'REJECTED' | 'EXPIRED' | 'WITHDRAWN';
@@ -89,7 +90,7 @@ async function listingsFor(order: LeanOrder, supplierIds: Types.ObjectId[] | nul
   if (itemIds.length !== order.items.length) return []; // older orders without catalog links can't move
   return Product.find({
     catalogItemId: { $in: itemIds },
-    status: 'ACTIVE',
+    ...orderable(),
     ...(supplierIds ? { supplierId: { $in: supplierIds } } : {}),
   })
     .select('supplierId catalogItemId name unit basePrice bulkPricing gstRate isGstInclusive minOrderQuantity stockQuantity')
@@ -148,7 +149,7 @@ async function moveStock(order: LeanOrder, toProductIds: Types.ObjectId[] | null
   for (const [idx, pid] of toProductIds.entries()) {
     const qty = order.items[idx].quantity;
     const res = await Product.updateOne(
-      { _id: pid, status: 'ACTIVE', stockQuantity: { $gte: qty } },
+      { _id: pid, ...orderable(), stockQuantity: { $gte: qty } },
       { $inc: { stockQuantity: -qty, totalSold: qty } },
       { session }
     );

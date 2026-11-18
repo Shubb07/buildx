@@ -22,6 +22,7 @@ import { bulkPricingProblem } from './product-rules';
 import { supplierSearch } from '../catalog/catalog.controller';
 import { supplierInvoice } from '../invoices/invoice.controller';
 import { bulkUpload, downloadSheet, uploadSheet } from './bulk';
+import { pauseProduct, pauseSchema } from './product-pause';
 import { myPayoutAccount, savePayoutAccount } from './payout-account';
 
 // Strings are format-checked per item in the controller so each bad entry gets its own reason
@@ -167,6 +168,8 @@ router.get('/me/products/:id', getSupplierProduct);
 router.post('/me/products', validate(createProductSchema), createProduct);
 router.patch('/me/products/:id', validate(updateProductSchema), updateProduct);
 router.delete('/me/products/:id', deleteProduct);
+// Pause one listing until a date (it returns by itself), or resume it now
+router.post('/me/products/:id/pause', validate(pauseSchema), pauseProduct);
 
 // Delivery coverage (PIN codes this supplier serves)
 router.get('/me/service-pincodes', listServicePincodes);

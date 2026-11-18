@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useApiClient } from '@sthiva/web-core';
 import {
-  useSupplierProducts, discontinueSupplierProduct, updateSupplierProduct, productErrorText, type SupplierProduct,
+  useSupplierProducts, discontinueSupplierProduct, updateSupplierProduct, pauseSupplierProduct, productErrorText, type SupplierProduct,
 } from '../../../lib/products';
 import { gstBreakdown } from '../../../lib/pricing';
 import { Chip, ChipRow, EmptyState, ErrorNote, PageHead, Pager, Pill, PRODUCT_STATUS, rupees, UNIT, unitLabel } from '../../../components/ui';
@@ -27,13 +27,24 @@ const SAVED: Record<string, string> = {
   edit: 'Changes saved.',
 };
 
+// Dates in India time: a pause ends at the start of the chosen day
+const IST_MS = 330 * 60 * 1000;
+const istDayPlus = (n: number) => new Date(Date.now() + IST_MS + n * 86_400_000).toISOString().slice(0, 10);
+const backOnLabel = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+const PAUSE_CHOICES = [
+  { label: 'Until tomorrow', days: 1 },
+  { label: '3 days', days: 3 },
+  { label: '1 week', days: 7 },
+];
+
 function ProductRow({ product, onChange, onDiscontinue }: {
   product: SupplierProduct;
   onChange: (p: SupplierProduct) => void;
   onDiscontinue: (id: string) => Promise<void>;
 }) {
   const client = useApiClient();
-  const [mode, setMode] = useState<'view' | 'quick' | 'discontinue'>('view');
+  const [mode, setMode] = useState<'view' | 'quick' | 'pause' | 'discontinue'>('view');
+  const [pickDate, setPickDate] = useState('');
   const [price, setPrice] = useState(String(product.basePrice));
   const [stock, setStock] = useState(String(product.stockQuantity));
   const [busy, setBusy] = useState(false);
@@ -48,6 +59,8 @@ function ProductRow({ product, onChange, onDiscontinue }: {
   const low = product.stockQuantity > 0 && product.stockQuantity <= (product.lowStockAlert ?? 0);
   const paused = product.status === 'INACTIVE';
   const canPause = product.status === 'ACTIVE' || product.status === 'OUT_OF_STOCK';
+  // Paused until a date (features/products/availability.ts in the API); back by itself that morning
+  const backOn = product.pausedUntil && Date.parse(product.pausedUntil) > Date.now() ? product.pausedUntil : null;
 
   async function run(fn: () => Promise<SupplierProduct>) {
     setBusy(true);
@@ -69,11 +82,13 @@ function ProductRow({ product, onChange, onDiscontinue }: {
       ...(Number(stock) !== product.stockQuantity ? { stockQuantity: Number(stock) } : {}),
     }));
   // Resuming puts it back on sale, or out of stock if there is nothing left
-  const togglePause = () =>
-    run(() => updateSupplierProduct(client, product._id, { status: paused ? (product.stockQuantity > 0 ? 'ACTIVE' : 'OUT_OF_STOCK') : 'INACTIVE' }));
+  const resume = () =>
+    run(() => updateSupplierProduct(client, product._id, { status: product.stockQuantity > 0 ? 'ACTIVE' : 'OUT_OF_STOCK' }));
+  const pauseIndefinitely = () => run(() => updateSupplierProduct(client, product._id, { status: 'INACTIVE' }));
+  const pauseUntil = (date: string | null) => run(() => pauseSupplierProduct(client, product._id, date));
 
   return (
-    <li className={`card overflow-hidden ${paused ? 'opacity-80' : ''}`}>
+    <li className={`card overflow-hidden ${paused || backOn ? 'opacity-80' : ''}`}>
       <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-sand-3 sm:h-20 sm:w-20">
@@ -87,6 +102,7 @@ function ProductRow({ product, onChange, onDiscontinue }: {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <Pill tone={status.tone}>{status.label}</Pill>
+              {backOn && <Pill tone="muted">Paused · back {backOnLabel(backOn)}</Pill>}
               {low && <Pill tone="wait">Running low</Pill>}
               {brand && <span className="text-[13px] text-stone">{brand}</span>}
             </div>
@@ -112,10 +128,15 @@ function ProductRow({ product, onChange, onDiscontinue }: {
               <span className="material-symbols-outlined text-[18px]" aria-hidden="true">content_copy</span>
               <span className="max-sm:hidden">Another size</span>
             </Link>
-            {canPause || paused ? (
-              <button type="button" disabled={busy} onClick={togglePause} className="btn-ghost h-11 px-4" aria-label={paused ? `Resume ${product.name}` : `Pause ${product.name}`}>
-                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{paused ? 'play_arrow' : 'pause'}</span>
-                {paused ? 'Resume' : 'Pause'}
+            {paused || backOn ? (
+              <button type="button" disabled={busy} onClick={paused ? resume : () => pauseUntil(null)} className="btn-ghost h-11 px-4" aria-label={`Resume ${product.name}`}>
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">play_arrow</span>
+                {paused ? 'Resume' : 'Resume now'}
+              </button>
+            ) : canPause ? (
+              <button type="button" disabled={busy} onClick={() => { setPickDate(''); setMode('pause'); }} className="btn-ghost h-11 px-4" aria-label={`Pause ${product.name}`}>
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">pause</span>
+                Pause
               </button>
             ) : null}
             <Link href={`/products/${product._id}/edit`} className="grid h-11 w-11 place-items-center rounded-full text-stone transition-colors hover:bg-sand-3 hover:text-ink" aria-label={`Edit ${product.name}`}>
@@ -151,6 +172,30 @@ function ProductRow({ product, onChange, onDiscontinue }: {
             <button type="button" disabled={busy} onClick={() => { setMode('view'); setError(null); }} className="btn-ghost h-11">Cancel</button>
           </div>
         </form>
+      )}
+
+      {mode === 'pause' && (
+        <div className="flex flex-col gap-3 border-t border-sand-4 bg-sand px-4 py-3">
+          <p className="text-[15px]">
+            Pause only this product? Buyers won’t see it from you, and Sthiva sends orders for it to other sellers. Your other products stay on sale.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {PAUSE_CHOICES.map((c) => (
+              <button key={c.days} type="button" disabled={busy} onClick={() => pauseUntil(istDayPlus(c.days))} className="btn-ghost h-11 px-4">{c.label}</button>
+            ))}
+            <label className="flex items-center gap-2 text-[14px]">
+              <span className="text-stone">Until</span>
+              <input type="date" value={pickDate} min={istDayPlus(1)} max={istDayPlus(90)} onChange={(e) => setPickDate(e.target.value)} className="field h-11 w-auto py-0" aria-label="Back on this date" />
+            </label>
+            {pickDate && <button type="button" disabled={busy} onClick={() => pauseUntil(pickDate)} className="btn-ink h-11 px-5">Pause until {backOnLabel(`${pickDate}T00:00:00+05:30`)}</button>}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[14px]">
+            <button type="button" disabled={busy} onClick={pauseIndefinitely} className="font-medium text-cobalt hover:underline">Pause until I turn it back on</button>
+            <span className="text-stone">·</span>
+            <button type="button" disabled={busy} onClick={() => setMode('view')} className="font-medium text-stone hover:underline">Cancel</button>
+          </div>
+          <p className="text-[13px] text-stone">It comes back on sale by itself on the morning of the date you choose.</p>
+        </div>
       )}
 
       {mode === 'discontinue' && (

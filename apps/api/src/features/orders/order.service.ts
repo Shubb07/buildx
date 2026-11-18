@@ -22,6 +22,7 @@ import { SUGGESTED_HSN } from '../../shared/hsn';
 import { DISPATCHED, issueInvoiceInBackground } from '../invoices/invoice.service';
 import { getPlatformSettings } from '../../infrastructure/database/models/PlatformSettings.model';
 import { checkSupplier, eligibleSupplierIds, notServiceable, resolveDestination, type Destination } from '../serviceability/serviceability.service';
+import { orderable, isPaused } from '../products/availability';
 
 /**
  * Destination step shared by quote and order: with a PIN, validate it and check the supplier
@@ -75,7 +76,7 @@ async function inTransaction<T>(fn: (session: ClientSession) => Promise<T>): Pro
 type LeanProduct = Pick<
   IProduct,
   'supplierId' | 'name' | 'unit' | 'basePrice' | 'bulkPricing' | 'gstRate' | 'isGstInclusive'
-  | 'minOrderQuantity' | 'stockQuantity' | 'status' | 'images' | 'catalogItemId' | 'categoryId' | 'deliveryDays' | 'deliveryDaysMax' | 'supply'
+  | 'minOrderQuantity' | 'stockQuantity' | 'status' | 'images' | 'catalogItemId' | 'categoryId' | 'deliveryDays' | 'deliveryDaysMax' | 'supply' | 'pausedUntil'
 > & { _id: Types.ObjectId };
 
 type PricedCart = {
@@ -134,7 +135,7 @@ async function chooseListings(items: CartItemsInput, asAdded: LeanProduct[], pin
   const eligible = await eligibleSupplierIds(pincode);
   const listings = await Product.find({
     catalogItemId: { $in: itemIds },
-    status: 'ACTIVE',
+    ...orderable(),
     supplierId: { $in: eligible },
   }).session(session ?? null).lean<LeanProduct[]>();
 
@@ -177,6 +178,11 @@ async function priceCart(items: CartItemsInput, session?: ClientSession, pincode
   if (chosen) return { supplierId: chosen.listings[0].supplierId, products: chosen.listings, ...chosen };
 
   // Nobody can supply the whole cart: with one supplier's items, let the usual checks explain why
+  const paused = products.find((p) => isPaused(p));
+  if (paused) {
+    const day = new Date(paused.pausedUntil!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+    throw AppError.conflict(`${paused.name} is not available until ${day}`);
+  }
   const supplierIds = new Set(products.map((p) => p.supplierId.toString()));
   if (supplierIds.size > 1) {
     throw AppError.conflict('No single supplier can deliver all these items here. Please order them separately.');
@@ -302,7 +308,7 @@ export async function createOrder(params: {
       for (const [i, p] of (outOfArea ? [] : products).entries()) {
         const qty = priced.lines[i].quantity;
         const res = await Product.updateOne(
-          { _id: p._id, status: 'ACTIVE', stockQuantity: { $gte: qty } },
+          { _id: p._id, ...orderable(), stockQuantity: { $gte: qty } },
           { $inc: { stockQuantity: -qty, totalSold: qty } },
           { session }
         );

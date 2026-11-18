@@ -74,7 +74,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const outOfArea = notDeliverable && data?.availability?.reason === 'PINCODE_NOT_SERVED';
   const blockedByPin = notDeliverable && !outOfArea;
   const unit = data ? unitLabel(data.unit) : '';
-  const canBuy = inStock && !blockedByPin;
+  // Its seller paused it for a few days and nobody else has it right now
+  const backOn = data?.backOn ? new Date(data.backOn).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }) : null;
+  const canBuy = inStock && !blockedByPin && !backOn;
 
   useEffect(() => {
     const el = buyButtonRef.current;
@@ -320,8 +322,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
                 <button ref={buyButtonRef} type="button" onClick={handleAddToCart} disabled={!canBuy} className="btn-lime w-full py-4 text-[16px]">
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">add_shopping_cart</span>
-                  {blockedByPin ? 'Not deliverable to your PIN' : !inStock ? 'Out of stock' : 'Add to cart'}
+                  {blockedByPin ? 'Not deliverable to your PIN' : backOn ? `Available again ${backOn}` : !inStock ? 'Out of stock' : 'Add to cart'}
                 </button>
+                {backOn && !blockedByPin && (
+                  <p className="text-center text-[14px] text-stone">The seller has paused this item for a few days. You can order it again from {backOn}.</p>
+                )}
                 {cartNotice && (
                   <div role="status" className="flex items-center justify-between gap-3 rounded-2xl bg-sand-3 px-4 py-3">
                     <p className="text-[14px]">{cartNotice}</p>
@@ -359,7 +364,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     onClick={() => buyButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     className="btn-ink shrink-0 px-5 py-3 text-[15px]"
                   >
-                    {blockedByPin ? 'Not deliverable' : 'Out of stock'}
+                    {blockedByPin ? 'Not deliverable' : backOn ? `Back ${backOn}` : 'Out of stock'}
                   </button>
                 )}
               </div>

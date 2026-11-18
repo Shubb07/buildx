@@ -18,6 +18,7 @@ export interface IProduct extends Document {
   stockQuantity: number;
   lowStockAlert: number;
   availabilityConfirmedAt?: Date; // last weekly check that confirmed this listing's quantity and price
+  pausedUntil?: Date; // seller paused this listing until the start of this day (features/products/availability.ts)
   weight?: number;
   specifications: Record<string, string>;
   tags: string[];
@@ -74,6 +75,7 @@ const productSchema = new Schema<IProduct>(
     stockQuantity: { type: Number, default: 0, min: 0 },
     lowStockAlert: { type: Number, default: 10 },
     availabilityConfirmedAt: Date,
+    pausedUntil: Date,
     weight: Number,
     specifications: { type: Map, of: String, default: {} },
     tags: [String],

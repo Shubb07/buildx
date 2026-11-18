@@ -75,7 +75,8 @@ export async function getTracking(req: Request, res: Response, next: NextFunctio
       sharing: true,
       location: { lat: loc.lat, lng: loc.lng, ...(loc.accuracy !== undefined ? { accuracy: loc.accuracy } : {}), at: loc.at },
       // Straight line to the site (the site's own pin, else its PIN code's post office)
-      ...(site ? { distanceKm: Math.round(distanceKm(loc, site) * 10) / 10 } : {}),
+      // The buyer's own site (their pin, else the PIN's post office), for the map
+      ...(site ? { site, distanceKm: Math.round(distanceKm(loc, site) * 10) / 10 } : {}),
       stale: ageMs > STALE_AFTER_MS,
     }));
   } catch (err) { next(err); }

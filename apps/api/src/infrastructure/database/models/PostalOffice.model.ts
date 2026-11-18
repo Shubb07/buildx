@@ -39,5 +39,7 @@ const postalOfficeSchema = new Schema<IPostalOffice>(
 );
 
 postalOfficeSchema.index({ datasetVersion: 1, pincode: 1 });
+// GPS -> nearest post office -> PIN (features/locations/geocoding.service.ts): a box search around the point
+postalOfficeSchema.index({ datasetVersion: 1, 'location.lat': 1, 'location.lng': 1 }, { partialFilterExpression: { 'location.lat': { $type: 'number' } } });
 
 export const PostalOffice = model<IPostalOffice>('PostalOffice', postalOfficeSchema);

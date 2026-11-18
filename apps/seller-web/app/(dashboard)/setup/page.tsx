@@ -12,6 +12,14 @@ import {
 } from '../../../lib/setup';
 import { ErrorNote } from '../../../components/ui';
 import { VerificationDocuments } from '../../../components/VerificationDocuments';
+import dynamic from 'next/dynamic';
+
+// Free map (MapLibre + OpenFreeMap), loaded only on this page
+const SiteMap = dynamic(() => import('@sthiva/web-core/src/location/SiteMap').then((m) => m.SiteMap), {
+  ssr: false,
+  loading: () => <div className="skeleton h-[240px] rounded-2xl" aria-hidden="true" />,
+});
+
 const STEPS = ['Your business', 'Where you deliver', 'What you sell'] as const;
 
 function StepTabs({ step, done, onPick }: { step: number; done: boolean[]; onPick: (i: number) => void }) {
@@ -236,13 +244,24 @@ export default function SetupPage() {
                 <span className="material-symbols-outlined text-[20px]" aria-hidden="true">my_location</span>
                 {locating ? 'Finding you' : p?.location ? 'Update to where I am now' : 'Use where I am now'}
               </button>
-              {p?.location && (
-                <a href={`https://www.google.com/maps?q=${p.location.lat},${p.location.lng}`} target="_blank" rel="noreferrer" className="text-[14px] text-cobalt hover:underline">
-                  Saved: {p.location.lat.toFixed(5)}, {p.location.lng.toFixed(5)} (check on map)
-                </a>
-              )}
+              {p?.location && <span className="text-[14px] text-stone">Saved. Check the pin below.</span>}
             </div>
             {locError && <p className="text-[13px] text-error">{locError}</p>}
+            {/* Free map (OpenStreetMap): tap or drag the pin to put it exactly on the shop gate */}
+            <SiteMap
+              className="mt-1"
+              height={240}
+              points={p?.location ? [{ lat: p.location.lat, lng: p.location.lng, kind: 'shop', label: 'Your pickup point' }] : []}
+              onPick={async (pt) => {
+                setLocError(null);
+                try {
+                  profile.replace(await updateSupplierProfile(client, { location: { lat: Math.round(pt.lat * 1e6) / 1e6, lng: Math.round(pt.lng * 1e6) / 1e6 } }));
+                } catch (err) {
+                  setLocError(err instanceof Error ? err.message : 'Could not save the location.');
+                }
+              }}
+            />
+            <p className="text-[13px] text-stone">{p?.location ? 'Not exactly right? Drag the blue pin or tap the right spot on the map.' : 'Not at the shop now? Zoom in and tap your shop or yard on the map.'}</p>
           </div>
 
           <fieldset>

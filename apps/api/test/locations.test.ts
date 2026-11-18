@@ -31,6 +31,8 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const TEST_KEY = 'test-maps-key-not-real-123';
 const IN_TUMAKURU = { lat: 13.3392, lng: 77.114 };
+// Inside India, far from every post office in the test directory: only the Google fallback can answer
+const IN_FAR = { lat: 21.15, lng: 79.09 };
 
 beforeAll(startDb);
 afterAll(stopDb);
@@ -148,10 +150,28 @@ describe('POST /locations/reverse', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('resolves a position to a PIN, cross-checked with India Post, pending confirmation', async () => {
+  it('finds the PIN from the nearest India Post office, free, without calling Google', async () => {
+    await loadDirectory();
+    const res = await reverse(app, IN_TUMAKURU);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ postalStatus: 'VALID', requiresConfirmation: true, pincode: expect.stringMatching(/^57/) });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('works with no Google key at all, and says when no post office is near', async () => {
+    env.GOOGLE_MAPS_API_KEY = undefined;
+    await loadDirectory();
+    expect((await reverse(app, IN_TUMAKURU)).status).toBe(200);
+    const far = await reverse(app, IN_FAR);
+    expect(far.status).toBe(404);
+    expect(far.body.error.code).toBe('LOCATION_NOT_RESOLVED');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to Google (when a key is set) far from any post office, cross-checked with India Post', async () => {
     await loadDirectory();
     fetchMock.mockResolvedValueOnce(jsonResponse(googleOk('572103')));
-    const res = await reverse(app, IN_TUMAKURU);
+    const res = await reverse(app, IN_FAR);
     expect(res.status).toBe(200);
     expect(res.headers['cache-control']).toBe('no-store');
     expect(res.body.data).toMatchObject({
@@ -173,7 +193,7 @@ describe('POST /locations/reverse', () => {
   it('flags a detected PIN that India Post does not know', async () => {
     await loadDirectory();
     fetchMock.mockResolvedValueOnce(jsonResponse(googleOk('572199')));
-    const res = await reverse(app, IN_TUMAKURU);
+    const res = await reverse(app, IN_FAR);
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({ pincode: '572199', postalStatus: 'NOT_FOUND', postal: null });
   });

@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useApiClient } from '@sthiva/web-core';
+
+// Free map (MapLibre + OpenFreeMap), loaded only when a position is shown
+const SiteMap = dynamic(() => import('@sthiva/web-core/src/location/SiteMap').then((m) => m.SiteMap), {
+  ssr: false,
+  loading: () => <div className="skeleton h-[260px] rounded-2xl" aria-hidden="true" />,
+});
 import { fetchTracking, type Tracking } from '@/lib/orders';
 
 // While the order is on the way, where the driver is (shared by the driver app only from pickup
@@ -66,6 +73,13 @@ export function LiveTracking({ orderId, onStatusChange }: { orderId: string; onS
           <p className="mt-1 text-[14px] text-stone">
             {t.stale ? `Last position ${ago(loc.at, now)}. The driver's phone may be out of signal.` : `Updated ${ago(loc.at, now)}.`} Straight-line distance; the road can be longer.
           </p>
+          <SiteMap
+            className="mt-4"
+            points={[
+              { lat: loc.lat, lng: loc.lng, kind: 'driver', label: 'Driver' },
+              ...(t.site ? [{ lat: t.site.lat, lng: t.site.lng, kind: 'site' as const, label: 'Your site' }] : []),
+            ]}
+          />
           <a
             href={`https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`}
             target="_blank"

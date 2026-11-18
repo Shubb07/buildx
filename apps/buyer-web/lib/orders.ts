@@ -174,6 +174,7 @@ const trackingSchema = z.object({
   sharing: z.boolean(),
   location: z.object({ lat: z.number(), lng: z.number(), accuracy: z.number().optional(), at: z.string() }).optional(),
   distanceKm: z.number().optional(),
+  site: z.object({ lat: z.number(), lng: z.number() }).optional(),
   stale: z.boolean().optional(),
 });
 export type Tracking = z.infer<typeof trackingSchema>;

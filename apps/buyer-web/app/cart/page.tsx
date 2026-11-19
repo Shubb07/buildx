@@ -115,6 +115,10 @@ export default function CartPage() {
                   Continue to checkout
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span>
                 </Link>
+                <Link href="/quotes/new" className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full border border-white/20 py-3 text-[15px] font-semibold text-sand hover:bg-white/10">
+                  <span className="material-symbols-outlined text-[20px]" aria-hidden="true">request_quote</span>
+                  Big job? Get a bulk quote
+                </Link>
                 <p className="mt-4 flex items-center justify-center gap-1.5 text-[13px] text-stone-light">
                   <span className="material-symbols-outlined text-[16px]" aria-hidden="true">payments</span>
                   Cash on delivery

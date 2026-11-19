@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useApiClient } from '@sthiva/web-core';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
@@ -69,6 +70,10 @@ export default function OrdersPage() {
       <Header />
       <main id="main" className="container-x min-h-[70vh] max-w-4xl pb-32 pt-[calc(var(--header-h)+40px)]">
         <PageHead eyebrow="Orders" title="Your" accent="orders" />
+        <Link href="/quotes" className="mt-4 inline-flex items-center gap-1.5 text-[14px] font-semibold text-cobalt hover:underline">
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">request_quote</span>
+          Your bulk quotes
+        </Link>
         <div className="mt-10">
           <RequireAuth>
             <OrdersList />

@@ -8,6 +8,7 @@ import { Logo } from './brand/Logo';
 const TABS = [
   { href: '/', label: 'Overview', icon: 'space_dashboard' },
   { href: '/orders', label: 'Orders', icon: 'receipt_long' },
+  { href: '/quotes', label: 'Quotes', icon: 'request_quote' },
   { href: '/products', label: 'Products', icon: 'inventory_2' },
   { href: '/stock', label: 'Stock', icon: 'stacks' },
   { href: '/weekly', label: 'Weekly check', icon: 'event_available' },

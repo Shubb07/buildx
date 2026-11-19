@@ -12,6 +12,7 @@ import { uploadRoutes } from "./features/upload/upload.routes";
 import { deliveryRoutes } from "./features/delivery/delivery.routes";
 import { aiRoutes } from "./features/ai/ai.routes";
 import { reviewRoutes } from "./features/reviews/review.routes";
+import { buyerQuoteRoutes } from "./features/quotes/quote.routes";
 import { opsRoutes } from "./features/ops/ops.routes";
 import { createLocationRoutes } from "./features/locations/locations.routes";
 
@@ -30,6 +31,8 @@ export function registerRoutes(app: Application): void {
   app.use(`${base}/delivery`, deliveryRoutes);
   app.use(`${base}/ai`, aiRoutes);
   app.use(`${base}/reviews`, reviewRoutes);
+  // Bulk quotes: buyers ask, nearby sellers reply (features/quotes)
+  app.use(`${base}/quotes`, buyerQuoteRoutes);
   app.use(`${base}/ops`, opsRoutes);
   app.use(`${base}/locations`, createLocationRoutes());
 

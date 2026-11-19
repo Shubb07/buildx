@@ -27,6 +27,8 @@ export const orderSummarySchema = z
     onOrder: z.boolean().optional(),
     // Delivery slot the buyer booked (only slot sellers get it; the date cannot be moved by the seller)
     deliverySlot: z.object({ date: z.string(), window: z.enum(['MORNING', 'MIDDAY', 'EVENING']) }).optional(),
+    // Part of a cart split across sellers
+    orderGroup: z.object({ id: z.string(), part: z.number(), parts: z.number() }).optional(),
     driverOffer: z.object({ state: z.enum(['OFFERED', 'ASSIGNED', 'NEEDS_OPS']).optional(), expiresAt: z.string().optional() }).passthrough().optional(),
     deliveryIssue: z.object({ reason: z.string(), at: z.string(), byRole: z.string(), resolvedAt: z.string().optional(), resolution: z.string().optional() }).passthrough().optional(),
     paymentStatus: z.string(),

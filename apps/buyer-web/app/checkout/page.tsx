@@ -169,7 +169,8 @@ function CheckoutForm() {
         idempotencyKey
       );
       clearCart();
-      router.push(`/orders/${result.orderId}`);
+      // Split across sellers: the orders list shows every part together
+      router.push(result.orders && result.orders.length > 1 ? '/orders' : `/orders/${result.orderId}`);
     } catch (err) {
       setPlaceError(err instanceof Error ? err.message : 'Could not place the order. Please try again.');
     } finally {
@@ -331,10 +332,25 @@ function CheckoutForm() {
           )}
           {quote.status === 'success' && (
             <>
+              {quote.data.parts && quote.data.parts.length > 1 && (
+                <div className="mb-4 flex items-start gap-3 rounded-xl bg-[#FFF4D6] p-4 text-[14px] text-[#5C4300]">
+                  <span className="material-symbols-outlined mt-0.5 text-[20px]" aria-hidden="true">local_shipping</span>
+                  <div>
+                    <p className="font-semibold">Delivered in {quote.data.parts.length} parts</p>
+                    <p>No single nearby seller has everything, so each part comes from a different verified seller, with its own delivery and tracking. You pay each part on delivery.</p>
+                    <ul className="mt-2 flex flex-col gap-0.5">
+                      {quote.data.parts.map((p) => (
+                        <li key={p.part}>Part {p.part}: {p.items} item{p.items === 1 ? '' : 's'}, {rupees.format(p.goods)}{p.deliveryCharge > 0 ? ` + ${rupees.format(p.deliveryCharge)} delivery` : ''}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
               <ul className="flex flex-col divide-y divide-sand-4 rounded-xl border border-sand-4">
                 {quote.data.items.map((item) => (
                   <li key={item.productId} className="flex items-start justify-between gap-4 p-4 text-[15px]">
                     <span className="min-w-0">
+                      {quote.data.parts && quote.data.parts.length > 1 && item.part && <span className="mb-1 inline-block rounded-full bg-sand-3 px-2 py-0.5 text-[12px] font-medium">Part {item.part}</span>}
                       <span className="block font-semibold">{item.name}</span>
                       <span className="block text-[14px] text-stone">
                         <span className="font-mono text-ink">{item.quantity}</span> {item.unit.toLowerCase()} × {rupees.format(item.pricePerUnit)}

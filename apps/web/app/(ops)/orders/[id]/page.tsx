@@ -370,6 +370,12 @@ export default function OrderPage() {
           <dl className="flex flex-col gap-3 text-[15px]">
             <div><dt className="eyebrow text-stone">Buyer</dt><dd className="mt-1">{buyer?.name ?? 'Unknown'} · <a className="font-mono text-cobalt hover:underline" href={`tel:${buyer?.phone ?? a.contactPhone}`}>{buyer?.phone ?? a.contactPhone}</a></dd></div>
             <div><dt className="eyebrow text-stone">Supplier</dt><dd className="mt-1">{supplier?.businessName ?? 'Unknown'}{supplier?.whatsappNumber && <> · <a className="font-mono text-cobalt hover:underline" href={`tel:${supplier.whatsappNumber}`}>{supplier.whatsappNumber}</a></>}</dd></div>
+            {o.orderGroup && (
+              <div>
+                <dt className="eyebrow text-stone">Split order</dt>
+                <dd className="mt-1">Part {o.orderGroup.part} of {o.orderGroup.parts} <span className="font-mono text-[12px] text-stone">{o.orderGroup.id}</span></dd>
+              </div>
+            )}
             {o.deliverySlot && (
               <div>
                 <dt className="eyebrow text-stone">Booked slot</dt>

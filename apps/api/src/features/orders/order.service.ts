@@ -91,6 +91,12 @@ type PricedCart = {
 
 type Plan = { listings: LeanProduct[]; rates: Rates[]; priced: PricedOrder; supplierPriced: PricedOrder; delivery: DeliveryQuote };
 
+/** One seller's share of the cart. `lines` are the cart line indexes it covers, in cart order. */
+type CartPart = PricedCart & { lines: number[] };
+
+/** A cart may go to at most this many sellers (owner request 2026-11-20: split big orders) */
+export const MAX_SPLIT_PARTS = 3;
+
 const deliveryPaise = (d: DeliveryQuote) => (d.status === 'PRICED' ? d.chargePaise : 0);
 /** Ranking: deliverable plans first, then cheapest goods + delivery. */
 function better(a: Plan, b: Plan) {
@@ -167,7 +173,7 @@ async function chooseListings(items: CartItemsInput, asAdded: LeanProduct[], pin
   return best;
 }
 
-async function priceCart(items: CartItemsInput, session?: ClientSession, pincode?: string, destination: LatLng | null = null, slot?: DeliverySlot): Promise<PricedCart> {
+async function priceCart(items: CartItemsInput, session?: ClientSession, pincode?: string, destination: LatLng | null = null, slot?: DeliverySlot): Promise<CartPart[]> {
   const ids = items.map((i) => i.productId);
   const found = await Product.find({ _id: { $in: ids } }).session(session ?? null).lean<LeanProduct[]>();
   const byId = new Map(found.map((p) => [p._id.toString(), p]));
@@ -178,8 +184,12 @@ async function priceCart(items: CartItemsInput, session?: ClientSession, pincode
     return p;
   });
 
+  const all = items.map((_, i) => i);
   const chosen = await chooseListings(items, products, pincode, destination, session, slot);
-  if (chosen) return { supplierId: chosen.listings[0].supplierId, products: chosen.listings, ...chosen };
+  if (chosen) return [{ supplierId: chosen.listings[0].supplierId, products: chosen.listings, ...chosen, lines: all }];
+  // Nobody has the whole list: the fewest sellers who together have it, each part its own order
+  const parts = await splitCart(items, products, pincode, destination, session, slot);
+  if (parts) return parts;
   if (slot) throw AppError.conflict('No seller can deliver all these items in that slot. Pick a later date, or choose standard delivery.');
 
   // Nobody can supply the whole cart: with one supplier's items, let the usual checks explain why
@@ -195,7 +205,67 @@ async function priceCart(items: CartItemsInput, session?: ClientSession, pincode
   try {
     const base = planFor(items, products, await ratesFor(products.map((p) => p.categoryId)));
     const plan = await withDelivery(base, items, destination, await activeVehicles());
-    return { supplierId: products[0].supplierId, products, ...plan };
+    return [{ supplierId: products[0].supplierId, products, ...plan, lines: all }];
+  } catch (err) {
+    throw pricingToAppError(err);
+  }
+}
+
+/**
+ * Split a cart no single seller can supply: repeatedly take the seller who can fill the most of the
+ * lines still open (cheapest of those on a tie), up to MAX_SPLIT_PARTS sellers. Each part is priced
+ * and given a delivery charge on its own, like any order. Null when it can't be covered that way.
+ */
+async function splitCart(items: CartItemsInput, asAdded: LeanProduct[], pincode: string | undefined, destination: LatLng | null, session?: ClientSession, slot?: DeliverySlot): Promise<CartPart[] | null> {
+  const itemIds = asAdded.map((p) => p.catalogItemId);
+  if (items.length < 2 || itemIds.some((id) => !id)) return null;
+  const listings = await Product.find({
+    catalogItemId: { $in: itemIds },
+    ...orderable(),
+    supplierId: { $in: await eligibleSupplierIds(pincode) },
+    ...(slot ? { slotDelivery: true } : {}),
+  }).session(session ?? null).lean<LeanProduct[]>();
+  const rateMap = await ratesFor(listings.map((l) => l.categoryId));
+  const daysAhead = slot ? slotDaysAhead(slot) : Infinity;
+
+  // For each seller: the cart lines they can fill now (on sale, enough stock, can make the slot)
+  const can = new Map<string, Map<number, LeanProduct>>();
+  for (const l of listings) {
+    if (!rateMap.has(l.categoryId.toString())) continue;
+    itemIds.forEach((id, idx) => {
+      if (!id!.equals(l.catalogItemId!) || l.stockQuantity < items[idx].quantity || slotLeadDays(l.deliveryDays) > daysAhead) return;
+      const sid = l.supplierId.toString();
+      if (!can.has(sid)) can.set(sid, new Map());
+      can.get(sid)!.set(idx, l);
+    });
+  }
+
+  const open = new Set(items.map((_, i) => i));
+  const picks: { sid: string; lines: number[] }[] = [];
+  while (open.size) {
+    let best: { sid: string; lines: number[]; cost: number } | null = null;
+    for (const [sid, lines] of can) {
+      if (picks.some((p) => p.sid === sid)) continue;
+      const covers = [...open].filter((i) => lines.has(i));
+      if (!covers.length) continue;
+      const cost = covers.reduce((sum, i) => sum + lines.get(i)!.basePrice * items[i].quantity, 0);
+      if (!best || covers.length > best.lines.length || (covers.length === best.lines.length && cost < best.cost)) best = { sid, lines: covers, cost };
+    }
+    if (!best || picks.length === MAX_SPLIT_PARTS) return null;
+    picks.push({ sid: best.sid, lines: best.lines.sort((a, b) => a - b) });
+    for (const i of best.lines) open.delete(i);
+  }
+
+  // Part 1 holds the first item of the buyer's list, and so on
+  picks.sort((a, b) => a.lines[0] - b.lines[0]);
+  const vehicles = await activeVehicles();
+  try {
+    return await Promise.all(picks.map(async ({ sid, lines }) => {
+      const partItems = lines.map((i) => items[i]);
+      const partListings = lines.map((i) => can.get(sid)!.get(i)!);
+      const plan = await withDelivery(planFor(partItems, partListings, rateMap), partItems, destination, vehicles);
+      return { supplierId: partListings[0].supplierId, products: partListings, ...plan, lines };
+    }));
   } catch (err) {
     throw pricingToAppError(err);
   }
@@ -255,12 +325,31 @@ export async function quoteOrder(items: CartItemsInput, deliveryPincode?: string
   }
   const destination = deliveryPincode !== undefined ? await resolveDestination(deliveryPincode) : null;
   const dropPoint = await deliveryPoint({ ...point, pincode: destination?.pincode });
-  const { supplierId, products, priced, delivery: priced0 } = await priceCart(items, undefined, destination?.pincode, dropPoint, slot);
-  const { outOfArea } = await coverage(supplierId, destination);
-  // Out of area: the delivery charge is confirmed with the supplier Sthiva finds
-  const delivery = outOfArea && priced0.status === 'UNPRICED' ? { status: 'OFF' as const } : priced0;
+  const parts = await priceCart(items, undefined, destination?.pincode, dropPoint, slot);
+  const views = await Promise.all(parts.map(async (part) => {
+    const { outOfArea } = await coverage(part.supplierId, destination);
+    // Out of area: the delivery charge is confirmed with the supplier Sthiva finds
+    const delivery = outOfArea && part.delivery.status === 'UNPRICED' ? { status: 'OFF' as const } : part.delivery;
+    return { part, outOfArea, delivery };
+  }));
+  const pricingView = (d: DeliveryQuote) => (d.status === 'PRICED'
+    ? { status: 'PRICED' as const, vehicle: d.vehicleName, weightKg: d.weightKg, distanceKm: d.distanceKm }
+    : d);
+  const products = parts.flatMap((p) => p.products);
+  const outOfArea = views.some((v) => v.outOfArea);
+  const unpriced = views.find((v) => v.delivery.status === 'UNPRICED')?.delivery;
+  const chargePaise = views.reduce((sum, v) => sum + deliveryPaise(v.delivery), 0);
+  const goodsPaise = parts.reduce((sum, p) => sum + p.priced.totalPaise, 0);
+  // Cart lines in the buyer's order, each priced by the part (seller) that covers it
+  const lineFor = (idx: number) => {
+    const part = parts.find((p) => p.lines.includes(idx))!;
+    const at = part.lines.indexOf(idx);
+    const p = part.products[at];
+    const line = part.priced.lines[at];
+    return { ...lineView(p, line), inStock: p.stockQuantity >= line.quantity, stockQuantity: p.stockQuantity, part: parts.indexOf(part) + 1 };
+  };
   return {
-    supplierId,
+    supplierId: parts[0].supplierId,
     // ON_ORDER items (company orders, custom work) and out-of-area orders are 'in process' until confirmed
     onOrder: products.some((p) => p.supply === 'ON_ORDER'),
     outOfArea,
@@ -271,19 +360,26 @@ export async function quoteOrder(items: CartItemsInput, deliveryPincode?: string
     ...(slot ? { deliverySlot: slot } : {}),
     // null for legacy quotes without a PIN; the order will re-check coverage anyway
     delivery: destination ? { ...destination, serviceable: !outOfArea } : null,
-    items: products.map((p, i) => ({
-      ...lineView(p, priced.lines[i]),
-      inStock: p.stockQuantity >= priced.lines[i].quantity,
-      stockQuantity: p.stockQuantity,
-    })),
-    subtotal: paiseToRupees(priced.subtotalPaise),
-    gstAmount: paiseToRupees(priced.gstPaise),
-    deliveryCharge: paiseToRupees(deliveryPaise(delivery)),
+    items: items.map((_, idx) => lineFor(idx)),
+    subtotal: paiseToRupees(parts.reduce((sum, p) => sum + p.priced.subtotalPaise, 0)),
+    gstAmount: paiseToRupees(parts.reduce((sum, p) => sum + p.priced.gstPaise, 0)),
+    deliveryCharge: paiseToRupees(chargePaise),
     // How delivery was priced: OFF (no vehicles set up), PRICED, or UNPRICED with a reason to show
-    deliveryPricing: delivery.status === 'PRICED'
-      ? { status: 'PRICED', vehicle: delivery.vehicleName, weightKg: delivery.weightKg, distanceKm: delivery.distanceKm }
-      : delivery,
-    total: paiseToRupees(priced.totalPaise + deliveryPaise(delivery)),
+    deliveryPricing: unpriced ?? (parts.length === 1 ? pricingView(views[0].delivery) : { status: views.some((v) => v.delivery.status === 'PRICED') ? 'PRICED' : 'OFF' }),
+    total: paiseToRupees(goodsPaise + chargePaise),
+    // More than one seller is needed: one order per part, each delivered separately
+    ...(parts.length > 1 ? {
+      parts: views.map(({ part, delivery }, i) => ({
+        part: i + 1,
+        lines: part.lines,
+        items: part.lines.length,
+        goods: paiseToRupees(part.priced.totalPaise),
+        deliveryCharge: paiseToRupees(deliveryPaise(delivery)),
+        deliveryPricing: pricingView(delivery),
+        total: paiseToRupees(part.priced.totalPaise + deliveryPaise(delivery)),
+        expectedDelivery: deliveryWindow(part.products),
+      })),
+    } : {}),
   };
 }
 
@@ -294,12 +390,15 @@ function hashRequest(input: CreateOrderInput): string {
   return createHash('sha256').update(JSON.stringify(material)).digest('hex');
 }
 
-async function findReplay(buyerId: string, idempotencyKey: string, requestHash: string): Promise<LeanOrder | null> {
+/** The order (or every part of a split order) already made with this key, else null */
+async function findReplay(buyerId: string, idempotencyKey: string, requestHash: string): Promise<LeanOrder[] | null> {
   const existing = await Order.findOne({ buyerId, idempotencyKey }).lean<LeanOrder>();
-  if (existing && existing.requestHash !== requestHash) {
+  if (!existing) return null;
+  if (existing.requestHash !== requestHash) {
     throw AppError.conflict('This Idempotency-Key was already used for a different order');
   }
-  return existing;
+  if (!existing.orderGroup) return [existing];
+  return Order.find({ buyerId, 'orderGroup.id': existing.orderGroup.id }).sort({ 'orderGroup.part': 1 }).lean<LeanOrder[]>();
 }
 
 /**
@@ -312,12 +411,12 @@ export async function createOrder(params: {
   buyerId: string;
   input: CreateOrderInput;
   idempotencyKey: string;
-}): Promise<{ order: LeanOrder; replayed: boolean }> {
+}): Promise<{ orders: LeanOrder[]; replayed: boolean }> {
   const { buyerId, input, idempotencyKey } = params;
   const requestHash = hashRequest(input);
 
   const replay = await findReplay(buyerId, idempotencyKey, requestHash);
-  if (replay) return { order: replay, replayed: true };
+  if (replay) return { orders: replay, replayed: true };
 
   const pincode = input.deliveryAddress.pincode;
   if (pincode === undefined && env.ORDERS_REQUIRE_DELIVERY_PINCODE) {
@@ -333,90 +432,101 @@ export async function createOrder(params: {
   const driverShare = (await getPlatformSettings())?.driverSharePercent ?? null;
 
   try {
-    const order = await inTransaction(async (session) => {
-      const { supplierId, products, priced, supplierPriced, rates, delivery: priced0 } = await priceCart(input.items, session, destination?.pincode, dropPoint, input.deliverySlot);
+    const orders = await inTransaction(async (session) => {
+      const parts = await priceCart(input.items, session, destination?.pincode, dropPoint, input.deliverySlot);
       // Re-checked here, inside the transaction, regardless of any earlier quote
-      const { outOfArea } = await coverage(supplierId, destination, session);
-      const delivery = outOfArea && priced0.status === 'UNPRICED' ? { status: 'OFF' as const } : priced0;
-      if (delivery.status === 'UNPRICED') throw new AppError(delivery.message, 'DELIVERY_NOT_PRICED', 409);
-      const chargePaise = deliveryPaise(delivery);
-
-      if (input.expectedTotal !== undefined && toPaise(input.expectedTotal) !== priced.totalPaise + chargePaise) {
+      const priced = await Promise.all(parts.map(async (part) => {
+        const { outOfArea } = await coverage(part.supplierId, destination, session);
+        const delivery = outOfArea && part.delivery.status === 'UNPRICED' ? { status: 'OFF' as const } : part.delivery;
+        if (delivery.status === 'UNPRICED') throw new AppError(delivery.message, 'DELIVERY_NOT_PRICED', 409);
+        return { part, outOfArea, delivery, chargePaise: deliveryPaise(delivery) };
+      }));
+      const totalPaise = priced.reduce((sum, x) => sum + x.part.priced.totalPaise + x.chargePaise, 0);
+      if (input.expectedTotal !== undefined && toPaise(input.expectedTotal) !== totalPaise) {
         throw AppError.conflict('Prices changed since you reviewed your order. Please check the new total.');
-      }
-
-      // Out of area: no supplier holds stock yet; the one Sthiva finds takes it when offered
-      for (const [i, p] of (outOfArea ? [] : products).entries()) {
-        const qty = priced.lines[i].quantity;
-        const res = await Product.updateOne(
-          { _id: p._id, ...orderable(), stockQuantity: { $gte: qty } },
-          { $inc: { stockQuantity: -qty, totalSold: qty } },
-          { session }
-        );
-        if (res.modifiedCount !== 1) {
-          throw AppError.conflict(`Only ${p.stockQuantity} ${p.unit} of ${p.name} left in stock`);
-        }
       }
 
       const now = new Date();
       const expiresAt = await offerExpiry(now);
-      const hsnFor = await suggestedHsn(products);
-      const [created] = await Order.create(
-        [
-          {
-            orderNumber: generateOrderNumber(),
-            buyerId,
-            supplierId,
-            items: products.map((p, i) => ({
-              ...lineView(p, priced.lines[i]),
-              ...(!(p as { hsn?: string }).hsn && hsnFor.get(String(p._id)) ? { hsn: hsnFor.get(String(p._id)) } : {}),
-              // The supplier's side of the line, and the commission rates in force when ordered
-              supplierUnitPrice: paiseToRupees(supplierPriced.lines[i].unitPricePaise),
-              supplierLineTotal: paiseToRupees(supplierPriced.lines[i].totalPaise),
-              commissionPercent: rates[i].platform,
-              ...(rates[i].supplier !== null ? { supplierDeliveryPercent: rates[i].supplier } : {}),
-            })),
-            supplierTotal: paiseToRupees(supplierPriced.totalPaise),
-            commissionTotal: paiseToRupees(priced.totalPaise - supplierPriced.totalPaise),
-            deliveryAddress: destination
-              ? { ...input.deliveryAddress, district: destination.district, state: destination.state }
-              : input.deliveryAddress,
-            serviceabilityCheck: destination ? 'VERIFIED' : 'SKIPPED_NO_PINCODE',
-            deliveryMethod: input.deliveryMethod,
-            expectedDelivery: deliveryWindow(products),
-            ...(input.deliverySlot ? { deliverySlot: input.deliverySlot } : {}),
-            onOrder: products.some((p) => p.supply === 'ON_ORDER'),
-            ...(outOfArea ? { outOfArea: true } : {}),
-            deliveryCharge: paiseToRupees(chargePaise),
-            ...(delivery.status === 'PRICED' ? {
-              delivery: {
-                vehicleCode: delivery.vehicleCode, vehicleName: delivery.vehicleName, weightKg: delivery.weightKg, distanceKm: delivery.distanceKm,
-                ...(driverShare !== null ? { driverSharePercent: driverShare } : {}),
-              },
-            } : {}),
-            subtotal: paiseToRupees(priced.subtotalPaise),
-            gstAmount: paiseToRupees(priced.gstPaise),
-            total: paiseToRupees(priced.totalPaise + chargePaise),
-            notes: input.notes,
-            ...(input.buyerGst ? { buyerGst: input.buyerGst } : {}),
-            paymentMethod: 'COD',
-            paymentStatus: 'PENDING',
-            // Waits for the supplier to accept (allocation.service.ts)
-            status: 'PENDING',
-            allocation: outOfArea
-              ? { state: 'NEEDS_OPS', attempts: [] }
-              : { state: 'OFFERED', ...(expiresAt ? { expiresAt } : {}), attempts: [{ supplierId, offeredAt: now }] },
-            inventoryState: outOfArea ? 'NONE' : 'DEDUCTED',
-            // The buyer tells this to whoever delivers; needed to mark the order delivered
-            deliveryOtp: String(randomInt(1000, 10000)),
-            idempotencyKey,
-            requestHash,
-            statusHistory: [{ status: 'PENDING', at: now, byRole: 'BUYER', byUserId: buyerId }],
-          },
-        ],
-        { session }
-      );
-      return created.toObject() as LeanOrder;
+      const groupId = parts.length > 1 ? `G-${generateOrderNumber()}` : null;
+      const made: LeanOrder[] = [];
+      for (const [n, { part, outOfArea, delivery, chargePaise }] of priced.entries()) {
+        const { supplierId, products, priced: partPriced, supplierPriced, rates } = part;
+        // Out of area: no supplier holds stock yet; the one Sthiva finds takes it when offered
+        for (const [i, p] of (outOfArea ? [] : products).entries()) {
+          const qty = partPriced.lines[i].quantity;
+          const res = await Product.updateOne(
+            { _id: p._id, ...orderable(), stockQuantity: { $gte: qty } },
+            { $inc: { stockQuantity: -qty, totalSold: qty } },
+            { session }
+          );
+          if (res.modifiedCount !== 1) {
+            throw AppError.conflict(`Only ${p.stockQuantity} ${p.unit} of ${p.name} left in stock`);
+          }
+        }
+
+        const hsnFor = await suggestedHsn(products);
+        const [created] = await Order.create(
+          [
+            {
+              orderNumber: generateOrderNumber(),
+              buyerId,
+              supplierId,
+              items: products.map((p, i) => ({
+                ...lineView(p, partPriced.lines[i]),
+                ...(!(p as { hsn?: string }).hsn && hsnFor.get(String(p._id)) ? { hsn: hsnFor.get(String(p._id)) } : {}),
+                // The supplier's side of the line, and the commission rates in force when ordered
+                supplierUnitPrice: paiseToRupees(supplierPriced.lines[i].unitPricePaise),
+                supplierLineTotal: paiseToRupees(supplierPriced.lines[i].totalPaise),
+                commissionPercent: rates[i].platform,
+                ...(rates[i].supplier !== null ? { supplierDeliveryPercent: rates[i].supplier } : {}),
+              })),
+              supplierTotal: paiseToRupees(supplierPriced.totalPaise),
+              commissionTotal: paiseToRupees(partPriced.totalPaise - supplierPriced.totalPaise),
+              deliveryAddress: destination
+                ? { ...input.deliveryAddress, district: destination.district, state: destination.state }
+                : input.deliveryAddress,
+              serviceabilityCheck: destination ? 'VERIFIED' : 'SKIPPED_NO_PINCODE',
+              deliveryMethod: input.deliveryMethod,
+              expectedDelivery: deliveryWindow(products),
+              ...(input.deliverySlot ? { deliverySlot: input.deliverySlot } : {}),
+              onOrder: products.some((p) => p.supply === 'ON_ORDER'),
+              ...(outOfArea ? { outOfArea: true } : {}),
+              deliveryCharge: paiseToRupees(chargePaise),
+              ...(delivery.status === 'PRICED' ? {
+                delivery: {
+                  vehicleCode: delivery.vehicleCode, vehicleName: delivery.vehicleName, weightKg: delivery.weightKg, distanceKm: delivery.distanceKm,
+                  ...(driverShare !== null ? { driverSharePercent: driverShare } : {}),
+                },
+              } : {}),
+              subtotal: paiseToRupees(partPriced.subtotalPaise),
+              gstAmount: paiseToRupees(partPriced.gstPaise),
+              total: paiseToRupees(partPriced.totalPaise + chargePaise),
+              notes: input.notes,
+              ...(input.buyerGst ? { buyerGst: input.buyerGst } : {}),
+              // Split across sellers: every part knows its group (buyer sees them together)
+              ...(groupId ? { orderGroup: { id: groupId, part: n + 1, parts: parts.length } } : {}),
+              paymentMethod: 'COD',
+              paymentStatus: 'PENDING',
+              // Waits for the supplier to accept (allocation.service.ts)
+              status: 'PENDING',
+              allocation: outOfArea
+                ? { state: 'NEEDS_OPS', attempts: [] }
+                : { state: 'OFFERED', ...(expiresAt ? { expiresAt } : {}), attempts: [{ supplierId, offeredAt: now }] },
+              inventoryState: outOfArea ? 'NONE' : 'DEDUCTED',
+              // The buyer tells this to whoever delivers; needed to mark the order delivered
+              deliveryOtp: String(randomInt(1000, 10000)),
+              // The first part carries the checkout's key; later parts get their own so the unique index holds
+              idempotencyKey: n === 0 ? idempotencyKey : `${idempotencyKey}~${n + 1}`,
+              requestHash,
+              statusHistory: [{ status: 'PENDING', at: now, byRole: 'BUYER', byUserId: buyerId }],
+            },
+          ],
+          { session }
+        );
+        made.push(created.toObject() as LeanOrder);
+      }
+      return made;
     });
     // Remember the delivery address (newest first, 5 kept) so the next checkout is one tap
     await rememberAddress(buyerId, input.deliveryAddress, destination?.pincode)
@@ -426,12 +536,12 @@ export async function createOrder(params: {
       await User.updateOne({ _id: buyerId }, { $set: { gstNumber: input.buyerGst.gstin, gstBusinessName: input.buyerGst.businessName } })
         .catch((err: Error) => logger.warn('[orders] could not remember GSTIN', { error: err?.message }));
     }
-    return { order, replayed: false };
+    return { orders, replayed: false };
   } catch (err: any) {
     // A concurrent duplicate committed first: our transaction (and its stock changes) rolled back
     if (err?.code === 11000 && err?.keyPattern?.idempotencyKey) {
       const existing = await findReplay(buyerId, idempotencyKey, requestHash);
-      if (existing) return { order: existing, replayed: true };
+      if (existing) return { orders: existing, replayed: true };
     }
     throw err;
   }

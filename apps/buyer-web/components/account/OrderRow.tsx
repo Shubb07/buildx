@@ -16,7 +16,7 @@ export function OrderRow({ order }: { order: BuyerOrder }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <p className="font-mono text-[14px] font-medium">{order.orderNumber}</p>
+          <p className="font-mono text-[14px] font-medium">{order.orderNumber}{order.orderGroup && <span className="ml-2 font-sans text-[12px] font-normal text-stone">Part {order.orderGroup.part} of {order.orderGroup.parts}</span>}</p>
           <StatusPill status={order.status} />
           {order.deliveryDate && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
             <span className="inline-flex items-center gap-1 text-[13px] font-medium text-ink">

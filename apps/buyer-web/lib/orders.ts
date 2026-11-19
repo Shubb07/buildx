@@ -13,6 +13,8 @@ const quoteLineSchema = z.object({
   lineTotal: z.number(),
   inStock: z.boolean(),
   stockQuantity: z.number(),
+  // Which delivery this line is in, when the cart is split across sellers
+  part: z.number().optional(),
 });
 
 export const quoteSchema = z.object({
@@ -35,6 +37,11 @@ export const quoteSchema = z.object({
   outOfArea: z.boolean().optional(),
   // Can the cart be delivered in a booked slot near this PIN, and from which day
   slots: z.object({ available: z.boolean(), earliest: z.string().optional(), latest: z.string().optional() }).passthrough().optional(),
+  // No single seller has everything: one order (and one delivery) per part
+  parts: z.array(z.object({
+    part: z.number(), items: z.number(), goods: z.number(), deliveryCharge: z.number(), total: z.number(),
+    expectedDelivery: z.object({ minDays: z.number(), maxDays: z.number() }).optional(),
+  }).passthrough()).optional(),
 });
 export type Quote = z.infer<typeof quoteSchema>;
 export type DeliverySlotInput = { date: string; window: 'MORNING' | 'MIDDAY' | 'EVENING' };
@@ -69,6 +76,8 @@ const placeOrderResultSchema = z.object({
   total: z.number(),
   status: z.string(),
   replayed: z.boolean(),
+  // Present when the cart became several orders (one per seller)
+  orders: z.array(z.object({ orderId: z.string(), orderNumber: z.string(), total: z.number(), part: z.number().optional() })).optional(),
 });
 export type PlaceOrderResult = z.infer<typeof placeOrderResultSchema>;
 
@@ -128,6 +137,8 @@ export const orderSchema = z
     deliveryDate: z.string().optional(),
     // The slot the buyer booked at checkout, if any
     deliverySlot: z.object({ date: z.string(), window: z.enum(['MORNING', 'MIDDAY', 'EVENING']) }).optional(),
+    // Part of a cart split across sellers
+    orderGroup: z.object({ id: z.string(), part: z.number(), parts: z.number() }).optional(),
     onOrder: z.boolean().optional(),
     outOfArea: z.boolean().optional(),
     buyerGst: z.object({ gstin: z.string(), businessName: z.string() }).optional(),

@@ -130,6 +130,8 @@ export interface IOrder extends Document {
   // NONE: no supplier holds stock for it right now (order waiting for ops to find a supplier)
   inventoryState: 'DEDUCTED' | 'RESTORED' | 'NOT_RESTORED' | 'NONE';
   idempotencyKey?: string;
+  // A cart split across sellers: each part is its own order in one group (order.service.ts splitCart)
+  orderGroup?: { id: string; part: number; parts: number };
   requestHash?: string;
   codAmountCollected?: number;
   codCollectedAt?: Date;
@@ -279,6 +281,12 @@ const orderSchema = new Schema<IOrder>(
     // Orders created before this field existed had stock deducted at creation too
     inventoryState: { type: String, enum: ['DEDUCTED', 'RESTORED', 'NOT_RESTORED', 'NONE'], default: 'DEDUCTED' },
     idempotencyKey: String,
+    orderGroup: {
+      _id: false,
+      id: { type: String, index: true },
+      part: Number,
+      parts: Number,
+    },
     requestHash: String,
     codAmountCollected: Number,
     supplierSettlementId: { type: Schema.Types.ObjectId, ref: 'Settlement', index: true },

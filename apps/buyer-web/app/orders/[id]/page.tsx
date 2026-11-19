@@ -80,6 +80,12 @@ function OrderDetail({ id }: { id: string }) {
         </div>
       </section>
 
+      {order.orderGroup && (
+        <p className="flex items-center gap-2 rounded-xl bg-sand-3 px-4 py-3 text-[14px]">
+          <span className="material-symbols-outlined text-[20px]" aria-hidden="true">local_shipping</span>
+          <span>Part {order.orderGroup.part} of {order.orderGroup.parts} of your order. Each part comes from a different seller with its own delivery. <Link href="/orders" className="font-medium text-cobalt hover:underline">See all parts</Link></span>
+        </p>
+      )}
       <DeliveryDateCard order={order} />
       {order.status === 'DELIVERED' && <OrderReview orderId={order._id} />}
       {(order.status === 'PICKED_UP' || order.status === 'IN_TRANSIT') && order.deliveryMode !== 'SUPPLIER' && (

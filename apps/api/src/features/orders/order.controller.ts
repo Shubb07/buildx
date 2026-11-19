@@ -47,26 +47,30 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
       throw AppError.badRequest('Idempotency-Key header is required (16-128 letters, digits, - or _)');
     }
 
-    const { order, replayed } = await createOrderTx({
+    const { orders, replayed } = await createOrderTx({
       buyerId: req.auth!.userId,
       input: req.body as CreateOrderInput,
       idempotencyKey,
     });
 
     if (!replayed) {
-      // The supplier must accept or reject the offer
-      announceNewOrder(order);
+      // Each part's supplier must accept or reject their offer
+      for (const order of orders) announceNewOrder(order);
     }
 
+    // Totals cover every part; orderId is the first part (the only one when not split)
+    const order = orders[0];
+    const sum = (f: (o: typeof order) => number) => Math.round(orders.reduce((s, o) => s + f(o), 0) * 100) / 100;
     res.status(replayed ? 200 : 201).json(
       ok({
         orderId: order._id,
         orderNumber: order.orderNumber,
-        subtotal: order.subtotal,
-        gstAmount: order.gstAmount,
-        total: order.total,
+        subtotal: sum((o) => o.subtotal),
+        gstAmount: sum((o) => o.gstAmount),
+        total: sum((o) => o.total),
         status: order.status,
         replayed,
+        ...(orders.length > 1 ? { orders: orders.map((o) => ({ orderId: o._id, orderNumber: o.orderNumber, total: o.total, part: o.orderGroup?.part })) } : {}),
       })
     );
   } catch (err) {

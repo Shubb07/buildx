@@ -99,6 +99,10 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
               Sign in
             </Link>
           )}
+          <Link href="/order-by-list" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 lg:flex">
+            <span className="material-symbols-outlined text-[24px]" aria-hidden="true">checklist</span>
+            <span className="text-[14px] font-semibold">Order by list</span>
+          </Link>
           <Link href="/orders" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 lg:flex">
             <span className="material-symbols-outlined text-[24px]" aria-hidden="true">receipt_long</span>
             <span className="text-[14px] font-semibold">Orders</span>

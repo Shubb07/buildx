@@ -259,6 +259,10 @@ function MaterialsPage({ slug }: { slug: string }) {
                 {name ?? <span className="skeleton inline-block h-[0.9em] w-[8ch] align-middle" />}
               </h1>
               {meta?.tagline && <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-stone">{meta.tagline}</p>}
+              <Link href="/order-by-list" className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-semibold text-cobalt hover:underline">
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">checklist</span>
+                Buying for a whole job? Order by list
+              </Link>
             </div>
             {meta?.photo && (
               <div className="relative hidden h-24 w-36 shrink-0 overflow-hidden rounded-xl sm:block md:h-28 md:w-44">

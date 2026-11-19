@@ -48,6 +48,7 @@ const SECTIONS: { title: string; points: string[] }[] = [
       'Sthiva\'s commission is a percentage per category. You see what you will earn on every order before you accept it.',
       'Buyers pay cash on delivery for now. Cash you collect counts against what Sthiva owes you. Sthiva sends you statements; it pays what it owes, or you pay what you owe, with a payment reference.',
       'Sthiva pays only to your verified payout account. After you change that account, payouts pause for 48 hours for your safety.',
+      'When a refund to a buyer is approved, Sthiva pays it to their UPI or bank account within 3 working days.',
     ],
   },
   {
@@ -69,6 +70,8 @@ const SECTIONS: { title: string; points: string[] }[] = [
     points: [
       'You are responsible for the quality, grade and quantity of what you supply, as listed.',
       'If a buyer reports a problem, you help Sthiva resolve it quickly, including replacing or taking back wrong or damaged goods.',
+      'You set the returns for each product: whether problems must be noted at delivery or can be reported within a set time, and whether sealed items can be returned for a change of mind. Buyers see this before they order, and the setting at the time of the order applies.',
+      'When goods are wrong, damaged or short because of you, you pay for the refund and the return trip. It is taken from your next payout, and Sthiva returns its commission on that item.',
     ],
   },
   {

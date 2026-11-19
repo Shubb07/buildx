@@ -77,7 +77,7 @@ async function inTransaction<T>(fn: (session: ClientSession) => Promise<T>): Pro
 type LeanProduct = Pick<
   IProduct,
   'supplierId' | 'name' | 'unit' | 'basePrice' | 'bulkPricing' | 'gstRate' | 'isGstInclusive'
-  | 'minOrderQuantity' | 'stockQuantity' | 'status' | 'images' | 'catalogItemId' | 'categoryId' | 'deliveryDays' | 'deliveryDaysMax' | 'supply' | 'pausedUntil' | 'slotDelivery'
+  | 'minOrderQuantity' | 'stockQuantity' | 'status' | 'images' | 'catalogItemId' | 'categoryId' | 'deliveryDays' | 'deliveryDaysMax' | 'supply' | 'pausedUntil' | 'slotDelivery' | 'returnPolicy'
 > & { _id: Types.ObjectId };
 
 type PricedCart = {
@@ -285,6 +285,8 @@ function lineView(p: PricedCart['products'][number], line: PricedOrder['lines'][
     gstRate: p.gstRate,
     isGstInclusive: p.isGstInclusive,
     ...((p as { hsn?: string }).hsn ? { hsn: (p as { hsn?: string }).hsn } : {}),
+    // The returns promised when ordered stay with the order, whatever the listing says later
+    ...(p.returnPolicy ? { returnPolicy: p.returnPolicy } : {}),
     subtotal: paiseToRupees(line.grossPaise),
     taxableValue: paiseToRupees(line.taxablePaise),
     gstAmount: paiseToRupees(line.gstPaise),

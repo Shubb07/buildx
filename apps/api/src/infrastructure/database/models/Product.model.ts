@@ -37,6 +37,10 @@ export interface IProduct extends Document {
   supply: 'IN_STOCK' | 'ON_ORDER';
   // Optional warranty shown to buyers (taps, wires, CCTV, inverters...); absent = none stated
   warranty?: { months: number; by: 'MANUFACTURER' | 'SELLER'; note?: string };
+  // Returns for this listing, set by the seller (owner decision 2026-11-20: it depends on the product
+  // and the seller). Problems: the buyer notes them at delivery, or within the window. Change of mind:
+  // only sealed items within the window, the buyer paying the return trip. Absent = the defaults.
+  returnPolicy?: { problemWindow: 'AT_DELIVERY' | 'H24' | 'H48' | 'D7'; changeOfMind: 'NONE' | 'UNOPENED_1D' | 'UNOPENED_7D' };
   slotDelivery?: boolean; // seller offers delivery in a buyer-chosen slot for this listing (features/orders/delivery-slots.ts)
   location: { lat: number; lng: number; address: string };
   createdAt: Date;
@@ -99,6 +103,11 @@ const productSchema = new Schema<IProduct>(
     deliveryDaysMax: { type: Number, min: 0, max: 90 },
     supply: { type: String, enum: ['IN_STOCK', 'ON_ORDER'], default: 'IN_STOCK', index: true },
     slotDelivery: { type: Boolean, default: false },
+    returnPolicy: {
+      _id: false,
+      problemWindow: { type: String, enum: ['AT_DELIVERY', 'H24', 'H48', 'D7'], default: 'AT_DELIVERY' },
+      changeOfMind: { type: String, enum: ['NONE', 'UNOPENED_1D', 'UNOPENED_7D'], default: 'NONE' },
+    },
     warranty: {
       _id: false,
       months: { type: Number, min: 1, max: 360 },

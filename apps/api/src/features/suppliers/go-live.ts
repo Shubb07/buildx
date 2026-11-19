@@ -16,7 +16,7 @@ import { logger } from '../../shared/logger/logger';
 import { logEntry, pushLog } from './verification';
 
 /** Bump when the seller agreement text changes (seller-web app/(dashboard)/agreement): everyone accepts again */
-export const SELLER_TERMS_VERSION = '2026-11-20';
+export const SELLER_TERMS_VERSION = '2026-11-20.2';
 
 export type StepStatus = 'TODO' | 'WAITING' | 'DONE' | 'PROBLEM';
 export type GoLiveStep = { key: string; label: string; status: StepStatus; detail: string; href: string };

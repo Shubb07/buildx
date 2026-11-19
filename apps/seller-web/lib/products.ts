@@ -22,6 +22,7 @@ export const supplierProductSchema = z
     supply: z.enum(['IN_STOCK', 'ON_ORDER']).optional(),
     slotDelivery: z.boolean().optional(),
     warranty: z.object({ months: z.number(), by: z.enum(['MANUFACTURER', 'SELLER']), note: z.string().optional() }).nullable().optional(),
+    returnPolicy: z.object({ problemWindow: z.enum(['AT_DELIVERY', 'H24', 'H48', 'D7']), changeOfMind: z.enum(['NONE', 'UNOPENED_1D', 'UNOPENED_7D']) }).optional(),
     gstRate: z.number().optional(),
     isGstInclusive: z.boolean().optional(),
     hsn: z.string().optional(),
@@ -55,6 +56,8 @@ export type ProductInput = {
   slotDelivery?: boolean;
   // Warranty buyers see; null removes it
   warranty?: { months: number; by: 'MANUFACTURER' | 'SELLER'; note?: string } | null;
+  // Returns for this listing (shown to buyers before they order)
+  returnPolicy?: { problemWindow: 'AT_DELIVERY' | 'H24' | 'H48' | 'D7'; changeOfMind: 'NONE' | 'UNOPENED_1D' | 'UNOPENED_7D' };
   gstRate?: number;
   isGstInclusive?: boolean;
   hsn?: string;

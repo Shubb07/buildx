@@ -89,6 +89,11 @@ const productFields = {
   supply: z.enum(['IN_STOCK', 'ON_ORDER']),
   // Offer delivery in a buyer-chosen slot for this listing (features/orders/delivery-slots.ts)
   slotDelivery: z.boolean(),
+  // Returns for this listing (problems: at delivery or within a window; change of mind: sealed items only)
+  returnPolicy: z.object({
+    problemWindow: z.enum(['AT_DELIVERY', 'H24', 'H48', 'D7']),
+    changeOfMind: z.enum(['NONE', 'UNOPENED_1D', 'UNOPENED_7D']),
+  }).strict(),
   // Warranty buyers see on the product page; null removes it
   warranty: z.union([z.null(), z.object({
     months: z.number().int('Whole months only').min(1, 'At least 1 month').max(360),
@@ -121,7 +126,7 @@ export const createProductSchema = z
     status: z.enum(['DRAFT', 'ACTIVE']),
   })
   .partial({ catalogItemId: true, hsn: true, brand: true, shortDescription: true, gstRate: true, isGstInclusive: true, stockQuantity: true, minOrderQuantity: true,
-    deliveryDays: true, deliveryDaysMax: true, supply: true, slotDelivery: true, warranty: true, lowStockAlert: true, tags: true, specifications: true, images: true, bulkPricing: true, status: true })
+    deliveryDays: true, deliveryDaysMax: true, supply: true, slotDelivery: true, warranty: true, returnPolicy: true, lowStockAlert: true, tags: true, specifications: true, images: true, bulkPricing: true, status: true })
   .strict()
   .superRefine((v, ctx) => {
     const problem = bulkPricingProblem(v.bulkPricing, v.basePrice, v.minOrderQuantity);

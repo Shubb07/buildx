@@ -198,6 +198,9 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
   const [warrantyMonths, setWarrantyMonths] = useState(String(product?.warranty?.months ?? 12));
   const [warrantyBy, setWarrantyBy] = useState<'MANUFACTURER' | 'SELLER'>(product?.warranty?.by ?? 'MANUFACTURER');
   const [warrantyNote, setWarrantyNote] = useState(product?.warranty?.note ?? '');
+  // Returns for this product (owner rule: it depends on the product and the seller)
+  const [problemWindow, setProblemWindow] = useState<'AT_DELIVERY' | 'H24' | 'H48' | 'D7'>(product?.returnPolicy?.problemWindow ?? 'AT_DELIVERY');
+  const [changeOfMind, setChangeOfMind] = useState<'NONE' | 'UNOPENED_1D' | 'UNOPENED_7D'>(product?.returnPolicy?.changeOfMind ?? 'NONE');
   const [stockQuantity, setStockQuantity] = useState(product && product.supply !== 'ON_ORDER' ? String(product.stockQuantity) : '');
   const [lowStockAlert, setLowStockAlert] = useState(start?.lowStockAlert !== undefined ? String(start.lowStockAlert) : '10');
   const [minOrderQuantity, setMinOrderQuantity] = useState(start?.minOrderQuantity ? String(start.minOrderQuantity) : '1');
@@ -354,6 +357,7 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
       bulkPricing: tierValues,
       supply,
       slotDelivery,
+      returnPolicy: { problemWindow, changeOfMind },
       // Only send it when it is set, or when an existing one is being removed
       ...(hasWarranty && /^\d+$/.test(warrantyMonths) && Number(warrantyMonths) >= 1 && Number(warrantyMonths) <= 360
         ? { warranty: { months: Number(warrantyMonths), by: warrantyBy, ...(warrantyNote.trim() ? { note: warrantyNote.trim() } : {}) } }
@@ -764,6 +768,29 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="mt-3 rounded-xl border border-sand-4 p-4">
+            <p className="text-[15px] font-semibold">Returns for this product</p>
+            <p className="mt-0.5 text-[13px] text-stone">Buyers see this before they order. If goods are wrong, damaged or short because of you, the refund and return trip come from your payout.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold">Damaged, wrong or short items
+                <select value={problemWindow} onChange={(e) => { touch(); setProblemWindow(e.target.value as typeof problemWindow); }} className="field h-11 font-normal">
+                  <option value="AT_DELIVERY">Buyer must note it at delivery</option>
+                  <option value="H24">Buyer can report within 24 hours</option>
+                  <option value="H48">Buyer can report within 48 hours</option>
+                  <option value="D7">Buyer can report within 7 days</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold">Change of mind (nothing wrong)
+                <select value={changeOfMind} onChange={(e) => { touch(); setChangeOfMind(e.target.value as typeof changeOfMind); }} className="field h-11 font-normal">
+                  <option value="NONE">No returns</option>
+                  <option value="UNOPENED_1D">Sealed items within 1 day</option>
+                  <option value="UNOPENED_7D">Sealed items within 7 days</option>
+                </select>
+              </label>
+            </div>
+            <p className="mt-2 text-[12px] text-stone">Change-of-mind returns are only for sealed, unused items; the buyer pays the return trip. Loose, cut or mixed materials are never returned for a change of mind.</p>
           </div>
         </Step>
 

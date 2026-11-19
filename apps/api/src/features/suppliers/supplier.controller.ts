@@ -339,7 +339,7 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
     // Body is checked by createProductSchema (supplier.routes.ts)
     const { catalogItemId, brand, description, shortDescription, basePrice, gstRate, isGstInclusive,
       stockQuantity: givenStock, minOrderQuantity, deliveryDays, deliveryDaysMax, supply, lowStockAlert, tags, specifications, images, bulkPricing,
-      status, hsn, slotDelivery, warranty } = req.body;
+      status, hsn, slotDelivery, warranty, returnPolicy } = req.body;
     // An ON_ORDER listing never runs out (the supplier orders or makes it): stock is held at ON_ORDER_STOCK
     const stockQuantity = supply === 'ON_ORDER' ? ON_ORDER_STOCK : givenStock;
     let { name, categoryId, unit } = req.body;
@@ -406,6 +406,7 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
         supply: supply ?? 'IN_STOCK',
         slotDelivery: slotDelivery === true,
         ...(warranty ? { warranty } : {}),
+        ...(returnPolicy ? { returnPolicy } : {}),
         ...(deliveryDaysMax !== undefined ? { deliveryDaysMax: Math.max(deliveryDaysMax, deliveryDays ?? 2) } : {}),
         tags: tags ?? [],
         specifications: specifications ?? {},
@@ -434,7 +435,7 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
     const profile = await getSupplierProfile(req.auth!.userId);
 
     const editable = ['name', 'description', 'shortDescription', 'basePrice', 'gstRate', 'isGstInclusive',
-      'stockQuantity', 'minOrderQuantity', 'deliveryDays', 'deliveryDaysMax', 'supply', 'slotDelivery', 'warranty', 'tags', 'specifications', 'status', 'images',
+      'stockQuantity', 'minOrderQuantity', 'deliveryDays', 'deliveryDaysMax', 'supply', 'slotDelivery', 'warranty', 'returnPolicy', 'tags', 'specifications', 'status', 'images',
       'lowStockAlert', 'bulkPricing'];
     const update: Record<string, unknown> = {};
     for (const key of editable) {

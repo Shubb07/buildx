@@ -35,11 +35,28 @@ export default function RefundsPage() {
         </ul>
       </Section>
 
-      <Section title="Problems found after payment">
+      <Section title="Each product has its own returns">
         <p>
-          Report the issue as soon as possible with your order number and photos. We will work with the supplier to resolve it with
-          a replacement, collection or refund of the amount paid for the affected item, as appropriate. Approved refunds are paid
-          back by an agreed method within a reasonable time.
+          Returns depend on the product and the seller, and every product page shows them before you order. The returns shown when
+          you ordered are the ones that apply to your order.
+        </p>
+        <ul>
+          <li>
+            <strong>Damaged, wrong or short items:</strong> note them at delivery. Some products also let you report a problem within
+            24 hours, 48 hours or 7 days of delivery, as shown on the product page. Send your order number and photos.
+          </li>
+          <li>
+            <strong>Change of mind:</strong> most building materials cannot be returned once delivered. Where the product page allows it,
+            sealed and unused items can be returned within the time shown, and you pay the return trip.
+          </li>
+          <li>When the problem is the seller&apos;s fault, the seller pays for the replacement or refund and any return trip.</li>
+        </ul>
+      </Section>
+
+      <Section title="Refunds">
+        <p>
+          When a refund is approved, Sthiva pays it to your UPI ID or bank account within 3 working days. Refunds are paid as money,
+          not as store credit or coupons.
         </p>
       </Section>
 

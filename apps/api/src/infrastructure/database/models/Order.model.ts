@@ -22,6 +22,7 @@ export interface IOrderItem {
   supplierLineTotal?: number;
   commissionPercent?: number;        // Sthiva delivers rate, built into the buyer price
   supplierDeliveryPercent?: number;  // lower rate Sthiva keeps if the supplier delivers
+  returnPolicy?: { problemWindow: string; changeOfMind: string }; // as promised when ordered
 }
 
 export type OrderStatusEvent = {
@@ -173,6 +174,7 @@ const orderSchema = new Schema<IOrder>(
         supplierLineTotal: Number,
         commissionPercent: Number,
         supplierDeliveryPercent: Number,
+        returnPolicy: { _id: false, problemWindow: String, changeOfMind: String },
       },
     ],
     deliveryAddress: {

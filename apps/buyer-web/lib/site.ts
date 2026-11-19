@@ -10,5 +10,5 @@ export const SITE = {
   supportPhone: process.env.NEXT_PUBLIC_SUPPORT_PHONE,
   legalName: process.env.NEXT_PUBLIC_LEGAL_NAME ?? 'Sthiva',
   city: 'Tumakuru, Karnataka, India',
-  legalUpdated: '28 October 2026',
+  legalUpdated: '20 November 2026',
 } as const;

@@ -33,6 +33,19 @@ function bestBulkPrice(base: number, tiers: { minQty: number; price: number }[] 
   return applicable ? applicable.price : base;
 }
 
+// The seller's returns for this listing, in buyer words
+const PROBLEM_WINDOW: Record<string, string> = {
+  AT_DELIVERY: 'Check at delivery: refuse anything damaged, wrong or short',
+  H24: 'Damaged, wrong or short? Report within 24 hours of delivery',
+  H48: 'Damaged, wrong or short? Report within 48 hours of delivery',
+  D7: 'Damaged, wrong or short? Report within 7 days of delivery',
+};
+const CHANGE_OF_MIND: Record<string, string> = {
+  NONE: 'No returns for a change of mind',
+  UNOPENED_1D: 'Changed your mind? Sealed items can be returned within 1 day (you pay the return trip)',
+  UNOPENED_7D: 'Changed your mind? Sealed items can be returned within 7 days (you pay the return trip)',
+};
+
 const UNIT_LABEL: Record<string, string> = {
   KG: 'kg', TON: 'tonne', PIECE: 'piece', BAG: 'bag', BUNDLE: 'bundle', CUBIC_METER: 'm³', SQUARE_METER: 'm²', LITER: 'litre', METER: 'metre', BOX: 'box', SHEET: 'sheet',
 };
@@ -308,6 +321,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       <span className="text-[13px] text-stone-light">to {location.pincode}, if ordered today</span>
                     </p>
                   )}
+                  <div className="mt-3 border-t border-white/10 pt-3 text-[13px] text-stone-light">
+                    <p className="flex items-start gap-1.5"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">assignment_return</span>{PROBLEM_WINDOW[data.returnPolicy?.problemWindow ?? 'AT_DELIVERY']}</p>
+                    <p className="ml-[22px]">{CHANGE_OF_MIND[data.returnPolicy?.changeOfMind ?? 'NONE']}. <Link href="/refunds" className="underline">Refunds</Link> go to your UPI or bank within 3 working days.</p>
+                  </div>
                   {(onOrder || outOfArea) && (
                     <p className="mt-2 flex items-start gap-1.5 text-[14px] text-stone-light">
                       <span className="material-symbols-outlined mt-0.5 text-[18px]" aria-hidden="true">pending</span>
@@ -385,7 +402,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   </li>
                   <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
                     <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">fact_check</span>
-                    <span><span className="block font-semibold">Check before you pay</span><Link href="/refunds" className="text-stone underline">Refuse damaged or short items</Link></span>
+                    <span><span className="block font-semibold">Check before you pay</span><Link href="/refunds" className="text-stone underline">{data.returnPolicy?.problemWindow && data.returnPolicy.problemWindow !== 'AT_DELIVERY' ? 'Or report problems later, see returns' : 'Refuse damaged or short items'}</Link></span>
                   </li>
                   {data.warranty ? (
                     <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">

@@ -87,7 +87,21 @@ function phoneFor(_uid: string) {
 let mongod: MongoMemoryReplSet | undefined;
 
 export async function startDb() {
-  mongod = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
+  // Test files run in parallel workers. Left to pick random ports, two workers sometimes grabbed the
+  // same one at the same moment ("Port ... already in use") and a whole file failed at random. Each
+  // worker gets its own port range instead, and a busy port (e.g. still closing) is retried.
+  const worker = Number(process.env.VITEST_POOL_ID ?? process.env.VITEST_WORKER_ID ?? 0);
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 6 && !mongod; attempt++) {
+    const port = 31000 + worker * 40 + attempt * 6 + Math.floor(Math.random() * 6);
+    try {
+      mongod = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' }, instanceOpts: [{ port }] });
+    } catch (err) {
+      lastError = err;
+      mongod = undefined;
+    }
+  }
+  if (!mongod) throw lastError;
   await mongoose.connect(mongod.getUri(), { dbName: 'buildx-test' });
   // Unique indexes (firebaseUid, phone, profile userId, idempotency key) are part of what's under test
   await Promise.all([User.init(), SupplierProfile.init(), DeliveryPartner.init(), Order.init(), Product.init(), Category.init()]);
@@ -96,6 +110,7 @@ export async function startDb() {
 export async function stopDb() {
   await mongoose.disconnect();
   await mongod?.stop();
+  mongod = undefined;
 }
 
 export async function clearDb() {

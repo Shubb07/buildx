@@ -7,8 +7,11 @@ import { ErrorNote, PageHead } from '../../../components/ui';
 import { acceptAgreement, useGoLive } from '../../../lib/go-live';
 
 // The seller agreement. Written from the rules the platform actually applies (API features/*).
-// When this text changes, bump SELLER_TERMS_VERSION in apps/api/src/features/suppliers/go-live.ts so
-// every seller reads and accepts the new version.
+// When this text changes, bump TEXT_VERSION here AND SELLER_TERMS_VERSION in
+// apps/api/src/features/suppliers/go-live.ts, so every seller reads and accepts the new version.
+// The page sends the version of the text it shows: if the site is older or newer than the API (a
+// deploy still on its way), the API refuses it, so nobody accepts words they were not shown.
+const TEXT_VERSION = '2026-11-20.2';
 
 const SECTIONS: { title: string; points: string[] }[] = [
   {
@@ -98,10 +101,13 @@ export default function AgreementPage() {
   const [acceptedNow, setAcceptedNow] = useState(false);
 
   const accepted = acceptedNow || (goLive.status === 'success' && goLive.data.steps.find((s) => s.key === 'agreement')?.status === 'DONE');
-  const version = goLive.status === 'success' ? goLive.data.termsVersion : null;
+  const current = goLive.status === 'success' ? goLive.data.termsVersion : null;
+  const version = TEXT_VERSION;
+  // This page shows another version than the one sellers must accept now
+  const stale = current !== null && current !== TEXT_VERSION;
 
   async function accept() {
-    if (!version) return;
+    if (stale) return;
     setBusy(true);
     setError(null);
     try {
@@ -130,13 +136,18 @@ export default function AgreementPage() {
             </ul>
           </section>
         ))}
-        {version && <p className="font-mono text-[12px] text-stone">Version {version}</p>}
+        <p className="font-mono text-[12px] text-stone">Version {version}</p>
       </article>
 
       <section className="card flex flex-col gap-4 p-5 sm:p-6" aria-label="Accept the agreement">
         {goLive.status === 'loading' && <div className="skeleton h-12" role="status" aria-label="Loading" />}
         {goLive.status === 'error' && <ErrorNote>Couldn&apos;t load your status. Check your connection and try again.</ErrorNote>}
-        {goLive.status === 'success' && (accepted ? (
+        {goLive.status === 'success' && stale && !accepted ? (
+          <p className="flex items-start gap-2 text-[15px]">
+            <span className="material-symbols-outlined text-signal-red" aria-hidden="true">sync_problem</span>
+            <span>The agreement has just been updated and this page is still showing the old text. Reload the page in a few minutes to read and accept the new version.</span>
+          </p>
+        ) : goLive.status === 'success' && (accepted ? (
           <p className="flex items-center gap-2 text-[15px]">
             <span className="material-symbols-outlined text-tertiary" aria-hidden="true">task_alt</span>
             You have accepted this agreement.

@@ -3,37 +3,32 @@
 Live memory for Claude sessions. Read this first. Newest entries at the bottom of the timeline.
 Times are IST.
 
-## CURRENT STATE (2026-11-06 IST)
-- Brand **Sthiva**. Live: shop https://sthiva.com (www and buildx-vgud.vercel.app 308 -> sthiva.com), suppliers
-  https://seller.sthiva.com, ops https://ops.sthiva.com, API https://api.sthiva.com. All three websites now call
-  https://api.sthiva.com (NEXT_PUBLIC_API_URL switched 2026-11-06); buildx-api.onrender.com still answers.
-  Service ids keep "buildx" on purpose. DNS at Cloudflare (all records DNS only). support@sthiva.com via Cloudflare
-  Email Routing to the owner's Gmail.
-- Search: Google Search Console + Bing verified, sitemap submitted; GA4 G-9RH1C5X0WN loads only after consent.
-  Seller and ops sites: noindex + robots.txt disallow all.
-- ALL 8 PLATFORM PHASES MERGED (#66-#77) plus supplier documents, compulsory Monday check (from 9 Nov 2026).
-  Checklist: docs/PLATFORM_CHECKLIST.md. Vultr deploy kit ready in deploy/vultr (waiting for a server).
-- Three apps from one codebase (apps/mobile, APP_VARIANT): Sthiva (com.sthiva.app), Sthiva Partner
-  (com.sthiva.partner), Sthiva Driver (com.sthiva.driver). APKs in C:/dev/BuildX. Builds in C:/bx/mobile:
-  `APP_VARIANT=<v> npx expo prebuild -p android --clean --no-install`, then gradle (see 2026-11-05 23:20 entry).
-  OTA: `node scripts/publish-update.cjs <buyer|partner|driver> "note"` (from C:/bx/mobile; owner runs it).
-- Live data: demo supplier hidden, so 0 products until real suppliers join; categories at 0% commission; no
-  vehicles yet (delivery charges OFF); answer times and driver share not set.
-- Websites skip builds unless their own files change (vercel.json ignoreCommand). To redeploy after an env change:
-  Vercel Redeploy and untick "Use project's Ignore Build Step".
+## CURRENT STATE (2026-11-20 IST)
+- Brand **Sthiva**. Live: shop https://sthiva.com, sellers https://seller.sthiva.com, ops https://ops.sthiva.com,
+  API https://api.sthiva.com (Render). DNS at Cloudflare. support@sthiva.com routes to the owner's Gmail.
+- Launch city is **Chitradurga** (not Tumakuru). Location changes in code are PAUSED until the owner picks the exact
+  area (then: launch PINs, area price pages = market-study step 8, pitch deck + technical PDFs).
+- WEBSITES ONLY until the owner says otherwise: no mobile app / APK / OTA work.
+- Built and merged on 19-20 Nov: seller payout account (encrypted, PAYOUT_ENCRYPTION_KEY on Render), Zomato-style
+  order alerts, pause single products, optional delivery slots, go-live checklist + seller agreement, quick add,
+  warranty + reviews, market-study steps 1-7 (sizes on one page, order by list, split orders, board prices,
+  bulk quotes, made to measure, returns per product), product page guidance, Report a problem (#129).
+- Vercel Hobby build limit was hit on 19 Nov (too many preview builds): the websites stopped at #125 while the API
+  has everything. Fix: preview builds off (vercel.json git.deploymentEnabled + production-only ignoreCommand).
+- No real sellers or products yet. Seller agreement, refunds and returns pages need a lawyer/CA review before
+  real sellers and buyers rely on them.
+- Docs: Execution plan https://claude.ai/artifact/LZrL8BeG3MUa4pPQdjBre4 · Marketing plan + Meta ads playbook
+  https://claude.ai/artifact/DdJ7uHqit36Xz5KLmFGDjN · Market study https://claude.ai/artifact/8cyNnKtSeu9BRhcEMb7MZt
 
 ## NEXT STEPS
-0. (Claude) 2026-11-07 or later: #89 merged but Vercel did not deploy it (Hobby "Deployment rate limited, retry in 24 hours"). Redeploy sthiva-shop, sthiva-seller, sthiva-ops from main (untick ignore build step), check /fonts/icons-*.woff2 is live, rerun Lighthouse. Fewer pushes per day: batch small PRs.
+0. (Claude) Make sure all three websites are live on the latest main (Vercel redeploy if a build was rate limited;
+   untick "Use project's Ignore Build Step"). Then check the new pages on the live sites.
 Waiting on the owner:
-0b. Cloudflare Worker "sthiva-api-keepalive" (pings https://api.sthiva.com/health) is deployed, but its 5-minute Cron trigger needs the owner to click Add (Workers & Pages > sthiva-api-keepalive > Settings > Trigger events > Cron triggers > Add, every 5 minutes). Claude was not allowed to create the schedule. Delete the worker after the move to Vultr.
-1. Run the three OTA publish commands (partner, buyer, driver) from C:/bx/mobile.
-2. Sign the first real suppliers on seller.sthiva.com; verify their documents in ops.
-3. Ops Settings: commission per category, answer times, driver share, vehicles.
-4. Vultr server (Ubuntu 24.04, 4 GB, Mumbai): send the IP; Claude deploys and switches DNS.
-5. Product Hunt post (docs/PRODUCT_HUNT.md) after suppliers are live; send URL + post_id for the badge.
-6. Vercel 2FA; new MongoDB credentials; support phone (WhatsApp).
-Needs owner rules first: product variations, market reference prices, online payment/refunds (company KYC).
-Old PRs #51 and #34 predate the rename: review/rebase or close.
+1. Exact launch area in Chitradurga (unblocks area pages, launch PINs, PDFs).
+2. Sign the first real sellers on seller.sthiva.com; verify their documents in ops.
+3. Ops Settings: commission per category, answer times, driver share, vehicles; support phone.
+4. Lawyer/CA review of the seller agreement, refunds and returns pages.
+5. Cloudflare keep-alive cron (see 2026-11-07 notes), Vultr server, Vercel 2FA, new MongoDB credentials.
 
 ## DOMAIN PLAN: sthiva.com (brand renamed BuildX -> Sthiva on 2026-11-05)
 BOUGHT 2026-11-05 on Cloudflare Registrar (account harishrs21082006, nameservers jillian/sean.ns.cloudflare.com).
@@ -720,3 +715,5 @@ Original plan:
 - 2026-11-20 16:05 IST: #126 merged (squash). #127 then conflicted on the product page; kept #127's page (main's page was identical to #126's, plus the returns lines). Also found 3 files in #127 saved with Windows line endings while main uses Unix ones (product page, refunds page, seller agreement page), which made the PR look like ~760 changed lines per file; converted to Unix. #127 now 15 files, +143/-11, mergeable, all tests green; Vercel previews still on the free-plan daily build limit. LESSON: scripts writing files on Windows must keep the file's original line endings (open with newline='').
 - 2026-11-20 16:45 IST: Report a problem, API part (branch feat/report-problem). ProblemReport model; features/problems (service + routes): buyer GET/POST /problems/orders/:orderId, POST /problems/:id/withdraw; seller /suppliers/me/problems (+ /:id/reply); ops /ops/problems (?status=OPEN|REFUND_DUE|...), /:id/resolve, /:id/refund-paid. Windows from each order line's returnPolicy; AT_DELIVERY lines can be put on record for 2 hours after delivery (what was seen on the spot); change of mind only where allowed, refund only. Refund due in 3 working days (Mon-Fri). Seller charge default: seller's share of the refund (+ return trip when at fault); ops can override. Settlements take pending charges off the seller's next statement (Settlement.deductions/deducted; cancel frees them). Buyers can upload photos (folder problems, not cropped). 9 new tests. NEXT: buyer, seller and ops screens.
 - 2026-11-20 17:30 IST: Report a problem, screens. Buyer: components/account/ReportProblem.tsx on delivered orders (kind, items + how many with each item's deadline, photos via /upload/image, description, replace or refund, UPI ID; report status and withdraw); lib/problems.ts; refunds page points to it (2 hours to put on record, longer where the product allows). Seller: /problems page (photos, agree/disagree with reason) + nav 'Problems'; payouts page shows problem charges. Ops: /problems page (To decide / Refunds to send / Resolved / Not accepted), decision form with standard seller charge (editable), mark refund sent with UPI reference; payouts show charges and allow a statement with only charges. upload test updated (buyers allowed, drivers not). 485 API tests pass; buyer, seller, ops builds pass.
+- 2026-11-20 18:10 IST: Websites were stuck at #125 (Vercel 'Deployment rate limited' on #126-#129 merges; API on Render is current). Branch fix/agreement-version-and-builds: (1) seller agreement page now sends its own TEXT_VERSION, not the API's, and shows 'reload' if they differ, so a stale site can't record acceptance of text it didn't show; API test keeps TEXT_VERSION == SELLER_TERMS_VERSION. (2) vercel.json in all three sites: no deployments for feat/fix/docs/chore/test branches, ignoreCommand skips non-production builds. Rewrote CURRENT STATE and NEXT STEPS.
+- 2026-11-20 18:30 IST: #130 CI hit another random test failure: MongoDB took over 10 s to start on a busy GitHub runner. test/helpers.ts: launchTimeout 40 s, 3 attempts; vitest hookTimeout 150 s. 487/487 locally.

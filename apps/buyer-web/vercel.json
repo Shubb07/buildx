@@ -1,4 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../../packages/web-core ../../package.json ../../package-lock.json"
+  "git": {
+    "deploymentEnabled": {
+      "feat/**": false,
+      "fix/**": false,
+      "docs/**": false,
+      "chore/**": false,
+      "test/**": false
+    }
+  },
+  "ignoreCommand": "[ \"$VERCEL_ENV\" != \"production\" ] || git diff --quiet HEAD^ HEAD -- . ../../packages/web-core ../../package.json ../../package-lock.json"
 }

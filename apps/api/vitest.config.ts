@@ -12,7 +12,8 @@ export default defineConfig({
     setupFiles: ['./test/setup-env.ts'],
     // Fetches the MongoDB binary for mongodb-memory-server once (first run only)
     globalSetup: ['./test/global-setup.ts'],
-    hookTimeout: 60_000,
+    // Room for the test database to start on a busy CI machine (test/helpers.ts startDb)
+    hookTimeout: 150_000,
     testTimeout: 30_000,
   },
 });

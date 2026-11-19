@@ -90,12 +90,13 @@ export async function startDb() {
   // Test files run in parallel workers. Left to pick random ports, two workers sometimes grabbed the
   // same one at the same moment ("Port ... already in use") and a whole file failed at random. Each
   // worker gets its own port range instead, and a busy port (e.g. still closing) is retried.
+  // On a busy CI machine, starting MongoDB can take longer than the library's 10 seconds: allow 40.
   const worker = Number(process.env.VITEST_POOL_ID ?? process.env.VITEST_WORKER_ID ?? 0);
   let lastError: unknown;
-  for (let attempt = 0; attempt < 6 && !mongod; attempt++) {
+  for (let attempt = 0; attempt < 3 && !mongod; attempt++) {
     const port = 31000 + worker * 40 + attempt * 6 + Math.floor(Math.random() * 6);
     try {
-      mongod = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' }, instanceOpts: [{ port }] });
+      mongod = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' }, instanceOpts: [{ port, launchTimeout: 40_000 }] });
     } catch (err) {
       lastError = err;
       mongod = undefined;

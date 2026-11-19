@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useApiClient } from '@sthiva/web-core';
+import { useApiClient, useT } from '@sthiva/web-core';
 import { ProductForm } from '../../../../components/ProductForm';
 import { ErrorNote, PageHead } from '../../../../components/ui';
 import { isSetupComplete, useSupplierProfile } from '../../../../lib/setup';
@@ -13,6 +13,7 @@ import { fetchSupplierProduct, type SupplierProduct } from '../../../../lib/prod
 // and the brand choices come from the brands the supplier said they deal in.
 // ?from=<id> starts from one of the supplier's own listings (same material, brand and price; new size).
 function NewProduct() {
+  const t = useT();
   const client = useApiClient();
   const profile = useSupplierProfile();
   const from = useSearchParams().get('from');
@@ -29,26 +30,26 @@ function NewProduct() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHead eyebrow="Catalogue" title={template.status === 'ready' ? 'List another size' : 'List a product'}>
+      <PageHead eyebrow="Catalogue" title={template.status === 'ready' ? t('List another size') : t('List a product')}>
         {template.status === 'ready' && (
-          <p className="max-w-sm text-[15px] text-stone">Copied from <span className="font-medium text-ink">{template.product.name}</span>. Change the size, price and stock.</p>
+          <p className="max-w-sm text-[15px] text-stone">{t('Copied from')} <span className="font-medium text-ink">{template.product.name}</span>. Change the size, price and stock.</p>
         )}
       </PageHead>
-      {(profile.status === 'loading' || template.status === 'loading') && <div className="skeleton h-64" role="status" aria-label="Loading" />}
-      {profile.status === 'error' && <ErrorNote>Couldn&apos;t load your profile. Check your connection and refresh.</ErrorNote>}
-      {template.status === 'error' && <ErrorNote>Couldn&apos;t copy that listing. You can still fill the form from scratch.</ErrorNote>}
+      {(profile.status === 'loading' || template.status === 'loading') && <div className="skeleton h-64" role="status" aria-label={t('Loading')} />}
+      {profile.status === 'error' && <ErrorNote>{t("Couldn't load your profile. Check your connection and refresh.")}</ErrorNote>}
+      {template.status === 'error' && <ErrorNote>{t("Couldn't copy that listing. You can still fill the form from scratch.")}</ErrorNote>}
       {profile.status === 'success' && !isSetupComplete(profile.profile) && (
         <div className="card flex flex-col items-start gap-4 p-6">
           <span className="grid h-12 w-12 place-items-center rounded-xl bg-lime">
             <span className="material-symbols-outlined" aria-hidden="true">storefront</span>
           </span>
           <div>
-            <h2 className="font-display text-xl font-semibold tracking-tight">Finish your business setup first</h2>
+            <h2 className="font-display text-xl font-semibold tracking-tight">{t('Finish your business setup first')}</h2>
             <p className="mt-1 max-w-xl text-[15px] text-stone">
-              Tell us your business type, the PIN codes you deliver to and the brands you deal in. Then you can list products and set stock.
+              {t('Tell us your business type, the PIN codes you deliver to and the brands you deal in. Then you can list products and set stock.')}
             </p>
           </div>
-          <Link href="/setup" className="btn-ink px-6">Go to setup</Link>
+          <Link href="/setup" className="btn-ink px-6">{t('Go to setup')}</Link>
         </div>
       )}
       {profile.status === 'success' && isSetupComplete(profile.profile) && template.status !== 'loading' && (

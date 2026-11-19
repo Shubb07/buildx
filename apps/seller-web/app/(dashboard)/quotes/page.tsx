@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { z } from 'zod';
-import { useApiClient } from '@sthiva/web-core';
+import { useApiClient, useT, tx } from '@sthiva/web-core';
 import { EmptyState, ErrorNote, PageHead, Pill, rupees, unitLabel } from '../../../components/ui';
 
 // Bulk quote requests from buyers near you (API features/quotes). Price every item, give a delivery
@@ -33,10 +33,11 @@ const IST_MS = 330 * 60 * 1000;
 const today = () => new Date(Date.now() + IST_MS).toISOString().slice(0, 10);
 
 function errText(err: unknown) {
-  return err instanceof Error ? err.message : 'Could not save. Try again.';
+  return err instanceof Error ? err.message : tx('Could not save. Try again.');
 }
 
 function RequestCard({ r, onChanged }: { r: Req; onChanged: () => void }) {
+  const t = useT();
   const client = useApiClient();
   const mine = r.yourQuote;
   const [editing, setEditing] = useState(false);
@@ -72,11 +73,11 @@ function RequestCard({ r, onChanged }: { r: Req; onChanged: () => void }) {
     catch (err) { setError(errText(err)); } finally { setBusy(false); }
   }
 
-  const tag = mine?.status === 'ACCEPTED' ? <Pill tone="done">You won this order</Pill>
-    : mine?.status === 'NOT_CHOSEN' ? <Pill tone="muted">Buyer chose another reply</Pill>
-    : r.status !== 'OPEN' ? <Pill tone="muted">Closed</Pill>
-    : mine?.status === 'ACTIVE' ? <Pill tone="live">Reply sent</Pill>
-    : canReply ? <Pill tone="wait">Waiting for your price</Pill> : <Pill tone="muted">Replies closed</Pill>;
+  const tag = mine?.status === 'ACCEPTED' ? <Pill tone="done">{t('You won this order')}</Pill>
+    : mine?.status === 'NOT_CHOSEN' ? <Pill tone="muted">{t('Buyer chose another reply')}</Pill>
+    : r.status !== 'OPEN' ? <Pill tone="muted">{t('Closed')}</Pill>
+    : mine?.status === 'ACTIVE' ? <Pill tone="live">{t('Reply sent')}</Pill>
+    : canReply ? <Pill tone="wait">Waiting for your price</Pill> : <Pill tone="muted">{t('Replies closed')}</Pill>;
 
   return (
     <li className="card flex flex-col gap-4 p-5">
@@ -92,7 +93,7 @@ function RequestCard({ r, onChanged }: { r: Req; onChanged: () => void }) {
         <div className="rounded-xl bg-[#E7F1FB] px-3 py-2 text-[14px]">
           <p className="font-semibold">Made to measure: {r.custom.workName}</p>
           <p>Material: {r.custom.spec}</p>
-          {r.custom.siteVisit && <p className="font-medium">The buyer wants a site visit to measure. Say when you can come in your note.</p>}
+          {r.custom.siteVisit && <p className="font-medium">{t('The buyer wants a site visit to measure. Say when you can come in your note.')}</p>}
           <p className="text-stone">Quote a price per piece, including fitting if you fit it.</p>
         </div>
       )}
@@ -105,7 +106,7 @@ function RequestCard({ r, onChanged }: { r: Req; onChanged: () => void }) {
               <p className="text-[15px] font-semibold">{l.name}</p>
               <p className="text-[13px] text-stone">
                 {l.quantity.toLocaleString('en-IN')} {unitLabel(l.unit, l.quantity)} · GST {l.gstRate}%
-                {r.kind === 'CUSTOM' ? '' : l.yourListing ? ` · you list it at ${rupees.format(l.yourListing.price)}${l.yourListing.stock !== null ? `, ${l.yourListing.stock} in stock` : ', on order'}` : ' · not in your listings (you can still quote)'}
+                {r.kind === 'CUSTOM' ? '' : l.yourListing ? ` · you list it at ${rupees.format(l.yourListing.price)}${l.yourListing.stock !== null ? `, ${l.yourListing.stock} in stock` : t(', on order')}` : t(' · not in your listings (you can still quote)')}
               </p>
             </div>
             {(editing || (!mine && canReply)) ? (
@@ -131,11 +132,11 @@ function RequestCard({ r, onChanged }: { r: Req; onChanged: () => void }) {
             <input type="checkbox" checked={inclusive} onChange={(e) => setInclusive(e.target.checked)} className="h-5 w-5 accent-ink" />
             My prices include GST
           </label>
-          <input value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder="Note to the buyer (optional), e.g. brand, delivery in two lots" className="field sm:col-span-3" />
+          <input value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder={t('Note to the buyer (optional), e.g. brand, delivery in two lots')} className="field sm:col-span-3" />
           <p className="text-[14px] sm:col-span-2">Your total: <span className="font-semibold tabular-nums">{rupees.format(yourTotal)}</span> <span className="text-stone">(buyers see it with Sthiva&apos;s commission{inclusive ? '' : ' and GST'} added)</span></p>
           <div className="flex justify-end gap-2">
-            {editing && <button type="button" onClick={() => setEditing(false)} className="btn-ghost">Cancel</button>}
-            <button type="button" disabled={!valid || busy} onClick={send} className="btn-ink px-6">{busy ? 'Sending' : mine ? 'Update reply' : 'Send quote'}</button>
+            {editing && <button type="button" onClick={() => setEditing(false)} className="btn-ghost">{t('Cancel')}</button>}
+            <button type="button" disabled={!valid || busy} onClick={send} className="btn-ink px-6">{busy ? t('Sending') : mine ? t('Update reply') : t('Send quote')}</button>
           </div>
         </div>
       )}
@@ -145,20 +146,21 @@ function RequestCard({ r, onChanged }: { r: Req; onChanged: () => void }) {
           <span className="text-stone">Delivery {mine.deliveryCharge > 0 ? rupees.format(mine.deliveryCharge) : 'free'} · on {day(mine.deliveryDate)}{mine.note ? ` · “${mine.note}”` : ''}</span>
           {canReply && mine.status === 'ACTIVE' && (
             <>
-              <button type="button" onClick={() => setEditing(true)} className="font-medium text-cobalt hover:underline">Change</button>
-              <button type="button" disabled={busy} onClick={withdraw} className="font-medium text-stone hover:underline">Withdraw</button>
+              <button type="button" onClick={() => setEditing(true)} className="font-medium text-cobalt hover:underline">{t('Change')}</button>
+              <button type="button" disabled={busy} onClick={withdraw} className="font-medium text-stone hover:underline">{t('Withdraw')}</button>
             </>
           )}
-          {canReply && mine.status === 'WITHDRAWN' && <button type="button" onClick={() => setEditing(true)} className="font-medium text-cobalt hover:underline">Quote again</button>}
-          {r.orderId && <Link href="/orders" className="font-medium text-cobalt hover:underline">Go to the order</Link>}
+          {canReply && mine.status === 'WITHDRAWN' && <button type="button" onClick={() => setEditing(true)} className="font-medium text-cobalt hover:underline">{t('Quote again')}</button>}
+          {r.orderId && <Link href="/orders" className="font-medium text-cobalt hover:underline">{t('Go to the order')}</Link>}
         </div>
       )}
-      {error && <ErrorNote>{error}</ErrorNote>}
+      {error && <ErrorNote>{t(error)}</ErrorNote>}
     </li>
   );
 }
 
 export default function QuotesPage() {
+  const t = useT();
   const client = useApiClient();
   const [state, setState] = useState<{ status: 'loading' } | { status: 'error' } | { status: 'ok'; rows: Req[] }>({ status: 'loading' });
   const load = useCallback(() => {
@@ -173,8 +175,8 @@ export default function QuotesPage() {
       <PageHead eyebrow="Bulk jobs" title="Quote requests">
         <p className="max-w-sm text-[15px] text-stone">Buyers near you ask for one price for a big list. Reply with your best price and a date; if they accept, it is a confirmed order.</p>
       </PageHead>
-      {state.status === 'loading' && <div className="skeleton h-48" role="status" aria-label="Loading" />}
-      {state.status === 'error' && <ErrorNote>Couldn&apos;t load quote requests. Check your connection and try again.</ErrorNote>}
+      {state.status === 'loading' && <div className="skeleton h-48" role="status" aria-label={t('Loading')} />}
+      {state.status === 'error' && <ErrorNote>{t("Couldn't load quote requests. Check your connection and try again.")}</ErrorNote>}
       {state.status === 'ok' && state.rows.length === 0 && (
         <EmptyState icon="request_quote" title="No requests yet" body="When a buyer near you asks for a bulk quote on items you sell, it shows here and you get an alert." />
       )}

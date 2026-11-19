@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useApiClient } from '@sthiva/web-core';
+import { useApiClient, useT } from '@sthiva/web-core';
 import { EmptyState, ErrorNote, PageHead, Pill, rupees, shortDate, unitLabel } from '../../../components/ui';
 import { productErrorText } from '../../../lib/products';
 import { confirmWeekly, fetchWeekly, type Weekly } from '../../../lib/weekly';
@@ -15,6 +15,7 @@ const qtyOk = (v: string) => /^\d{1,8}$/.test(v);
 const priceOk = (v: string) => /^\d{1,8}(\.\d{1,2})?$/.test(v) && Number(v) > 0;
 
 export default function WeeklyPage() {
+  const t = useT();
   const client = useApiClient();
   const [data, setData] = useState<Weekly | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -42,14 +43,14 @@ export default function WeeklyPage() {
       setDone(`Confirmed ${res.items} item${res.items === 1 ? '' : 's'} for this week.`);
       await load();
     } catch (err) {
-      setError(productErrorText(err, 'Couldn’t confirm. Check the numbers and try again.'));
+      setError(productErrorText(err, t('Couldn’t confirm. Check the numbers and try again.')));
     } finally {
       setBusy(false);
     }
   }
 
-  if (loadError) return <ErrorNote>Couldn’t load your items. Check your connection and refresh.</ErrorNote>;
-  if (!data) return <div className="skeleton h-96" role="status" aria-label="Loading weekly check" />;
+  if (loadError) return <ErrorNote>{t('Couldn’t load your items. Check your connection and refresh.')}</ErrorNote>;
+  if (!data) return <div className="skeleton h-96" role="status" aria-label={t('Loading weekly check')} />;
 
   return (
     <div className="flex flex-col gap-6 pb-24">
@@ -57,16 +58,16 @@ export default function WeeklyPage() {
         <div className="flex flex-col gap-2 sm:items-end">
           {data.confirmedThisWeek
             ? <Pill tone="done">Confirmed {data.confirmedAt ? shortDate.format(new Date(data.confirmedAt)) : ''}</Pill>
-            : <Pill tone="wait">Not confirmed this week</Pill>}
+            : <Pill tone="wait">{t('Not confirmed this week')}</Pill>}
           <p className="max-w-sm text-[15px] text-stone sm:text-right">You can change stock and prices any time. Every Monday, confirm the whole list here before midnight.</p>
-          <Link href="/bulk" className="text-[14px] font-semibold text-cobalt hover:underline">Or upload the Excel sheet: it counts too</Link>
+          <Link href="/bulk" className="text-[14px] font-semibold text-cobalt hover:underline">{t('Or upload the Excel sheet: it counts too')}</Link>
         </div>
       </PageHead>
 
       {data.hidden && (
         <div role="alert" className="rounded-2xl border-2 border-error bg-error-container p-4 text-[15px]">
-          <p className="font-semibold text-error">Buyers can&apos;t see your items right now</p>
-          <p className="mt-1">This week&apos;s Monday check was missed. Confirm below and your items are back on Sthiva straight away.</p>
+          <p className="font-semibold text-error">{t("Buyers can't see your items right now")}</p>
+          <p className="mt-1">{t("This week's Monday check was missed. Confirm below and your items are back on Sthiva straight away.")}</p>
         </div>
       )}
       {!data.hidden && !data.confirmedThisWeek && (
@@ -76,7 +77,7 @@ export default function WeeklyPage() {
       )}
 
       {data.items.length === 0 ? (
-        <EmptyState icon="inventory_2" title="Nothing listed yet" body="Add the materials you supply first. They show up here every week." cta={{ href: '/products/new', label: 'Add a product' }} />
+        <EmptyState icon="inventory_2" title="Nothing listed yet" body="Add the materials you supply first. They show up here every week." cta={{ href: '/products/new', label: t('Add a product') }} />
       ) : (
         <>
           <ul className="card divide-y divide-sand-4">
@@ -86,13 +87,13 @@ export default function WeeklyPage() {
                 <li key={i._id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1">
                     <Link href={`/products/${i._id}/edit`} className="font-semibold hover:underline">{i.name}</Link>
-                    <p className="text-[13px] text-stone">Last week: {i.supply === 'ON_ORDER' ? 'on order' : `${i.stockQuantity.toLocaleString('en-IN')} ${unitLabel(i.unit, i.stockQuantity)}`} at {rupees.format(i.basePrice)}</p>
+                    <p className="text-[13px] text-stone">Last week: {i.supply === 'ON_ORDER' ? t('on order') : `${i.stockQuantity.toLocaleString('en-IN')} ${unitLabel(i.unit, i.stockQuantity)}`} at {rupees.format(i.basePrice)}</p>
                   </div>
                   {i.supply === 'ON_ORDER' ? (
                     <span className="text-[13px] text-stone">On order: confirm the price only</span>
                   ) : (
                   <label className="flex items-center gap-2 text-[13px] text-stone">
-                    Quantity
+                    {t('Quantity')}
                     <input value={r.qty} inputMode="numeric" onChange={(e) => setRows({ ...rows, [i._id]: { ...r, qty: e.target.value.replace(/\D/g, '').slice(0, 8) } })}
                       className={`field w-28 font-mono ${qtyOk(r.qty) ? '' : 'border-error'}`} aria-label={`${i.name}: quantity you can supply this week`} />
                     <span>{unitLabel(i.unit, Number(r.qty) || 0)}</span>
@@ -110,8 +111,8 @@ export default function WeeklyPage() {
           {error && <ErrorNote>{error}</ErrorNote>}
           {done && <p role="status" className="text-[15px] font-medium">{done}</p>}
           <div className="sticky bottom-20 flex items-center justify-between gap-3 rounded-2xl bg-ink p-4 text-sand sm:bottom-4">
-            <p className="text-[14px]">{invalid.length ? `${invalid.length} item${invalid.length === 1 ? ' needs' : 's need'} a valid quantity and price` : 'Quantity 0 shows an item as out of stock.'}</p>
-            <button type="button" disabled={busy || invalid.length > 0} onClick={submit} className="btn-lime px-6">{busy ? 'Confirming' : 'Confirm this week'}</button>
+            <p className="text-[14px]">{invalid.length ? (invalid.length === 1 ? t('1 item needs a valid quantity and price') : t('{n} items need a valid quantity and price', { n: invalid.length })) : t('Quantity 0 shows an item as out of stock.')}</p>
+            <button type="button" disabled={busy || invalid.length > 0} onClick={submit} className="btn-lime px-6">{busy ? t('Confirming') : t('Confirm this week')}</button>
           </div>
         </>
       )}

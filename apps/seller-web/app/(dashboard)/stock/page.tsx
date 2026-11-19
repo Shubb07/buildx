@@ -2,18 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useApiClient } from '@sthiva/web-core';
+import { useApiClient, useT, tx } from '@sthiva/web-core';
 import { productErrorText, updateSupplierProduct, useSupplierProducts, type SupplierProduct } from '../../../lib/products';
 import { Chip, ChipRow, EmptyState, ErrorNote, PageHead, Pager, Pill, PRODUCT_STATUS, UNIT, unitLabel } from '../../../components/ui';
 
 type Filter = { key: string; label: string; status?: string; lowStock?: boolean };
 const FILTERS: Filter[] = [
-  { key: 'all', label: 'All' },
-  { key: 'low', label: 'Running low', lowStock: true },
-  { key: 'out', label: 'Out of stock', status: 'OUT_OF_STOCK' },
-  { key: 'live', label: 'Live', status: 'ACTIVE' },
-  { key: 'paused', label: 'Paused', status: 'INACTIVE' },
-  { key: 'draft', label: 'Drafts', status: 'DRAFT' },
+  { key: 'all', label: tx('All') },
+  { key: 'low', label: tx('Running low'), lowStock: true },
+  { key: 'out', label: tx('Out of stock'), status: 'OUT_OF_STOCK' },
+  { key: 'live', label: tx('Live'), status: 'ACTIVE' },
+  { key: 'paused', label: tx('Paused'), status: 'INACTIVE' },
+  { key: 'draft', label: tx('Drafts'), status: 'DRAFT' },
 ];
 
 // Lorries come in by the hundred, not one at a time
@@ -32,6 +32,7 @@ function StockRow({ product, value, onValue, onSave, busy, error, saved }: {
   error?: string;
   saved: boolean;
 }) {
+  const t = useT();
   const unit = UNIT[product.unit] ?? product.unit.toLowerCase();
   const n = parse(value);
   const valid = !Number.isNaN(n);
@@ -48,8 +49,8 @@ function StockRow({ product, value, onValue, onSave, busy, error, saved }: {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Pill tone={status.tone}>{status.label}</Pill>
-            {low && <Pill tone="wait">Running low</Pill>}
+            <Pill tone={status.tone}>{t(status.label)}</Pill>
+            {low && <Pill tone="wait">{t('Running low')}</Pill>}
             {product.stockQuantity > 0 && product.stockQuantity < minOrder && <Pill tone="bad">Below minimum order ({minOrder})</Pill>}
             {product.specifications?.Brand && <span className="text-[13px] text-stone">{product.specifications.Brand}</span>}
           </div>
@@ -62,7 +63,7 @@ function StockRow({ product, value, onValue, onSave, busy, error, saved }: {
         </div>
 
         {locked ? (
-          <p className="text-[14px] text-stone">Discontinued listings can&apos;t take stock.</p>
+          <p className="text-[14px] text-stone">{t("Discontinued listings can't take stock.")}</p>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex gap-1" role="group" aria-label={`Add received stock to ${product.name}`}>
@@ -89,20 +90,21 @@ function StockRow({ product, value, onValue, onSave, busy, error, saved }: {
               </button>
             </div>
             <button type="button" onClick={onSave} disabled={!changed || busy} className="btn-ink h-12 min-w-[88px] px-5">
-              {busy ? 'Saving' : saved && !changed ? 'Saved' : 'Save'}
+              {busy ? t('Saving') : saved && !changed ? t('Saved') : t('Save')}
             </button>
             {changed && !busy && (
-              <button type="button" onClick={() => onValue(String(product.stockQuantity))} className="text-[13px] font-medium text-stone underline-offset-2 hover:underline">Undo</button>
+              <button type="button" onClick={() => onValue(String(product.stockQuantity))} className="text-[13px] font-medium text-stone underline-offset-2 hover:underline">{t('Undo')}</button>
             )}
           </div>
         )}
       </div>
-      {error && <p className="mt-3 text-[14px] text-error">{error}</p>}
+      {error && <p className="mt-3 text-[14px] text-error">{t(error)}</p>}
     </li>
   );
 }
 
 export default function StockPage() {
+  const t = useT();
   const client = useApiClient();
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<Filter>(FILTERS[0]);
@@ -157,7 +159,7 @@ export default function StockPage() {
       setSaved((s) => ({ ...s, [p._id]: true }));
       window.setTimeout(() => setSaved(({ [p._id]: _, ...rest }) => rest), 2000);
     } catch (err) {
-      setErrors((e) => ({ ...e, [p._id]: productErrorText(err, 'Could not save stock.') }));
+      setErrors((e) => ({ ...e, [p._id]: productErrorText(err, t('Could not save stock.')) }));
     } finally {
       setBusy(({ [p._id]: _, ...rest }) => rest);
     }
@@ -175,43 +177,43 @@ export default function StockPage() {
     <div className="flex flex-col gap-6 pb-24">
       <PageHead eyebrow="Inventory" title="Stock">
         <div className="flex max-w-sm flex-col gap-2 sm:items-end">
-          <p className="text-[15px] text-stone sm:text-right">Buyers can only order what you have. Use +10, +50 or +100 when a delivery comes in; 0 shows the listing as out of stock.</p>
-          <Link href="/bulk" className="text-[14px] font-semibold text-cobalt hover:underline">Many items? Use the Excel sheet</Link>
+          <p className="text-[15px] text-stone sm:text-right">{t('Buyers can only order what you have. Use +10, +50 or +100 when a delivery comes in; 0 shows the listing as out of stock.')}</p>
+          <Link href="/bulk" className="text-[14px] font-semibold text-cobalt hover:underline">{t('Many items? Use the Excel sheet')}</Link>
         </div>
       </PageHead>
 
       <div className="flex flex-col gap-3">
         <label className="flex items-center gap-3 rounded-full border border-sand-4 bg-sand-2 px-4 focus-within:border-ink">
           <span className="material-symbols-outlined text-stone" aria-hidden="true">search</span>
-          <input type="search" value={search} onChange={(e) => setSearch(e.target.value.slice(0, 60))} placeholder="Find a product" className="h-12 w-full bg-transparent text-[15px] outline-none" aria-label="Find a product" />
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value.slice(0, 60))} placeholder={t('Find a product')} className="h-12 w-full bg-transparent text-[15px] outline-none" aria-label={t('Find a product')} />
         </label>
-        <ChipRow label="Filter stock">
+        <ChipRow label={tx('Filter stock')}>
           {FILTERS.map((f) => (
-            <Chip key={f.key} active={filter.key === f.key} onClick={() => { setFilter(f); setPage(1); }}>{f.label}</Chip>
+            <Chip key={f.key} active={filter.key === f.key} onClick={() => { setFilter(f); setPage(1); }}>{t(f.label)}</Chip>
           ))}
         </ChipRow>
       </div>
 
       {list.status === 'loading' && (
-        <div className="flex flex-col gap-3" role="status" aria-label="Loading stock">
+        <div className="flex flex-col gap-3" role="status" aria-label={t('Loading stock')}>
           {[0, 1, 2, 3].map((i) => <div key={i} className="skeleton h-24" />)}
         </div>
       )}
-      {list.status === 'error' && <ErrorNote>Couldn&apos;t load your stock. Check your connection and try again.</ErrorNote>}
+      {list.status === 'error' && <ErrorNote>{t("Couldn't load your stock. Check your connection and try again.")}</ErrorNote>}
 
       {list.status === 'success' && (
         <>
           {out > 0 && filter.key !== 'out' && (
             <p className="flex items-center gap-2 rounded-xl bg-error-container px-4 py-3 text-[15px] text-on-error-container">
               <span className="material-symbols-outlined" aria-hidden="true">error</span>
-              {out} product{out === 1 ? ' is' : 's are'} out of stock on this page.
+              {out === 1 ? t('1 product is out of stock on this page.') : t('{n} products are out of stock on this page.', { n: out })}
             </p>
           )}
           {rows.length === 0 ? (
             q || filter.key !== 'all' ? (
-              <EmptyState icon="search_off" title="Nothing here" body={filter.lowStock ? 'Nothing is running low right now.' : q ? `No product matches “${q}”.` : 'No products with this status.'} />
+              <EmptyState icon="search_off" title="Nothing here" body={filter.lowStock ? t('Nothing is running low right now.') : q ? `No product matches “${q}”.` : t('No products with this status.')} />
             ) : (
-              <EmptyState icon="stacks" title="No products yet" body="List a product first, then keep its stock up to date here." cta={{ href: '/products/new', label: 'List a product' }} />
+              <EmptyState icon="stacks" title="No products yet" body="List a product first, then keep its stock up to date here." cta={{ href: '/products/new', label: t('List a product') }} />
             )
           ) : (
             <ul className="flex flex-col gap-3">
@@ -230,7 +232,7 @@ export default function StockPage() {
             </ul>
           )}
           <Pager page={list.meta.page} totalPages={list.meta.totalPages} hasPrev={list.meta.hasPrev} hasNext={list.meta.hasNext} onPage={(p) => {
-            if (pending.length && !window.confirm('You have unsaved stock changes on this page. Leave them?')) return;
+            if (pending.length && !window.confirm(t('You have unsaved stock changes on this page. Leave them?'))) return;
             setPage(p);
           }} />
         </>
@@ -240,8 +242,8 @@ export default function StockPage() {
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-sand-4 bg-ink text-sand max-sm:bottom-[84px] max-sm:mx-3 max-sm:rounded-2xl max-sm:border-0">
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
             <p className="flex-1 text-[15px]">{pending.length} unsaved change{pending.length === 1 ? '' : 's'}</p>
-            <button type="button" onClick={() => setDrafts({})} disabled={savingAll} className="h-11 rounded-full px-4 text-[14px] font-medium text-sand/70 hover:text-sand">Undo all</button>
-            <button type="button" onClick={saveAll} disabled={savingAll} className="btn-lime h-11 px-5">{savingAll ? 'Saving' : 'Save all'}</button>
+            <button type="button" onClick={() => setDrafts({})} disabled={savingAll} className="h-11 rounded-full px-4 text-[14px] font-medium text-sand/70 hover:text-sand">{t('Undo all')}</button>
+            <button type="button" onClick={saveAll} disabled={savingAll} className="btn-lime h-11 px-5">{savingAll ? t('Saving') : t('Save all')}</button>
           </div>
         </div>
       )}

@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { z } from 'zod';
-import { downloadFile, useApiClient } from '@sthiva/web-core';
+import { downloadFile, useApiClient, useT, tx } from '@sthiva/web-core';
 import { ErrorNote, PageHead, Pill } from '../../../components/ui';
 import { getFirebaseAuth } from '../../../lib/firebase';
 
@@ -27,13 +27,13 @@ type Result = z.infer<typeof resultSchema>;
 
 async function sendSheet(baseUrl: string, file: File, apply: boolean): Promise<Result> {
   const token = await getFirebaseAuth().currentUser?.getIdToken();
-  if (!token) throw new Error('Sign in again to continue');
+  if (!token) throw new Error(tx('Sign in again to continue'));
   const form = new FormData();
   form.append('apply', String(apply));
   form.append('file', file);
   const res = await fetch(`${baseUrl}/suppliers/me/bulk`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
   const json = await res.json().catch(() => null);
-  if (!res.ok || json?.success !== true) throw new Error(json?.error?.message ?? 'Something went wrong. Try again.');
+  if (!res.ok || json?.success !== true) throw new Error(json?.error?.message ?? tx('Something went wrong. Try again.'));
   return resultSchema.parse(json.data);
 }
 
@@ -50,6 +50,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 }
 
 export default function BulkPage() {
+  const t = useT();
   const client = useApiClient();
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -60,7 +61,7 @@ export default function BulkPage() {
   async function run(kind: 'download' | 'check' | 'save', action: () => Promise<void>) {
     setBusy(kind);
     setError(null);
-    try { await action(); } catch (err) { setError(err instanceof Error ? err.message : 'Something went wrong. Try again.'); } finally { setBusy(null); }
+    try { await action(); } catch (err) { setError(err instanceof Error ? err.message : t('Something went wrong. Try again.')); } finally { setBusy(null); }
   }
 
   const download = () => run('download', () => downloadFile(client, '/suppliers/me/bulk.xlsx', `Sthiva-items-${new Date().toISOString().slice(0, 10)}.xlsx`));
@@ -73,22 +74,22 @@ export default function BulkPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <PageHead eyebrow="Many items at once" title="Excel sheet">
-        <Link href="/stock" className="btn-ghost self-start sm:self-auto">One by one instead</Link>
+        <Link href="/stock" className="btn-ghost self-start sm:self-auto">{t('One by one instead')}</Link>
       </PageHead>
       <p className="-mt-2 text-[16px] text-stone">
         Change prices, stock, minimum order, HSN codes, or pause items, for all your items in one go. Works with Excel or Google Sheets.
       </p>
 
-      <Step n={1} title="Download your items">
-        <p className="text-[15px] text-stone">The sheet lists everything you sell. Only change the white columns. Leave the Listing ID as it is.</p>
+      <Step n={1} title={t('Download your items')}>
+        <p className="text-[15px] text-stone">{t('The sheet lists everything you sell. Only change the white columns. Leave the Listing ID as it is.')}</p>
         <button type="button" onClick={download} disabled={!!busy} className="btn-ink self-start px-6">
           <span className="material-symbols-outlined text-[20px]" aria-hidden="true">download</span>
-          {busy === 'download' ? 'Preparing' : 'Download sheet'}
+          {busy === 'download' ? t('Preparing') : t('Download sheet')}
         </button>
       </Step>
 
-      <Step n={2} title="Upload the edited sheet">
-        <p className="text-[15px] text-stone">Save it as .xlsx (or .csv) and choose it here. Nothing changes yet: you will see every change first.</p>
+      <Step n={2} title={t('Upload the edited sheet')}>
+        <p className="text-[15px] text-stone">{t('Save it as .xlsx (or .csv) and choose it here. Nothing changes yet: you will see every change first.')}</p>
         <input
           ref={input}
           type="file"
@@ -99,21 +100,21 @@ export default function BulkPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" onClick={() => input.current?.click()} disabled={!!busy} className="btn-ghost px-6">
             <span className="material-symbols-outlined text-[20px]" aria-hidden="true">upload_file</span>
-            {busy === 'check' ? 'Checking' : file ? 'Choose another file' : 'Choose file'}
+            {busy === 'check' ? t('Checking') : file ? t('Choose another file') : t('Choose file')}
           </button>
           {file && <span className="truncate text-[14px] text-stone">{file.name}</span>}
         </div>
       </Step>
 
-      {error && <ErrorNote>{error}</ErrorNote>}
+      {error && <ErrorNote>{t(error)}</ErrorNote>}
 
       {result && (
-        <Step n={3} title={result.applied ? 'Saved' : 'Check and save'}>
+        <Step n={3} title={result.applied ? t('Saved') : t('Check and save')}>
           {result.applied ? (
             <div role="status" className="flex flex-col gap-2 rounded-xl bg-lime/40 p-4 text-[15px]">
-              <p className="font-semibold">{result.summary.changed ? `${result.summary.changed} item${result.summary.changed === 1 ? '' : 's'} updated.` : 'Everything was already up to date.'}</p>
-              {result.weeklyConfirmed && <p>This also counts as your weekly check for this week.</p>}
-              <Link href="/products" className="font-semibold text-cobalt hover:underline">See your products</Link>
+              <p className="font-semibold">{result.summary.changed ? `${result.summary.changed} item${result.summary.changed === 1 ? '' : 's'} updated.` : t('Everything was already up to date.')}</p>
+              {result.weeklyConfirmed && <p>{t('This also counts as your weekly check for this week.')}</p>}
+              <Link href="/products" className="font-semibold text-cobalt hover:underline">{t('See your products')}</Link>
             </div>
           ) : (
             <>
@@ -125,11 +126,11 @@ export default function BulkPage() {
 
               {wrongRows.length > 0 && (
                 <div className="flex flex-col gap-2">
-                  <h3 className="text-[15px] font-semibold text-error">Fix these rows in the sheet, then upload it again</h3>
+                  <h3 className="text-[15px] font-semibold text-error">{t('Fix these rows in the sheet, then upload it again')}</h3>
                   <ul className="flex flex-col divide-y divide-sand-4 rounded-xl border border-error/40">
                     {wrongRows.map((r) => (
                       <li key={r.row} className="p-3 text-[14px]">
-                        <p><span className="font-mono text-stone">Row {r.row}</span> · <span className="font-semibold">{r.name || 'Unknown item'}</span></p>
+                        <p><span className="font-mono text-stone">Row {r.row}</span> · <span className="font-semibold">{r.name || t('Unknown item')}</span></p>
                         <ul className="mt-1 list-disc pl-5 text-error">{r.errors.map((e) => <li key={e}>{e}</li>)}</ul>
                       </li>
                     ))}
@@ -139,7 +140,7 @@ export default function BulkPage() {
 
               {changedRows.length > 0 && (
                 <div className="flex flex-col gap-2">
-                  <h3 className="text-[15px] font-semibold">Changes</h3>
+                  <h3 className="text-[15px] font-semibold">{t('Changes')}</h3>
                   <ul className="flex flex-col divide-y divide-sand-4 rounded-xl border border-sand-4">
                     {changedRows.map((r) => (
                       <li key={r.row} className="p-3 text-[14px]">
@@ -158,10 +159,10 @@ export default function BulkPage() {
               )}
 
               {result.coversAll && !wrongRows.length && (
-                <p className="text-[14px] text-stone">Every item you list is in this sheet, so saving it also counts as your weekly check.</p>
+                <p className="text-[14px] text-stone">{t('Every item you list is in this sheet, so saving it also counts as your weekly check.')}</p>
               )}
               <button type="button" onClick={save} disabled={!!busy || wrongRows.length > 0} className="btn-lime self-start px-7">
-                {busy === 'save' ? 'Saving' : wrongRows.length ? 'Fix the mistakes first' : result.summary.changed ? `Save ${result.summary.changed} change${result.summary.changed === 1 ? '' : 's'}` : 'Confirm, nothing changed'}
+                {busy === 'save' ? t('Saving') : wrongRows.length ? t('Fix the mistakes first') : result.summary.changed ? `Save ${result.summary.changed} change${result.summary.changed === 1 ? '' : 's'}` : t('Confirm, nothing changed')}
               </button>
             </>
           )}

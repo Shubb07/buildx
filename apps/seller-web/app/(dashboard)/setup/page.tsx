@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useApiClient, catalogItems, checkGstin, ApiClientError } from '@sthiva/web-core';
+import { useApiClient, catalogItems, checkGstin, ApiClientError, useT, tx } from '@sthiva/web-core';
 import { z } from 'zod';
 import { useAuth } from '../../../components/auth/AuthProvider';
 import { useCategories } from '../../../lib/categories';
@@ -20,11 +20,12 @@ const SiteMap = dynamic(() => import('@sthiva/web-core/src/location/SiteMap').th
   loading: () => <div className="skeleton h-[240px] rounded-2xl" aria-hidden="true" />,
 });
 
-const STEPS = ['Your business', 'Where you deliver', 'What you sell'] as const;
+const STEPS = [tx('Your business'), tx('Where you deliver'), tx('What you sell')] as const;
 
 function StepTabs({ step, done, onPick }: { step: number; done: boolean[]; onPick: (i: number) => void }) {
+  const t = useT();
   return (
-    <ol className="grid grid-cols-3 gap-2" aria-label="Setup steps">
+    <ol className="grid grid-cols-3 gap-2" aria-label={t('Setup steps')}>
       {STEPS.map((label, i) => (
         <li key={label}>
           <button
@@ -38,7 +39,7 @@ function StepTabs({ step, done, onPick }: { step: number; done: boolean[]; onPic
             <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full font-mono text-[13px] ${done[i] ? 'bg-lime text-ink' : step === i ? 'bg-white/10 text-sand' : 'bg-sand-3 text-ink'}`}>
               {done[i] ? <span className="material-symbols-outlined text-[18px]" aria-hidden="true">check</span> : i + 1}
             </span>
-            <span className="text-[13px] font-semibold leading-tight sm:text-[15px]">{label}</span>
+            <span className="text-[13px] font-semibold leading-tight sm:text-[15px]">{t(label)}</span>
           </button>
         </li>
       ))}
@@ -61,6 +62,7 @@ function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; c
 }
 
 export default function SetupPage() {
+  const t = useT();
   const client = useApiClient();
   const router = useRouter();
   const profile = useSupplierProfile();
@@ -130,7 +132,7 @@ export default function SetupPage() {
     try {
       await action();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save. Try again.');
+      setError(err instanceof Error ? err.message : t('Could not save. Try again.'));
     } finally {
       setSaving(false);
     }
@@ -138,9 +140,9 @@ export default function SetupPage() {
 
   const saveBusiness = () =>
     run(async () => {
-      if (!businessType) throw new Error('Choose what kind of business you are.');
+      if (!businessType) throw new Error(t('Choose what kind of business you are.'));
       if (!gstinValid) throw new Error(gstinCheck && !gstinCheck.ok ? gstinCheck.problem : 'A GSTIN has 15 characters. Copy it from your GST certificate.');
-      if (!/^[6-9]\d{9}$/.test(whatsapp)) throw new Error('Enter a 10-digit WhatsApp number.');
+      if (!/^[6-9]\d{9}$/.test(whatsapp)) throw new Error(t('Enter a 10-digit WhatsApp number.'));
       profile.replace(await updateSupplierProfile(client, { businessType, gstin, address: address.trim(), whatsappNumber: whatsapp, canDeliver }));
       setStep(1);
     });
@@ -173,33 +175,33 @@ export default function SetupPage() {
 
   const saveRange = () =>
     run(async () => {
-      if (cats.length === 0) throw new Error('Choose at least one category you sell.');
+      if (cats.length === 0) throw new Error(t('Choose at least one category you sell.'));
       profile.replace(await updateSupplierProfile(client, { categories: cats, brands }));
       router.push('/products/new');
     });
 
   const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
-  if (profile.status === 'loading') return <div className="skeleton h-96" role="status" aria-label="Loading your profile" />;
-  if (profile.status === 'error') return <ErrorNote>Couldn&apos;t load your profile. Check your connection and refresh.</ErrorNote>;
+  if (profile.status === 'loading') return <div className="skeleton h-96" role="status" aria-label={t('Loading your profile')} />;
+  if (profile.status === 'error') return <ErrorNote>{t("Couldn't load your profile. Check your connection and refresh.")}</ErrorNote>;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <div>
-        <p className="eyebrow text-stone">Business setup</p>
+        <p className="eyebrow text-stone">{t('Business setup')}</p>
         <h1 className="mt-2 font-display text-[clamp(2rem,5vw,3.25rem)] font-bold leading-[0.95] tracking-tightest">
           Set up your <span className="font-serif font-normal italic">shop</span>
         </h1>
-        <p className="mt-3 text-[16px] text-stone">Three short steps. Buyers only see suppliers who deliver to their site, so this decides who can order from you.</p>
+        <p className="mt-3 text-[16px] text-stone">{t('Three short steps. Buyers only see suppliers who deliver to their site, so this decides who can order from you.')}</p>
       </div>
 
       <StepTabs step={step} done={done} onPick={setStep} />
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {step === 0 && (
-        <section className="card flex flex-col gap-6 p-5 sm:p-6" aria-label="Your business">
+        <section className="card flex flex-col gap-6 p-5 sm:p-6" aria-label={t('Your business')}>
           <fieldset>
-            <legend className="text-[15px] font-semibold">What kind of business are you?</legend>
+            <legend className="text-[15px] font-semibold">{t('What kind of business are you?')}</legend>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {BUSINESS_TYPES.map((t) => (
                 <button
@@ -217,59 +219,59 @@ export default function SetupPage() {
           </fieldset>
 
           <div className="flex flex-col gap-2">
-            <p className="text-[15px] font-semibold">Pickup location</p>
-            <p className="text-[13px] text-stone">Where goods are collected (your shop or yard). Sthiva uses it to work out delivery charges by distance. Do this while you are at the shop.</p>
+            <p className="text-[15px] font-semibold">{t('Pickup location')}</p>
+            <p className="text-[13px] text-stone">{t('Where goods are collected (your shop or yard). Sthiva uses it to work out delivery charges by distance. Do this while you are at the shop.')}</p>
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 disabled={locating}
                 onClick={() => {
                   setLocError(null);
-                  if (!('geolocation' in navigator)) { setLocError('This browser cannot share location. Try on your phone.'); return; }
+                  if (!('geolocation' in navigator)) { setLocError(t('This browser cannot share location. Try on your phone.')); return; }
                   setLocating(true);
                   navigator.geolocation.getCurrentPosition(
                     async (pos) => {
                       try {
                         profile.replace(await updateSupplierProfile(client, { location: { lat: Math.round(pos.coords.latitude * 1e6) / 1e6, lng: Math.round(pos.coords.longitude * 1e6) / 1e6 } }));
                       } catch (err) {
-                        setLocError(err instanceof Error ? err.message : 'Could not save the location.');
+                        setLocError(err instanceof Error ? err.message : t('Could not save the location.'));
                       } finally { setLocating(false); }
                     },
-                    () => { setLocating(false); setLocError('Location permission was denied. Allow it in your browser and try again.'); },
+                    () => { setLocating(false); setLocError(t('Location permission was denied. Allow it in your browser and try again.')); },
                     { enableHighAccuracy: true, timeout: 15000 }
                   );
                 }}
                 className="btn-ghost"
               >
                 <span className="material-symbols-outlined text-[20px]" aria-hidden="true">my_location</span>
-                {locating ? 'Finding you' : p?.location ? 'Update to where I am now' : 'Use where I am now'}
+                {locating ? t('Finding you') : p?.location ? t('Update to where I am now') : t('Use where I am now')}
               </button>
-              {p?.location && <span className="text-[14px] text-stone">Saved. Check the pin below.</span>}
+              {p?.location && <span className="text-[14px] text-stone">{t('Saved. Check the pin below.')}</span>}
             </div>
             {locError && <p className="text-[13px] text-error">{locError}</p>}
             {/* Free map (OpenStreetMap): tap or drag the pin to put it exactly on the shop gate */}
             <SiteMap
               className="mt-1"
               height={240}
-              points={p?.location ? [{ lat: p.location.lat, lng: p.location.lng, kind: 'shop', label: 'Your pickup point' }] : []}
+              points={p?.location ? [{ lat: p.location.lat, lng: p.location.lng, kind: 'shop', label: t('Your pickup point') }] : []}
               onPick={async (pt) => {
                 setLocError(null);
                 try {
                   profile.replace(await updateSupplierProfile(client, { location: { lat: Math.round(pt.lat * 1e6) / 1e6, lng: Math.round(pt.lng * 1e6) / 1e6 } }));
                 } catch (err) {
-                  setLocError(err instanceof Error ? err.message : 'Could not save the location.');
+                  setLocError(err instanceof Error ? err.message : t('Could not save the location.'));
                 }
               }}
             />
-            <p className="text-[13px] text-stone">{p?.location ? 'Not exactly right? Drag the blue pin or tap the right spot on the map.' : 'Not at the shop now? Zoom in and tap your shop or yard on the map.'}</p>
+            <p className="text-[13px] text-stone">{p?.location ? t('Not exactly right? Drag the blue pin or tap the right spot on the map.') : t('Not at the shop now? Zoom in and tap your shop or yard on the map.')}</p>
           </div>
 
           <fieldset>
-            <legend className="text-[15px] font-semibold">Who delivers your orders?</legend>
+            <legend className="text-[15px] font-semibold">{t('Who delivers your orders?')}</legend>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {[
-                { v: true, label: 'We deliver ourselves', hint: 'You have your own vehicle. Sthiva charges a lower commission on these orders.' },
-                { v: false, label: 'Sthiva delivers', hint: 'A Sthiva delivery partner picks up from your shop or yard.' },
+                { v: true, label: t('We deliver ourselves'), hint: 'You have your own vehicle. Sthiva charges a lower commission on these orders.' },
+                { v: false, label: t('Sthiva delivers'), hint: t('A Sthiva delivery partner picks up from your shop or yard.') },
               ].map((o) => (
                 <button
                   key={String(o.v)}
@@ -283,11 +285,11 @@ export default function SetupPage() {
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[13px] text-stone">You can still choose per order when you dispatch it.</p>
+            <p className="mt-2 text-[13px] text-stone">{t('You can still choose per order when you dispatch it.')}</p>
           </fieldset>
 
           <label className="flex flex-col gap-2">
-            <span className="text-[15px] font-semibold">GSTIN <span className="font-normal text-stone">(optional)</span></span>
+            <span className="text-[15px] font-semibold">GSTIN <span className="font-normal text-stone">{t('(optional)')}</span></span>
             <input
               value={gstin}
               onChange={(e) => setGstin(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15))}
@@ -313,12 +315,12 @@ export default function SetupPage() {
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="text-[15px] font-semibold">Shop or yard address</span>
-            <textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Shop no., street, area, town" className="field resize-none" maxLength={300} />
+            <span className="text-[15px] font-semibold">{t('Shop or yard address')}</span>
+            <textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t('Shop no., street, area, town')} className="field resize-none" maxLength={300} />
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="text-[15px] font-semibold">WhatsApp for order updates</span>
+            <span className="text-[15px] font-semibold">{t('WhatsApp for order updates')}</span>
             <span className="flex items-center gap-3 rounded-xl border border-sand-4 bg-sand-2 pl-4 focus-within:border-ink focus-within:shadow-[0_0_0_4px_rgba(243,184,6,0.55)]">
               <span className="border-r border-sand-4 pr-3 font-mono text-[15px]">+91</span>
               <input type="tel" inputMode="numeric" maxLength={10} value={whatsapp} onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, ''))} className="h-12 w-full bg-transparent pr-4 font-mono text-[16px] outline-none" />
@@ -326,16 +328,16 @@ export default function SetupPage() {
           </label>
 
           <button type="button" onClick={saveBusiness} disabled={saving} className="btn-ink self-end px-7">
-            {saving ? 'Saving' : 'Save and continue'}
+            {saving ? t('Saving') : t('Save and continue')}
           </button>
         </section>
       )}
 
       {step === 1 && (
-        <section className="card flex flex-col gap-5 p-5 sm:p-6" aria-label="Where you deliver">
+        <section className="card flex flex-col gap-5 p-5 sm:p-6" aria-label={t('Where you deliver')}>
           <div>
-            <h2 className="text-[15px] font-semibold">PIN codes you deliver to</h2>
-            <p className="mt-1 text-[14px] text-stone">Each PIN is checked against the India Post directory. Add several at once, separated by commas or spaces.</p>
+            <h2 className="text-[15px] font-semibold">{t('PIN codes you deliver to')}</h2>
+            <p className="mt-1 text-[14px] text-stone">{t('Each PIN is checked against the India Post directory. Add several at once, separated by commas or spaces.')}</p>
           </div>
           <div className="flex gap-2">
             <input
@@ -345,12 +347,12 @@ export default function SetupPage() {
               placeholder="572101, 572102, 572103"
               inputMode="numeric"
               className="field font-mono"
-              aria-label="PIN codes to add"
+              aria-label={t('PIN codes to add')}
             />
-            <button type="button" onClick={addPins} disabled={saving || !pinInput.trim()} className="btn-ink shrink-0 px-5">Add</button>
+            <button type="button" onClick={addPins} disabled={saving || !pinInput.trim()} className="btn-ink shrink-0 px-5">{t('Add')}</button>
           </div>
           {pins.length === 0 ? (
-            <p className="rounded-xl bg-sand-3 px-4 py-4 text-[15px] text-stone">No PIN codes yet. Buyers can&apos;t see your products until you add at least one.</p>
+            <p className="rounded-xl bg-sand-3 px-4 py-4 text-[15px] text-stone">{t("No PIN codes yet. Buyers can't see your products until you add at least one.")}</p>
           ) : (
             <div>
               <p className="text-[13px] text-stone">{pins.length} PIN code{pins.length === 1 ? '' : 's'}</p>
@@ -367,16 +369,16 @@ export default function SetupPage() {
             </div>
           )}
           <div className="flex justify-between gap-3">
-            <button type="button" onClick={() => setStep(0)} className="btn-ghost">Back</button>
-            <button type="button" onClick={() => setStep(2)} disabled={pins.length === 0} className="btn-ink px-7">Continue</button>
+            <button type="button" onClick={() => setStep(0)} className="btn-ghost">{t('Back')}</button>
+            <button type="button" onClick={() => setStep(2)} disabled={pins.length === 0} className="btn-ink px-7">{t('Continue')}</button>
           </div>
         </section>
       )}
 
       {step === 2 && (
-        <section className="card flex flex-col gap-6 p-5 sm:p-6" aria-label="What you sell">
+        <section className="card flex flex-col gap-6 p-5 sm:p-6" aria-label={t('What you sell')}>
           <fieldset>
-            <legend className="text-[15px] font-semibold">Categories you sell</legend>
+            <legend className="text-[15px] font-semibold">{t('Categories you sell')}</legend>
             <div className="mt-3 flex flex-wrap gap-2">
               {categories.status === 'success' && categories.data.map((c) => (
                 <Toggle key={c._id} on={cats.includes(c.slug)} onClick={() => setCats((x) => toggle(x, c.slug))}>{c.name}</Toggle>
@@ -388,8 +390,8 @@ export default function SetupPage() {
           {brandGroups.length > 0 && (
             <div className="flex flex-col gap-5">
               <div>
-                <h2 className="text-[15px] font-semibold">Brands you deal in</h2>
-                <p className="mt-1 text-[14px] text-stone">Your product form will offer these first. Pick none for unbranded or local material.</p>
+                <h2 className="text-[15px] font-semibold">{t('Brands you deal in')}</h2>
+                <p className="mt-1 text-[14px] text-stone">{t('Your product form will offer these first. Pick none for unbranded or local material.')}</p>
               </div>
               {brandGroups.filter((g) => g.brands.length > 0).map((g) => (
                 <fieldset key={g.slug}>
@@ -400,7 +402,7 @@ export default function SetupPage() {
                 </fieldset>
               ))}
               <div>
-                <p className="eyebrow text-stone">Other or local brands</p>
+                <p className="eyebrow text-stone">{t('Other or local brands')}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {ownBrands.map((b) => <Toggle key={b} on onClick={() => setBrands((x) => toggle(x, b))}>{b}</Toggle>)}
                   <span className="flex gap-2">
@@ -408,11 +410,11 @@ export default function SetupPage() {
                       value={customBrand}
                       onChange={(e) => setCustomBrand(e.target.value.slice(0, 60))}
                       onKeyDown={(e) => { if (e.key === 'Enter' && customBrand.trim()) { e.preventDefault(); setBrands((x) => [...new Set([...x, customBrand.trim()])]); setCustomBrand(''); } }}
-                      placeholder="Add a brand"
+                      placeholder={t('Add a brand')}
                       className="h-11 w-44 rounded-full border border-sand-4 bg-sand px-4 text-[14px] outline-none focus:border-ink"
-                      aria-label="Add another brand"
+                      aria-label={t('Add another brand')}
                     />
-                    <button type="button" disabled={!customBrand.trim()} onClick={() => { setBrands((x) => [...new Set([...x, customBrand.trim()])]); setCustomBrand(''); }} className="btn-ghost h-11 px-4">Add</button>
+                    <button type="button" disabled={!customBrand.trim()} onClick={() => { setBrands((x) => [...new Set([...x, customBrand.trim()])]); setCustomBrand(''); }} className="btn-ghost h-11 px-4">{t('Add')}</button>
                   </span>
                 </div>
               </div>
@@ -420,9 +422,9 @@ export default function SetupPage() {
           )}
 
           <div className="flex justify-between gap-3">
-            <button type="button" onClick={() => setStep(1)} className="btn-ghost">Back</button>
+            <button type="button" onClick={() => setStep(1)} className="btn-ghost">{t('Back')}</button>
             <button type="button" onClick={saveRange} disabled={saving || cats.length === 0} className="btn-lime px-7">
-              {saving ? 'Saving' : 'Finish and list products'}
+              {saving ? t('Saving') : t('Finish and list products')}
             </button>
           </div>
         </section>
@@ -437,6 +439,7 @@ export default function SetupPage() {
 // Account deletion (the app stores require it; the privacy policy promises it). Confirmed in the page, no
 // browser dialog. The API refuses while an order is open and says why.
 function DeleteAccount() {
+  const t = useT();
   const client = useApiClient();
   const { signOut } = useAuth();
   const [open, setOpen] = useState(false);
@@ -450,7 +453,7 @@ function DeleteAccount() {
       await client.request('/users/me', { method: 'DELETE', auth: true, envelope: true, schema: z.object({ deleted: z.literal(true) }) });
       await signOut();
     } catch (err) {
-      setError(err instanceof ApiClientError && err.status === 409 ? err.message : 'Could not delete your account. Please try again.');
+      setError(err instanceof ApiClientError && err.status === 409 ? err.message : t('Could not delete your account. Please try again.'));
       setBusy(false);
     }
   }
@@ -458,23 +461,22 @@ function DeleteAccount() {
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className="self-start text-[14px] font-medium text-stone underline-offset-4 hover:text-error hover:underline">
-        Delete my account
+        {t('Delete my account')}
       </button>
     );
   }
   return (
     <section className="card p-5" aria-labelledby="delete-title">
-      <h2 id="delete-title" className="font-display text-lg font-semibold">Delete your seller account?</h2>
+      <h2 id="delete-title" className="font-display text-lg font-semibold">{t('Delete your seller account?')}</h2>
       <p className="mt-2 text-[14px] leading-relaxed text-stone">
-        Your details are erased, your listings are taken down and you are signed out. Past orders are kept without your
-        contact details, because invoices must be kept by law.
+        {t('Your details are erased, your listings are taken down and you are signed out. Past orders are kept without your contact details, because invoices must be kept by law.')}
       </p>
       {error && <p role="alert" className="mt-3 text-[14px] text-error">{error}</p>}
       <div className="mt-4 flex gap-2">
         <button type="button" onClick={confirm} disabled={busy} className="btn-ink flex-1 bg-error">
-          {busy ? 'Deleting...' : 'Delete my account'}
+          {busy ? t('Deleting...') : t('Delete my account')}
         </button>
-        <button type="button" onClick={() => setOpen(false)} disabled={busy} className="btn-ghost flex-1">Cancel</button>
+        <button type="button" onClick={() => setOpen(false)} disabled={busy} className="btn-ghost flex-1">{t('Cancel')}</button>
       </div>
     </section>
   );

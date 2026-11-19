@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useApiClient } from '@sthiva/web-core';
+import { useApiClient, useT } from '@sthiva/web-core';
 import { fetchSupplierProduct, type SupplierProduct } from '../../../../../lib/products';
 import { ProductForm } from '../../../../../components/ProductForm';
 import { ErrorNote, PageHead } from '../../../../../components/ui';
 import { useSupplierProfile } from '../../../../../lib/setup';
 
 export default function EditProductPage() {
+  const t = useT();
   const { id } = useParams<{ id: string }>();
   const client = useApiClient();
   const profile = useSupplierProfile();
@@ -25,8 +26,8 @@ export default function EditProductPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHead eyebrow="Catalogue" title="Edit listing" />
-      {state.status === 'loading' && <div className="skeleton h-64" role="status" aria-label="Loading product" />}
-      {state.status === 'error' && <ErrorNote>Couldn&apos;t load this product.</ErrorNote>}
+      {state.status === 'loading' && <div className="skeleton h-64" role="status" aria-label={t('Loading product')} />}
+      {state.status === 'error' && <ErrorNote>{t("Couldn't load this product.")}</ErrorNote>}
       {state.status === 'success' && <ProductForm product={state.product} brands={profile.status === 'success' ? profile.profile.brands ?? [] : []} />}
     </div>
   );

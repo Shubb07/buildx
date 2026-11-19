@@ -5,26 +5,26 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   useApiClient, catalogItems, catalogItem, deliveryTimeLabel, DELIVERY_TIME_PRESETS, matchCatalogItem, suggestedListingName, suggestedListingUnit, type CatalogItem,
-  HSN_RE, SUGGESTED_HSN,
-} from '@sthiva/web-core';
+  HSN_RE, SUGGESTED_HSN, useT, tx } from '@sthiva/web-core';
 import { useCategories } from '../lib/categories';
+import { deliveryLabelT } from '../lib/i18n/delivery';
 import { createSupplierProduct, productErrorText, searchSthivaItems, updateSupplierProduct, type ProductInput, type SthivaItem, type SupplierProduct } from '../lib/products';
 import { GST_RATES, bulkPricingProblem, gstBreakdown } from '../lib/pricing';
 import { ImageUploader, type ProductImage } from './ImageUploader';
 import { rupees } from './ui';
 
 const UNITS: { value: string; label: string; short: string }[] = [
-  { value: 'BAG', label: 'Bag', short: 'bag' },
-  { value: 'TON', label: 'Tonne', short: 'tonne' },
-  { value: 'KG', label: 'Kilogram', short: 'kg' },
-  { value: 'PIECE', label: 'Piece', short: 'piece' },
-  { value: 'BUNDLE', label: 'Bundle', short: 'bundle' },
-  { value: 'CUBIC_METER', label: 'Cubic metre (m³)', short: 'm³' },
-  { value: 'SQUARE_METER', label: 'Square metre (m²)', short: 'm²' },
-  { value: 'LITER', label: 'Litre', short: 'litre' },
-  { value: 'METER', label: 'Metre', short: 'metre' },
-  { value: 'BOX', label: 'Box', short: 'box' },
-  { value: 'SHEET', label: 'Sheet', short: 'sheet' },
+  { value: 'BAG', label: tx('Bag'), short: 'bag' },
+  { value: 'TON', label: tx('Tonne'), short: 'tonne' },
+  { value: 'KG', label: tx('Kilogram'), short: 'kg' },
+  { value: 'PIECE', label: tx('Piece'), short: 'piece' },
+  { value: 'BUNDLE', label: tx('Bundle'), short: 'bundle' },
+  { value: 'CUBIC_METER', label: tx('Cubic metre (m³)'), short: 'm³' },
+  { value: 'SQUARE_METER', label: tx('Square metre (m²)'), short: 'm²' },
+  { value: 'LITER', label: tx('Litre'), short: 'litre' },
+  { value: 'METER', label: tx('Metre'), short: 'metre' },
+  { value: 'BOX', label: tx('Box'), short: 'box' },
+  { value: 'SHEET', label: tx('Sheet'), short: 'sheet' },
 ];
 
 // specifications keys written by this form (the storefront shows them as the spec table)
@@ -37,14 +37,16 @@ function brandOptions(catalogue: string[], mine: string[]) {
   return dealt.length > 0 ? dealt : catalogue;
 }
 
+// hint: English text, translated here
 function Step({ n, title, hint, children }: { n: number; title: string; hint?: string; children: React.ReactNode }) {
+  const t = useT();
   return (
     <section className="card p-5 sm:p-6">
       <div className="flex items-start gap-3">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink font-mono text-[13px] text-lime">{n}</span>
         <div>
           <h2 className="font-display text-xl font-semibold tracking-tight">{title}</h2>
-          {hint && <p className="mt-0.5 text-[14px] text-stone">{hint}</p>}
+          {hint && <p className="mt-0.5 text-[14px] text-stone">{t(hint)}</p>}
         </div>
       </div>
       <div className="mt-5 flex flex-col gap-5">{children}</div>
@@ -53,10 +55,11 @@ function Step({ n, title, hint, children }: { n: number; title: string; hint?: s
 }
 
 function Choice({ label, options, value, onChange, allowOther }: { label: string; options: string[]; value: string; onChange: (v: string) => void; allowOther?: boolean }) {
+  const t = useT();
   const other = value !== '' && !options.includes(value);
   return (
     <fieldset>
-      <legend className="text-[14px] font-semibold">{label}</legend>
+      <legend className="text-[14px] font-semibold">{t(label)}</legend>
       <div className="mt-2.5 flex flex-wrap gap-2">
         {options.map((o) => (
           <button
@@ -73,7 +76,7 @@ function Choice({ label, options, value, onChange, allowOther }: { label: string
           <input
             value={other ? value : ''}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="Other"
+            placeholder={t('Other')}
             aria-label={`Other ${label.toLowerCase()}`}
             className={`h-10 w-36 rounded-full border px-4 text-[14px] outline-none transition-colors focus:border-ink ${other ? 'border-ink bg-sand-2' : 'border-sand-4 bg-sand'}`}
           />
@@ -83,12 +86,14 @@ function Choice({ label, options, value, onChange, allowOther }: { label: string
   );
 }
 
+// label, hint and error: English text, translated here (money labels are passed through unchanged)
 function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string | null; children: React.ReactNode }) {
+  const t = useT();
   return (
     <label className="flex flex-col gap-2">
-      <span className="text-[14px] font-semibold">{label}</span>
+      <span className="text-[14px] font-semibold">{t(label)}</span>
       {children}
-      {error ? <span className="text-[13px] text-error">{error}</span> : hint && <span className="text-[13px] text-stone">{hint}</span>}
+      {error ? <span className="text-[13px] text-error">{t(error)}</span> : hint && <span className="text-[13px] text-stone">{t(hint)}</span>}
     </label>
   );
 }
@@ -127,6 +132,7 @@ function BuyerPreview({ name, brand, unit, price, gstRate, inclusive, tiers, sto
   name: string; brand?: string; unit: string; price: number; gstRate: number; inclusive: boolean;
   tiers: { minQty: number; price: number }[]; stock: number; minOrder: number; deliveryDays: number; deliveryDaysMax: number; image?: string;
 }) {
+  const t = useT();
   const breakdown = gstBreakdown(price, gstRate, inclusive);
   // Only a bulk price the server would accept is shown as a deal
   const best = [...tiers].filter((t) => t.minQty >= 2 && t.price > 0 && t.price < price).sort((a, b) => a.price - b.price)[0];
@@ -139,13 +145,13 @@ function BuyerPreview({ name, brand, unit, price, gstRate, inclusive, tiers, sto
         ) : (
           <span className="flex flex-col items-center gap-1 text-[13px] text-stone">
             <span className="material-symbols-outlined text-[32px]" aria-hidden="true">add_a_photo</span>
-            Your photo shows here
+            {t('Your photo shows here')}
           </span>
         )}
       </div>
       <div className="flex flex-col gap-2 p-4">
         {brand && <p className="eyebrow text-stone">{brand}</p>}
-        <p className="text-[16px] font-semibold leading-snug">{name || <span className="text-stone">Product name</span>}</p>
+        <p className="text-[16px] font-semibold leading-snug">{name || <span className="text-stone">{t('Product name')}</span>}</p>
         <p className="font-display text-2xl font-bold tabular-nums">
           {breakdown ? rupees.format(breakdown.total) : '₹ -'}
           <span className="ml-1 text-[14px] font-medium text-stone">/ {unit}</span>
@@ -153,7 +159,7 @@ function BuyerPreview({ name, brand, unit, price, gstRate, inclusive, tiers, sto
         <p className="-mt-1 text-[13px] text-stone">incl. {gstRate}% GST{breakdown && gstRate > 0 ? ` (${rupees.format(breakdown.gst)})` : ''}</p>
         {best && <p className="rounded-lg bg-lime/60 px-2.5 py-1.5 text-[13px] font-medium">From {rupees.format(gstBreakdown(best.price, gstRate, inclusive)?.total ?? 0)} / {unit} on {best.minQty}+</p>}
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-stone">
-          <span className={stock > 0 ? 'text-tertiary' : 'text-error'}>{stock > 0 ? 'In stock' : 'Out of stock'}</span>
+          <span className={stock > 0 ? 'text-tertiary' : 'text-error'}>{stock > 0 ? t('In stock') : t('Out of stock')}</span>
           {minOrder > 1 && <span>Min {minOrder} {unit}</span>}
           <span>Delivery: {deliveryTimeLabel(deliveryDays, deliveryDaysMax).toLowerCase()}</span>
         </div>
@@ -167,6 +173,7 @@ function BuyerPreview({ name, brand, unit, price, gstRate, inclusive, tiers, sto
 // `template` pre-fills a new listing from an existing one ("list another size").
 // `sells` are the category slugs from business setup: shown first, and picked for you if there is only one.
 export function ProductForm({ product, template, brands = [], sells = [] }: { product?: SupplierProduct; template?: SupplierProduct; brands?: string[]; sells?: string[] }) {
+  const t = useT();
   const client = useApiClient();
   const router = useRouter();
   const categories = useCategories();
@@ -313,17 +320,17 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
   const tierValues = tiers.map((t) => ({ minQty: num(t.minQty), price: num(t.price) }));
   const tierProblem = tiers.length ? bulkPricingProblem(tierValues, price, minOrder) : null;
   const fieldErrors = {
-    category: !categoryId ? 'Choose a category' : null,
-    name: name.trim().length < 3 ? 'Give the product a name' : null,
-    description: description.trim().length < 10 ? 'Describe it in at least 10 characters' : null,
-    unit: !unit ? 'Choose how it is sold' : null,
+    category: !categoryId ? t('Choose a category') : null,
+    name: name.trim().length < 3 ? t('Give the product a name') : null,
+    description: description.trim().length < 10 ? t('Describe it in at least 10 characters') : null,
+    unit: !unit ? t('Choose how it is sold') : null,
     price: !(price > 0) ? 'Enter the price' : null,
-    stock: stockQuantity !== '' && !isWhole(stockQuantity) ? 'Whole number, 0 or more' : null,
-    minOrder: !(isWhole(minOrderQuantity) && Number(minOrderQuantity) >= 1) ? 'Whole number, 1 or more' : null,
+    stock: stockQuantity !== '' && !isWhole(stockQuantity) ? t('Whole number, 0 or more') : null,
+    minOrder: !(isWhole(minOrderQuantity) && Number(minOrderQuantity) >= 1) ? t('Whole number, 1 or more') : null,
     delivery: !(isWhole(deliveryDays) && Number(deliveryDays) <= 90 && isWhole(deliveryDaysMax) && Number(deliveryDaysMax) <= 90)
-      ? 'Between 0 and 90 days'
-      : Number(deliveryDaysMax) < Number(deliveryDays) ? 'The longest time must be at least the shortest' : null,
-    lowStock: lowStockAlert !== '' && !isWhole(lowStockAlert) ? 'Whole number, 0 or more' : null,
+      ? t('Between 0 and 90 days')
+      : Number(deliveryDaysMax) < Number(deliveryDays) ? t('The longest time must be at least the shortest') : null,
+    lowStock: lowStockAlert !== '' && !isWhole(lowStockAlert) ? t('Whole number, 0 or more') : null,
     tiers: tierProblem,
     hsn: hsn !== '' && !HSN_RE.test(hsn) ? 'An HSN code has 4, 6 or 8 digits' : null,
   };
@@ -412,11 +419,11 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
   return (
     <form onSubmit={(e) => { e.preventDefault(); save('publish'); }} onChange={touch} className="grid gap-6 pb-28 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex flex-col gap-4">
-        <Step n={++n} title="What are you selling?" hint="Choose the category, then the exact material.">
+        <Step n={++n} title={t('What are you selling?')} hint={tx('Choose the category, then the exact material.')}>
           {categories.status === 'loading' && <div className="skeleton h-24" />}
-          {categories.status === 'error' && <p className="text-[15px] text-error">Couldn&apos;t load categories. Refresh the page.</p>}
+          {categories.status === 'error' && <p className="text-[15px] text-error">{t("Couldn't load categories. Refresh the page.")}</p>}
           {categories.status === 'success' && (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Category">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label={t('Category')}>
               {ordered.map((c) => (
                 <button
                   key={c._id}
@@ -430,18 +437,18 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
                   }`}
                 >
                   {c.name}
-                  {sells.includes(c.slug) && categoryId !== c._id && <span className="mt-0.5 block text-[12px] font-normal text-stone">You sell this</span>}
+                  {sells.includes(c.slug) && categoryId !== c._id && <span className="mt-0.5 block text-[12px] font-normal text-stone">{t('You sell this')}</span>}
                 </button>
               ))}
             </div>
           )}
-          {isEdit && <p className="-mt-2 text-[13px] text-stone">The category of a listing can&apos;t change. List it again in the other category if needed.</p>}
+          {isEdit && <p className="-mt-2 text-[13px] text-stone">{t("The category of a listing can't change. List it again in the other category if needed.")}</p>}
           {show('category') && <p className="-mt-2 text-[13px] text-error">{show('category')}</p>}
 
           {items.length > 0 && (
             <div>
-              <p className="text-[14px] font-semibold">Material</p>
-              <div className="mt-2.5 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Material">
+              <p className="text-[14px] font-semibold">{t('Material')}</p>
+              <div className="mt-2.5 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t('Material')}>
                 {items.map((i) => (
                   <button
                     key={i.id}
@@ -458,32 +465,32 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-[13px] text-stone">Not in the list? Skip this and describe the product below.</p>
+              <p className="mt-2 text-[13px] text-stone">{t('Not in the list? Skip this and describe the product below.')}</p>
             </div>
           )}
         </Step>
 
         {item && (item.variants.length > 0 || item.brands.length > 0) && (
-          <Step n={++n} title="Specification" hint="The same options buyers filter by on Sthiva.">
+          <Step n={++n} title={t('Specification')} hint={tx('The same options buyers filter by on Sthiva.')}>
             {item.variants.map((v) => (
               <Choice key={v.label} label={v.label} options={v.options} value={specs[v.label] ?? ''} onChange={(val) => setSpec(v.label, val)} allowOther />
             ))}
             {item.brands.length > 0 ? (
-              <Choice label="Brand" options={brandOptions(item.brands, brands)} value={specs[BRAND_KEY] ?? ''} onChange={(val) => setSpec(BRAND_KEY, val)} allowOther />
+              <Choice label={tx('Brand')} options={brandOptions(item.brands, brands)} value={specs[BRAND_KEY] ?? ''} onChange={(val) => setSpec(BRAND_KEY, val)} allowOther />
             ) : (
-              <Field label="Brand or make (optional)" hint="For local products, the manufacturer or kiln name.">
+              <Field label={tx('Brand or make (optional)')} hint={tx('For local products, the manufacturer or kiln name.')}>
                 <input value={specs[BRAND_KEY] ?? ''} onChange={(e) => setSpec(BRAND_KEY, e.target.value)} className="field" />
               </Field>
             )}
           </Step>
         )}
 
-        <Step n={++n} title="Listing details">
-          <Field label="Product name" error={show('name')}>
+        <Step n={++n} title={t('Listing details')}>
+          <Field label={tx('Product name')} error={show('name')}>
             <input
               value={name}
               onChange={(e) => { setName(e.target.value); setNameTouched(true); setLinked(null); }}
-              placeholder="e.g. TATA Tiscon TMT bars Fe 550D 12 mm"
+              placeholder={t('e.g. TATA Tiscon TMT bars Fe 550D 12 mm')}
               maxLength={150}
               className="field"
             />
@@ -491,27 +498,27 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
           {linked && (
             <div className="-mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-lime/40 px-3 py-2 text-[14px]">
               <span className="material-symbols-outlined text-[18px]" aria-hidden="true">link</span>
-              <span className="flex-1">You&apos;re selling the Sthiva item <strong>{linked.name}</strong>. Buyers see it once, and Sthiva sends orders to the best supplier.</span>
-              <button type="button" onClick={() => setLinked(null)} className="text-[13px] font-semibold underline">Not this</button>
+              <span className="flex-1">{t("You're selling the Sthiva item")} <strong>{linked.name}</strong>{t('. Buyers see it once, and Sthiva sends orders to the best supplier.')}</span>
+              <button type="button" onClick={() => setLinked(null)} className="text-[13px] font-semibold underline">{t('Not this')}</button>
             </div>
           )}
           {!isEdit && !linked && suggestions.length > 0 && (
             <div className="-mt-2 rounded-xl border border-sand-4 p-3">
-              <p className="text-[14px] font-semibold">Already on Sthiva</p>
-              <p className="text-[13px] text-stone">If it&apos;s one of these, pick it so buyers find all offers in one place.</p>
+              <p className="text-[14px] font-semibold">{t('Already on Sthiva')}</p>
+              <p className="text-[13px] text-stone">{t("If it's one of these, pick it so buyers find all offers in one place.")}</p>
               <ul className="mt-2 flex flex-col gap-1.5">
                 {suggestions.map((s) => (
                   <li key={s._id} className="flex flex-wrap items-center gap-2 text-[14px]">
                     <span className="flex-1">{s.name} <span className="text-stone">· per {UNITS.find((u) => u.value === s.unit)?.short ?? s.unit}</span></span>
                     {s.myListingId ? (
-                      <Link href={`/products/${s.myListingId}/edit`} className="text-[13px] font-semibold text-cobalt underline">You sell this: edit it</Link>
+                      <Link href={`/products/${s.myListingId}/edit`} className="text-[13px] font-semibold text-cobalt underline">{t('You sell this: edit it')}</Link>
                     ) : (
-                      <button type="button" onClick={() => sellExisting(s)} className="rounded-full border border-ink px-3 py-1 text-[13px] font-semibold hover:bg-ink hover:text-sand">Sell this</button>
+                      <button type="button" onClick={() => sellExisting(s)} className="rounded-full border border-ink px-3 py-1 text-[13px] font-semibold hover:bg-ink hover:text-sand">{t('Sell this')}</button>
                     )}
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-[13px] text-stone">Not listed? Carry on: your product becomes a new Sthiva item, checked by our team.</p>
+              <p className="mt-2 text-[13px] text-stone">{t('Not listed? Carry on: your product becomes a new Sthiva item, checked by our team.')}</p>
             </div>
           )}
           {item && name.trim() && (
@@ -527,12 +534,12 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
               </p>
             )
           )}
-          <Field label="Description" hint="Grade, size, packing, quality certificates, what is included." error={show('description')}>
+          <Field label={tx('Description')} hint={tx('Grade, size, packing, quality certificates, what is included.')} error={show('description')}>
             <textarea
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={item ? item.summary : 'Describe the product for buyers'}
+              placeholder={item ? item.summary : t('Describe the product for buyers')}
               maxLength={3000}
               className="field resize-y"
             />
@@ -542,15 +549,15 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
         <Step n={++n} title="Price and GST" hint="Use the GST rate on your tax invoice for this item.">
           {item && (
             <p className="flex flex-wrap items-center gap-2 text-[14px] text-stone">
-              <span>Usually sold</span>
-              {item.soldAs.map((s) => <span key={s.label} className="rounded-full bg-sand-3 px-2.5 py-1 text-[13px] text-ink">{s.label.replace(/^Per /, 'per ')}</span>)}
+              <span>{t('Usually sold')}</span>
+              {item.soldAs.map((s) => <span key={s.label} className="rounded-full bg-sand-3 px-2.5 py-1 text-[13px] text-ink">{t(s.label)}</span>)}
             </p>
           )}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Sold per" error={show('unit')}>
+            <Field label={tx('Sold per')} error={show('unit')}>
               <select value={unit} onChange={(e) => setUnit(e.target.value)} disabled={isEdit || !!linked} className="field">
-                <option value="" disabled>Choose a unit</option>
-                {UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+                <option value="" disabled>{t('Choose a unit')}</option>
+                {UNITS.map((u) => <option key={u.value} value={u.value}>{t(u.label)}</option>)}
               </select>
             </Field>
             <Field label={`Your price per ${unitShort} (₹)`} error={show('price')}>
@@ -580,13 +587,13 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
               value={hsn}
               onChange={(e) => { touch(); setHsn(e.target.value.replace(/\D/g, '').slice(0, 8)); }}
               inputMode="numeric"
-              placeholder={item && SUGGESTED_HSN[item.id] ? SUGGESTED_HSN[item.id] : '4 to 8 digits'}
+              placeholder={item && SUGGESTED_HSN[item.id] ? SUGGESTED_HSN[item.id] : t('4 to 8 digits')}
               className="field max-w-[200px] font-mono"
             />
             {item && SUGGESTED_HSN[item.id] && hsn !== SUGGESTED_HSN[item.id] && (
               <span className="text-[13px] text-stone">
                 Usual code for {item.name}: <span className="font-mono">{SUGGESTED_HSN[item.id]}</span>.{' '}
-                <button type="button" onClick={() => { touch(); setHsn(SUGGESTED_HSN[item.id]); }} className="font-semibold text-cobalt hover:underline">Use it</button>
+                <button type="button" onClick={() => { touch(); setHsn(SUGGESTED_HSN[item.id]); }} className="font-semibold text-cobalt hover:underline">{t('Use it')}</button>
                 {' '}Check with your accountant if unsure.
               </span>
             )}
@@ -663,27 +670,27 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
           </div>
         </Step>
 
-        <Step n={++n} title="Stock and delivery">
+        <Step n={++n} title={t('Stock and delivery')}>
           <div className="mb-5 flex flex-col gap-2">
             <Segmented
-              label="Do you have it?"
+              label={tx('Do you have it?')}
               value={supply}
               onChange={(v) => { touch(); setSupply(v); }}
-              options={[{ value: 'IN_STOCK', label: 'In stock with me' }, { value: 'ON_ORDER', label: 'On order (from the company or made to order)' }]}
+              options={[{ value: 'IN_STOCK', label: t('In stock with me') }, { value: 'ON_ORDER', label: t('On order (from the company or made to order)') }]}
             />
             <p className="text-[13px] text-stone">
               {onOrder
-                ? 'Buyers can order any quantity. Their order shows "in process" and you confirm the delivery date within 24 hours.'
-                : 'Buyers see your stock and your usual delivery time.'}
+                ? t('Buyers can order any quantity. Their order shows "in process" and you confirm the delivery date within 24 hours.')
+                : t('Buyers see your stock and your usual delivery time.')}
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {!onOrder && (
               <>
-                <Field label={`In stock now (${unitMany})`} hint="Buyers can't order more than this. 0 shows it as out of stock." error={show('stock')}>
+                <Field label={`In stock now (${unitMany})`} hint={tx('Buyers can\'t order more than this. 0 shows it as out of stock.')} error={show('stock')}>
                   <input type="number" inputMode="numeric" min="0" step="1" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)} placeholder="0" className="field font-mono" />
                 </Field>
-                <Field label={`Warn me below (${unitMany})`} hint="Your Stock page flags it when stock falls to this." error={show('lowStock')}>
+                <Field label={`Warn me below (${unitMany})`} hint={tx('Your Stock page flags it when stock falls to this.')} error={show('lowStock')}>
                   <input type="number" inputMode="numeric" min="0" step="1" value={lowStockAlert} onChange={(e) => setLowStockAlert(e.target.value)} className="field font-mono" />
                 </Field>
               </>
@@ -693,12 +700,12 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
             </Field>
           </div>
           <div className="mt-5">
-            <p className="text-[14px] font-semibold">Usual delivery time</p>
+            <p className="text-[14px] font-semibold">{t('Usual delivery time')}</p>
             <p className="mt-0.5 text-[13px] text-stone">
               Counted from when you accept an order. Buyers see it on the listing; you confirm the exact date when you accept.
-              {item?.madeToOrder ? ' Made-to-order work usually takes weeks.' : ''}
+              {item?.madeToOrder ? ` ${t('Made-to-order work usually takes weeks.')}` : ''}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Usual delivery time">
+            <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label={t('Usual delivery time')}>
               {DELIVERY_TIME_PRESETS.map((p) => {
                 const active = String(p.min) === deliveryDays && String(p.max) === deliveryDaysMax;
                 return (
@@ -710,16 +717,16 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
                     onClick={() => { touch(); setDeliveryDays(String(p.min)); setDeliveryDaysMax(String(p.max)); }}
                     className={`rounded-full px-4 py-2 text-[14px] font-medium transition-colors ${active ? 'bg-ink text-sand' : 'border border-sand-4 bg-sand hover:border-ink'}`}
                   >
-                    {p.label}
+                    {deliveryLabelT(t, p.label)}
                   </button>
                 );
               })}
             </div>
             <div className="mt-3 grid max-w-sm grid-cols-2 gap-3">
-              <Field label="From (days)" error={show('delivery')}>
+              <Field label={tx('From (days)')} error={show('delivery')}>
                 <input type="number" inputMode="numeric" min="0" max="90" step="1" value={deliveryDays} onChange={(e) => setDeliveryDays(e.target.value)} className="field font-mono" />
               </Field>
-              <Field label="To (days)">
+              <Field label={tx('To (days)')}>
                 <input type="number" inputMode="numeric" min="0" max="90" step="1" value={deliveryDaysMax} onChange={(e) => setDeliveryDaysMax(e.target.value)} className="field font-mono" />
               </Field>
             </div>
@@ -728,10 +735,12 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
           <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-sand-4 p-4">
             <input type="checkbox" checked={slotDelivery} onChange={(e) => { touch(); setSlotDelivery(e.target.checked); }} className="mt-1 h-5 w-5 accent-ink" />
             <span>
-              <span className="block text-[15px] font-semibold">Offer delivery slots for this product</span>
+              <span className="block text-[15px] font-semibold">{t('Offer delivery slots for this product')}</span>
               <span className="mt-0.5 block text-[13px] text-stone">
-                Buyers can book a day and a time: Morning (7 to 11 am), Midday (11 am to 3 pm) or Evening (3 to 7 pm), from {Number(deliveryDays) > 1 ? `${deliveryDays} days` : 'the next day'} after ordering.
-                Tick it only if you can keep the time: a booked slot cannot be moved. Good for cement or steel for a slab pour, or anything a crew is waiting for.
+                {Number(deliveryDays) > 1
+                  ? t('Buyers can book a day and a time: Morning (7 to 11 am), Midday (11 am to 3 pm) or Evening (3 to 7 pm), from {n} days after ordering.', { n: deliveryDays })
+                  : t('Buyers can book a day and a time: Morning (7 to 11 am), Midday (11 am to 3 pm) or Evening (3 to 7 pm), from the next day after ordering.')}{' '}
+                {t('Tick it only if you can keep the time: a booked slot cannot be moved. Good for cement or steel for a slab pour, or anything a crew is waiting for.')}
               </span>
             </span>
           </label>
@@ -740,14 +749,14 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
             <label className="flex cursor-pointer items-start gap-3">
               <input type="checkbox" checked={hasWarranty} onChange={(e) => { touch(); setHasWarranty(e.target.checked); }} className="mt-1 h-5 w-5 accent-ink" />
               <span>
-                <span className="block text-[15px] font-semibold">This product has a warranty</span>
-                <span className="mt-0.5 block text-[13px] text-stone">Buyers see it on the product page. Common for taps, wires, switches, CCTV, inverters, pumps and waterproofing.</span>
+                <span className="block text-[15px] font-semibold">{t('This product has a warranty')}</span>
+                <span className="mt-0.5 block text-[13px] text-stone">{t('Buyers see it on the product page. Common for taps, wires, switches, CCTV, inverters, pumps and waterproofing.')}</span>
               </span>
             </label>
             {hasWarranty && (
               <div className="mt-4 grid gap-4 sm:grid-cols-[160px_1fr]">
                 <label className="flex flex-col gap-1.5">
-                  <span className="text-[13px] font-semibold">Months</span>
+                  <span className="text-[13px] font-semibold">{t('Months')}</span>
                   <input type="number" inputMode="numeric" min="1" max="360" step="1" value={warrantyMonths} onChange={(e) => { touch(); setWarrantyMonths(e.target.value); }} className="field font-mono" />
                   <span className="flex flex-wrap gap-1.5">
                     {[6, 12, 24, 60].map((m) => (
@@ -758,57 +767,57 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
                   </span>
                 </label>
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[13px] font-semibold">Given by</span>
-                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Warranty given by">
-                    {([['MANUFACTURER', 'The manufacturer (brand)'], ['SELLER', 'My shop']] as const).map(([v, l]) => (
-                      <button key={v} type="button" role="radio" aria-checked={warrantyBy === v} onClick={() => { touch(); setWarrantyBy(v); }} className={`rounded-full px-4 py-2 text-[14px] ${warrantyBy === v ? 'bg-ink text-sand' : 'border border-sand-4 bg-sand'}`}>{l}</button>
+                  <span className="text-[13px] font-semibold">{t('Given by')}</span>
+                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('Warranty given by')}>
+                    {([['MANUFACTURER', tx('The manufacturer (brand)')], ['SELLER', tx('My shop')]] as const).map(([v, l]) => (
+                      <button key={v} type="button" role="radio" aria-checked={warrantyBy === v} onClick={() => { touch(); setWarrantyBy(v); }} className={`rounded-full px-4 py-2 text-[14px] ${warrantyBy === v ? 'bg-ink text-sand' : 'border border-sand-4 bg-sand'}`}>{t(l)}</button>
                     ))}
                   </div>
-                  <input value={warrantyNote} onChange={(e) => { touch(); setWarrantyNote(e.target.value.slice(0, 200)); }} placeholder="How to claim (optional), e.g. keep the bill and the box" className="field mt-1" aria-label="Warranty note" />
+                  <input value={warrantyNote} onChange={(e) => { touch(); setWarrantyNote(e.target.value.slice(0, 200)); }} placeholder={t('How to claim (optional), e.g. keep the bill and the box')} className="field mt-1" aria-label={t('Warranty note')} />
                 </div>
               </div>
             )}
           </div>
 
           <div className="mt-3 rounded-xl border border-sand-4 p-4">
-            <p className="text-[15px] font-semibold">Returns for this product</p>
+            <p className="text-[15px] font-semibold">{t('Returns for this product')}</p>
             <p className="mt-0.5 text-[13px] text-stone">Buyers see this before they order. If goods are wrong, damaged or short because of you, the refund and return trip come from your payout.</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold">Damaged, wrong or short items
                 <select value={problemWindow} onChange={(e) => { touch(); setProblemWindow(e.target.value as typeof problemWindow); }} className="field h-11 font-normal">
-                  <option value="AT_DELIVERY">Buyer must note it at delivery</option>
-                  <option value="H24">Buyer can report within 24 hours</option>
-                  <option value="H48">Buyer can report within 48 hours</option>
-                  <option value="D7">Buyer can report within 7 days</option>
+                  <option value="AT_DELIVERY">{t('Buyer must note it at delivery')}</option>
+                  <option value="H24">{t('Buyer can report within 24 hours')}</option>
+                  <option value="H48">{t('Buyer can report within 48 hours')}</option>
+                  <option value="D7">{t('Buyer can report within 7 days')}</option>
                 </select>
               </label>
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold">Change of mind (nothing wrong)
                 <select value={changeOfMind} onChange={(e) => { touch(); setChangeOfMind(e.target.value as typeof changeOfMind); }} className="field h-11 font-normal">
-                  <option value="NONE">No returns</option>
-                  <option value="UNOPENED_1D">Sealed items within 1 day</option>
-                  <option value="UNOPENED_7D">Sealed items within 7 days</option>
+                  <option value="NONE">{t('No returns')}</option>
+                  <option value="UNOPENED_1D">{t('Sealed items within 1 day')}</option>
+                  <option value="UNOPENED_7D">{t('Sealed items within 7 days')}</option>
                 </select>
               </label>
             </div>
-            <p className="mt-2 text-[12px] text-stone">Change-of-mind returns are only for sealed, unused items; the buyer pays the return trip. Loose, cut or mixed materials are never returned for a change of mind.</p>
+            <p className="mt-2 text-[12px] text-stone">{t('Change-of-mind returns are only for sealed, unused items; the buyer pays the return trip. Loose, cut or mixed materials are never returned for a change of mind.')}</p>
           </div>
         </Step>
 
-        <Step n={++n} title="Photos" hint="Real photos of your stock. The first one is shown in search.">
+        <Step n={++n} title={t('Photos')} hint={tx('Real photos of your stock. The first one is shown in search.')}>
           <ImageUploader images={images} onChange={(next) => { touch(); setImages(next); }} />
           {/* Buyers only see real photos (no stock or drawn pictures), so a good photo sells */}
           <ul className="mt-3 grid gap-1.5 rounded-xl bg-sand-2 px-4 py-3 text-[13px] text-stone sm:grid-cols-2">
             {[
-              'Your own stock, in daylight, not a catalogue picture',
-              'Fill the frame with the item; one item per photo',
-              'Show the label: brand, grade, size, ISI mark',
-              'A plain background: a wall, a floor or a sheet',
-              'Add a second photo for texture or colour (tiles, laminates)',
-              'No phone numbers, prices or other shop names on the photo',
-            ].map((t) => (
-              <li key={t} className="flex items-start gap-2">
+              tx('Your own stock, in daylight, not a catalogue picture'),
+              tx('Fill the frame with the item; one item per photo'),
+              tx('Show the label: brand, grade, size, ISI mark'),
+              tx('A plain background: a wall, a floor or a sheet'),
+              tx('Add a second photo for texture or colour (tiles, laminates)'),
+              tx('No phone numbers, prices or other shop names on the photo'),
+            ].map((tip) => (
+              <li key={tip} className="flex items-start gap-2">
                 <span className="material-symbols-outlined mt-0.5 text-[16px] text-tertiary" aria-hidden="true">check_circle</span>
-                {t}
+                {t(tip)}
               </li>
             ))}
           </ul>
@@ -816,16 +825,16 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
 
         {/* phones have no side column: the preview folds in at the end of the form */}
         <details className="card p-5 lg:hidden">
-          <summary className="cursor-pointer text-[15px] font-semibold">See what buyers see</summary>
+          <summary className="cursor-pointer text-[15px] font-semibold">{t('See what buyers see')}</summary>
           <div className="mt-4">{preview}</div>
         </details>
 
-        {error && <p role="alert" className="card border-error/40 px-5 py-4 text-[15px] text-error">{error}</p>}
+        {error && <p role="alert" className="card border-error/40 px-5 py-4 text-[15px] text-error">{t(error)}</p>}
       </div>
 
-      <aside className="hidden lg:block" aria-label="Preview">
+      <aside className="hidden lg:block" aria-label={t('Preview')}>
         <div className="sticky top-24 flex flex-col gap-3">
-          <p className="eyebrow text-stone">What buyers see</p>
+          <p className="eyebrow text-stone">{t('What buyers see')}</p>
           {preview}
         </div>
       </aside>
@@ -834,24 +843,24 @@ export function ProductForm({ product, template, brands = [], sells = [] }: { pr
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:px-6 max-sm:mb-[84px]">
           <p className="min-w-0 flex-1 text-[13px] text-stone">
             {problems.length === 0 ? (
-              breakdown ? <>Buyers pay <span className="font-mono font-semibold text-ink">{rupees.format(breakdown.total)}</span> per {unitShort}</> : 'Ready to save'
+              breakdown ? <>Buyers pay <span className="font-mono font-semibold text-ink">{rupees.format(breakdown.total)}</span> per {unitShort}</> : t('Ready to save')
             ) : (
-              <span className={showProblems ? 'text-error' : ''}>{problems.length} thing{problems.length === 1 ? '' : 's'} left: {problems[0].toLowerCase()}</span>
+              <span className={showProblems ? 'text-error' : ''}>{problems.length === 1 ? t('1 thing left:') : t('{n} things left:', { n: problems.length })} {problems[0]}</span>
             )}
           </p>
-          <Link href="/products" className="btn-ghost max-sm:hidden">Cancel</Link>
+          <Link href="/products" className="btn-ghost max-sm:hidden">{t('Cancel')}</Link>
           {(!isEdit || product?.status === 'DRAFT') && (
             <button type="button" onClick={() => save('draft')} disabled={!!submitting} className="btn-ghost">
-              {submitting === 'draft' ? 'Saving' : 'Save draft'}
+              {submitting === 'draft' ? t('Saving') : t('Save draft')}
             </button>
           )}
           <button type="submit" disabled={!!submitting} className="btn-lime px-6">
             {submitting === 'publish' ? (
               <>
                 <span className="material-symbols-outlined animate-spin text-[20px]" aria-hidden="true">progress_activity</span>
-                Saving
+                {t('Saving')}
               </>
-            ) : isEdit && product?.status !== 'DRAFT' ? 'Save changes' : 'Publish'}
+            ) : isEdit && product?.status !== 'DRAFT' ? t('Save changes') : t('Publish')}
           </button>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useApiClient } from '@sthiva/web-core';
+import { useApiClient, useT } from '@sthiva/web-core';
 import { Chip, ChipRow, EmptyState, ErrorNote, PageHead, Pill, rupees, unitLabel } from '../../../../components/ui';
 import { isSetupComplete, useSupplierProfile } from '../../../../lib/setup';
 import { fetchQuickAdd, saveQuickAdd, type QuickItem, type QuickList } from '../../../../lib/quick-add';
@@ -37,6 +37,7 @@ function Stepper({ value, step, unit, onChange, label }: { value: number; step: 
 }
 
 function Row({ item, draft, onChange }: { item: QuickItem; draft: Draft; onChange: (d: Draft) => void }) {
+  const t = useT();
   const step = STEP[item.unit] ?? 1;
   const one = unitLabel(item.unit, 1);
   return (
@@ -55,8 +56,8 @@ function Row({ item, draft, onChange }: { item: QuickItem; draft: Draft; onChang
           </p>
           {item.mine && (
             <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px]">
-              <Pill tone={item.mine.status === 'ACTIVE' ? 'live' : 'muted'}>{item.mine.status === 'ACTIVE' ? 'Listed' : item.mine.status === 'OUT_OF_STOCK' ? 'Out of stock' : item.mine.status === 'INACTIVE' ? 'Paused' : 'Draft'}</Pill>
-              <span className="text-stone">now {rupees.format(item.mine.price)}{item.mine.onOrder ? ', on order' : `, ${item.mine.stock.toLocaleString('en-IN')} in stock`}</span>
+              <Pill tone={item.mine.status === 'ACTIVE' ? 'live' : 'muted'}>{item.mine.status === 'ACTIVE' ? t('Listed') : item.mine.status === 'OUT_OF_STOCK' ? t('Out of stock') : item.mine.status === 'INACTIVE' ? t('Paused') : t('Draft')}</Pill>
+              <span className="text-stone">now {rupees.format(item.mine.price)}{item.mine.onOrder ? t(', on order') : `, ${item.mine.stock.toLocaleString('en-IN')} in stock`}</span>
             </p>
           )}
         </div>
@@ -74,7 +75,7 @@ function Row({ item, draft, onChange }: { item: QuickItem; draft: Draft; onChang
           />
         </label>
         {item.mine?.onOrder
-          ? <span className="w-[136px] text-center text-[13px] text-stone">On order</span>
+          ? <span className="w-[136px] text-center text-[13px] text-stone">{t('On order')}</span>
           : <Stepper value={draft.stock} step={step} unit={item.unit} onChange={(stock) => onChange({ ...draft, stock })} label={`Stock of ${item.name}`} />}
       </div>
     </li>
@@ -89,6 +90,7 @@ const changed = (i: QuickItem, d: Draft) => {
 };
 
 function QuickAdd() {
+  const t = useT();
   const client = useApiClient();
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [state, setState] = useState<{ status: 'loading' } | { status: 'error' } | { status: 'success'; data: QuickList }>({ status: 'loading' });
@@ -130,7 +132,7 @@ function QuickAdd() {
       setSaved([r.created && `${r.created} new listing${r.created === 1 ? '' : 's'}`, r.updated && `${r.updated} updated`].filter(Boolean).join(', ') + '.');
       load(state.status === 'success' ? state.data.category ?? undefined : undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save. Try again.');
+      setError(err instanceof Error ? err.message : t('Could not save. Try again.'));
     } finally {
       setSaving(false);
     }
@@ -152,7 +154,7 @@ function QuickAdd() {
             ))}
           </ChipRow>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search brand or item" className="field sm:max-w-xs" aria-label="Search items" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search brand or item')} className="field sm:max-w-xs" aria-label={t('Search items')} />
             <label className="flex cursor-pointer items-center gap-2 text-[15px]">
               <input type="checkbox" checked={inclusive} onChange={(e) => setInclusive(e.target.checked)} className="h-5 w-5 accent-ink" />
               My prices include GST
@@ -161,11 +163,11 @@ function QuickAdd() {
         </>
       )}
 
-      {saved && <p role="status" className="rounded-xl bg-[#E3F4E8] px-4 py-3 text-[15px] text-tertiary">Saved: {saved} <Link href="/products" className="font-medium underline">See your products</Link></p>}
-      {state.status === 'loading' && <div className="skeleton h-72" role="status" aria-label="Loading items" />}
-      {state.status === 'error' && <ErrorNote>Couldn&apos;t load the items. Check your connection and try again.</ErrorNote>}
+      {saved && <p role="status" className="rounded-xl bg-[#E3F4E8] px-4 py-3 text-[15px] text-tertiary">Saved: {saved} <Link href="/products" className="font-medium underline">{t('See your products')}</Link></p>}
+      {state.status === 'loading' && <div className="skeleton h-72" role="status" aria-label={t('Loading items')} />}
+      {state.status === 'error' && <ErrorNote>{t("Couldn't load the items. Check your connection and try again.")}</ErrorNote>}
       {state.status === 'success' && shown.length === 0 && (
-        <EmptyState icon="search_off" title="No items here" body={q ? 'Nothing matches your search in this category.' : 'This category has no Sthiva items yet. Use the full form to list a new item.'} cta={{ href: '/products/new', label: 'List a new item' }} />
+        <EmptyState icon="search_off" title="No items here" body={q ? t('Nothing matches your search in this category.') : t('This category has no Sthiva items yet. Use the full form to list a new item.')} cta={{ href: '/products/new', label: t('List a new item') }} />
       )}
       {state.status === 'success' && shown.length > 0 && (
         <ul className="card divide-y divide-sand-4 px-4 sm:px-6">
@@ -175,7 +177,7 @@ function QuickAdd() {
         </ul>
       )}
       <p className="text-[14px] text-stone">
-        Can&apos;t find an item? <Link href="/products/new" className="font-medium text-cobalt hover:underline">List it with the full form</Link>.
+        Can&apos;t find an item? <Link href="/products/new" className="font-medium text-cobalt hover:underline">{t('List it with the full form')}</Link>.
       </p>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-sand-4 bg-sand/95 px-4 py-3 backdrop-blur sm:px-6">
@@ -185,7 +187,7 @@ function QuickAdd() {
           </p>
           {error && <p className="w-full text-[14px] text-error sm:w-auto">{error}</p>}
           <button type="button" disabled={!ready.length || saving} onClick={saveAll} className="btn-ink px-7">
-            {saving ? 'Saving' : `Save all${ready.length ? ` (${ready.length})` : ''}`}
+            {saving ? t('Saving') : `Save all${ready.length ? ` (${ready.length})` : ''}`}
           </button>
         </div>
       </div>
@@ -194,15 +196,16 @@ function QuickAdd() {
 }
 
 export default function QuickAddPage() {
+  const t = useT();
   const profile = useSupplierProfile();
-  if (profile.status === 'loading') return <div className="skeleton h-64" role="status" aria-label="Loading" />;
-  if (profile.status === 'error') return <ErrorNote>Couldn&apos;t load your profile. Check your connection and refresh.</ErrorNote>;
+  if (profile.status === 'loading') return <div className="skeleton h-64" role="status" aria-label={t('Loading')} />;
+  if (profile.status === 'error') return <ErrorNote>{t("Couldn't load your profile. Check your connection and refresh.")}</ErrorNote>;
   if (!isSetupComplete(profile.profile)) {
     return (
       <div className="card flex flex-col items-start gap-4 p-6">
-        <h1 className="font-display text-xl font-semibold tracking-tight">Finish your business setup first</h1>
-        <p className="max-w-xl text-[15px] text-stone">Tell us your business type, the PIN codes you deliver to and what you sell. Then you can add products here in one go.</p>
-        <Link href="/setup" className="btn-ink px-6">Go to setup</Link>
+        <h1 className="font-display text-xl font-semibold tracking-tight">{t('Finish your business setup first')}</h1>
+        <p className="max-w-xl text-[15px] text-stone">{t('Tell us your business type, the PIN codes you deliver to and what you sell. Then you can add products here in one go.')}</p>
+        <Link href="/setup" className="btn-ink px-6">{t('Go to setup')}</Link>
       </div>
     );
   }

@@ -1,20 +1,24 @@
+'use client';
+
+import { tx, useT } from '@sthiva/web-core';
 import type { BuyerOrder } from '../lib/orders';
 
 const STEP_LABELS: Record<string, string> = {
-  PENDING: 'Waiting for the supplier to confirm',
-  CONFIRMED: 'Confirmed by supplier',
-  READY_FOR_PICKUP: 'Ready for pickup',
-  ASSIGNED: 'Driver assigned',
-  PICKED_UP: 'Picked up',
-  IN_TRANSIT: 'Out for delivery',
-  DELIVERED: 'Delivered',
-  CANCELLED: 'Cancelled',
-  DISPUTED: 'Disputed',
+  PENDING: tx('Waiting for the supplier to confirm'),
+  CONFIRMED: tx('Confirmed by supplier'),
+  READY_FOR_PICKUP: tx('Ready for pickup'),
+  ASSIGNED: tx('Driver assigned'),
+  PICKED_UP: tx('Picked up'),
+  IN_TRANSIT: tx('Out for delivery'),
+  DELIVERED: tx('Delivered'),
+  CANCELLED: tx('Cancelled'),
+  DISPUTED: tx('Disputed'),
 };
 
 const dateFormat = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 export function OrderTimeline({ order }: { order: BuyerOrder }) {
+  const t = useT();
   // Every order always has at least a PENDING entry (written at creation); a missing history
   // (very old orders, or any gap) falls back to just the current status so this never looks empty.
   const history = order.statusHistory ?? [];
@@ -24,7 +28,7 @@ export function OrderTimeline({ order }: { order: BuyerOrder }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <h2 className="font-display text-xl font-semibold tracking-tight">Tracking</h2>
+      <h2 className="font-display text-xl font-semibold tracking-tight">{t('Tracking')}</h2>
       <ol className="flex flex-col">
         {steps.map((step, i) => {
           const isLast = i === steps.length - 1;
@@ -47,8 +51,8 @@ export function OrderTimeline({ order }: { order: BuyerOrder }) {
               </div>
               <div className={isLast ? 'pb-1 pt-1' : 'pb-7 pt-1'}>
                 <p className="text-[15px] font-semibold">
-                  {STEP_LABELS[step.status] ?? step.status}
-                  {current && <span className="sr-only"> (current step)</span>}
+                  {STEP_LABELS[step.status] ? t(STEP_LABELS[step.status]) : step.status}
+                  {current && <span className="sr-only"> ({t('current step')})</span>}
                 </p>
                 <p className="mt-0.5 font-mono text-[12px] text-stone">{dateFormat.format(new Date(step.at))}</p>
                 {step.note && <p className="mt-1 text-[14px] text-stone">{step.note}</p>}
@@ -60,7 +64,7 @@ export function OrderTimeline({ order }: { order: BuyerOrder }) {
       {inProgress && (
         <p className="flex items-start gap-2 rounded-xl bg-sand-3 px-4 py-3 text-[14px] text-stone">
           <span className="material-symbols-outlined text-[18px]" aria-hidden="true">local_shipping</span>
-          {order.deliveryMode === 'SUPPLIER' ? 'This supplier is delivering it themselves.' : 'A Sthiva delivery partner will pick this up.'}
+          {order.deliveryMode === 'SUPPLIER' ? t('This supplier is delivering it themselves.') : t('A Sthiva delivery partner will pick this up.')}
         </p>
       )}
     </div>

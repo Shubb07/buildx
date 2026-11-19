@@ -1,11 +1,14 @@
+'use client';
+
 import Link from 'next/link';
 import { StatusPill } from './AccountUI';
 import type { BuyerOrder } from '@/lib/orders';
 import { rupees, shortDate } from '@/lib/format';
-import { formatDeliveryDate } from '@sthiva/web-core';
+import { formatDeliveryDate, useT } from '@sthiva/web-core';
 
 export function OrderRow({ order }: { order: BuyerOrder }) {
   const count = order.items.length;
+  const t = useT();
   return (
     <Link
       href={`/orders/${order._id}`}
@@ -16,7 +19,7 @@ export function OrderRow({ order }: { order: BuyerOrder }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <p className="font-mono text-[14px] font-medium">{order.orderNumber}{order.orderGroup && <span className="ml-2 font-sans text-[12px] font-normal text-stone">Part {order.orderGroup.part} of {order.orderGroup.parts}</span>}</p>
+          <p className="font-mono text-[14px] font-medium">{order.orderNumber}{order.orderGroup && <span className="ml-2 font-sans text-[12px] font-normal text-stone">{t('Part {n} of {total}', { n: order.orderGroup.part, total: order.orderGroup.parts })}</span>}</p>
           <StatusPill status={order.status} />
           {order.deliveryDate && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
             <span className="inline-flex items-center gap-1 text-[13px] font-medium text-ink">
@@ -26,7 +29,7 @@ export function OrderRow({ order }: { order: BuyerOrder }) {
           )}
         </div>
         <p className="mt-1.5 truncate text-[14px] text-stone">
-          {shortDate.format(new Date(order.createdAt))} · {count} item{count > 1 ? 's' : ''}: {order.items.map((i) => i.name).join(', ')}
+          {shortDate.format(new Date(order.createdAt))} · {count === 1 ? t('1 item') : t('{n} items', { n: count })}: {order.items.map((i) => i.name).join(', ')}
         </p>
       </div>
       <span className="font-display text-lg font-bold tabular-nums">{rupees.format(order.total)}</span>

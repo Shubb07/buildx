@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useApiClient } from '@sthiva/web-core';
+import { useApiClient, useT } from '@sthiva/web-core';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { RequireAuth } from '@/components/auth/RequireAuth';
@@ -14,15 +14,17 @@ import { acceptQuoteReply, cancelQuoteRequest, fetchQuoteRequest, type QuoteRepl
 
 const day = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
+// Prices, GST and the accept confirmation (with the total) stay in English: money text is not translated.
 function Reply({ r, best, canAccept, onAccept, busy }: { r: QuoteReply; best: boolean; canAccept: boolean; onAccept: () => void; busy: boolean }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   return (
     <li className={`card flex flex-col gap-3 p-5 ${best ? 'ring-2 ring-lime' : ''}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-semibold">{r.seller.name} {best && <span className="ml-1 rounded-full bg-lime px-2 py-0.5 text-[12px]">Lowest total</span>}</p>
           <p className="text-[13px] text-stone">
-            Verified seller{r.seller.reviews > 0 ? ` · ★ ${r.seller.rating.toFixed(1)} (${r.seller.reviews})` : ''}{r.seller.distanceKm !== null ? ` · about ${r.seller.distanceKm} km away` : ''}
+            {t('Verified seller')}{r.seller.reviews > 0 ? ` · ★ ${r.seller.rating.toFixed(1)} (${r.seller.reviews})` : ''}{r.seller.distanceKm !== null ? ` · ${t('about {km} km away', { km: r.seller.distanceKm })}` : ''}
           </p>
         </div>
         <div className="text-right">
@@ -30,7 +32,7 @@ function Reply({ r, best, canAccept, onAccept, busy }: { r: QuoteReply; best: bo
           <p className="text-[13px] text-stone">incl. GST{r.deliveryCharge > 0 ? ` and ${rupees.format(r.deliveryCharge)} delivery` : ', free delivery'}</p>
         </div>
       </div>
-      <p className="text-[14px]">Delivers on <span className="font-semibold">{day(r.deliveryDate)}</span>{r.note ? <span className="text-stone"> · “{r.note}”</span> : null}</p>
+      <p className="text-[14px]">{t('Delivers on')} <span className="font-semibold">{day(r.deliveryDate)}</span>{r.note ? <span className="text-stone"> · “{r.note}”</span> : null}</p>
       <button type="button" onClick={() => setOpen((v) => !v)} className="self-start text-[14px] font-medium text-cobalt hover:underline">{open ? 'Hide' : 'Show'} prices per item</button>
       {open && (
         <ul className="divide-y divide-sand-4 rounded-xl border border-sand-4 text-[14px]">
@@ -45,13 +47,14 @@ function Reply({ r, best, canAccept, onAccept, busy }: { r: QuoteReply; best: bo
       {canAccept && r.status === 'ACTIVE' && (
         <button type="button" disabled={busy} onClick={onAccept} className="btn-ink self-start px-6">Accept this quote</button>
       )}
-      {r.status === 'ACCEPTED' && <p className="text-[14px] font-semibold text-tertiary">Accepted</p>}
+      {r.status === 'ACCEPTED' && <p className="text-[14px] font-semibold text-tertiary">{t('Accepted')}</p>}
     </li>
   );
 }
 
 function View({ id }: { id: string }) {
   const client = useApiClient();
+  const t = useT();
   const router = useRouter();
   const [state, setState] = useState<{ status: 'loading' } | { status: 'error' } | { status: 'ok'; data: QuoteRequestView }>({ status: 'loading' });
   const [busy, setBusy] = useState(false);
@@ -60,10 +63,10 @@ function View({ id }: { id: string }) {
   const load = useCallback(() => {
     fetchQuoteRequest(client, id).then((data) => setState({ status: 'ok', data })).catch(() => setState({ status: 'error' }));
   }, [client, id]);
-  useEffect(() => { load(); const t = setInterval(load, 30_000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { load(); const timer = setInterval(load, 30_000); return () => clearInterval(timer); }, [load]);
 
-  if (state.status === 'loading') return <div className="skeleton h-60" role="status" aria-label="Loading" />;
-  if (state.status === 'error') return <ErrorNote>Could not load this request. Try again.</ErrorNote>;
+  if (state.status === 'loading') return <div className="skeleton h-60" role="status" aria-label={t('Loading')} />;
+  if (state.status === 'error') return <ErrorNote>{t('Could not load this request. Try again.')}</ErrorNote>;
   const d = state.data;
   const open = d.status === 'OPEN';
 
@@ -85,22 +88,22 @@ function View({ id }: { id: string }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="card flex flex-col gap-2 p-5 sm:p-6">
-        <p className="font-mono text-[14px]">{d.number}{d.kind === 'CUSTOM' && d.custom ? <span className="ml-2 font-sans font-semibold">{d.custom.workName}, made to measure</span> : null}</p>
-        {d.kind === 'CUSTOM' && d.custom && <p className="text-[14px]">Material: {d.custom.spec}{d.custom.siteVisit ? ' · site visit wanted' : ''}</p>}
+        <p className="font-mono text-[14px]">{d.number}{d.kind === 'CUSTOM' && d.custom ? <span className="ml-2 font-sans font-semibold">{d.custom.workName}, {t('made to measure')}</span> : null}</p>
+        {d.kind === 'CUSTOM' && d.custom && <p className="text-[14px]">{t('Material')}: {d.custom.spec}{d.custom.siteVisit ? ` · ${t('site visit wanted')}` : ''}</p>}
         <p className="text-[15px]">{d.lines.map((l) => `${l.quantity} ${l.unit.toLowerCase()} ${l.name}`).join(', ')}</p>
         <p className="text-[14px] text-stone">
-          Needed by {day(d.neededBy)} · sent to {d.invited} nearby seller{d.invited === 1 ? '' : 's'}
-          {open && (d.repliesOpen ? ` · replies close ${new Date(d.expiresAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' })}` : ' · replies closed, you can still accept one')}
+          {t('Needed by {date}', { date: day(d.neededBy) })} · {d.invited === 1 ? t('sent to 1 nearby seller') : t('sent to {n} nearby sellers', { n: d.invited })}
+          {open && (d.repliesOpen ? ` · ${t('replies close {time}', { time: new Date(d.expiresAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' }) })}` : ` · ${t('replies closed, you can still accept one')}`)}
         </p>
-        {d.status === 'ACCEPTED' && d.orderId && <Link href={`/orders/${d.orderId}`} className="self-start font-medium text-cobalt hover:underline">See the order</Link>}
-        {d.status === 'CANCELLED' && <p className="text-[14px] text-stone">You closed this request.</p>}
-        {d.status === 'EXPIRED' && <p className="text-[14px] text-stone">The needed-by date has passed.</p>}
+        {d.status === 'ACCEPTED' && d.orderId && <Link href={`/orders/${d.orderId}`} className="self-start font-medium text-cobalt hover:underline">{t('See the order')}</Link>}
+        {d.status === 'CANCELLED' && <p className="text-[14px] text-stone">{t('You closed this request.')}</p>}
+        {d.status === 'EXPIRED' && <p className="text-[14px] text-stone">{t('The needed-by date has passed.')}</p>}
       </section>
 
       {error && <ErrorNote>{error}</ErrorNote>}
-      <h2 className="font-display text-xl font-semibold">Replies ({d.replies.length})</h2>
+      <h2 className="font-display text-xl font-semibold">{t('Replies ({n})', { n: d.replies.length })}</h2>
       {d.replies.length === 0 ? (
-        <p className="rounded-xl bg-sand-3 px-4 py-6 text-center text-[15px] text-stone">{open ? 'No replies yet. Sellers usually reply within a day; this page updates by itself.' : 'No seller replied.'}</p>
+        <p className="rounded-xl bg-sand-3 px-4 py-6 text-center text-[15px] text-stone">{open ? t('No replies yet. Sellers usually reply within a day; this page updates by itself.') : t('No seller replied.')}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {d.replies.map((r, i) => <Reply key={r.quoteId} r={r} best={i === 0 && d.replies.length > 1} canAccept={open} busy={busy} onAccept={() => setConfirm(r)} />)}
@@ -119,7 +122,7 @@ function View({ id }: { id: string }) {
 
       {open && (
         <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await cancelQuoteRequest(client, id); load(); } finally { setBusy(false); } }} className="self-start text-[14px] font-medium text-stone hover:underline">
-          Close this request
+          {t('Close this request')}
         </button>
       )}
     </div>

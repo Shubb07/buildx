@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ApiClientError, useApiClient } from '@sthiva/web-core';
+import { ApiClientError, tx, useApiClient, useT } from '@sthiva/web-core';
+import { LanguageSwitcher } from '@/components/i18n/Language';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { RequireAuth } from '@/components/auth/RequireAuth';
@@ -15,15 +16,16 @@ import { deleteAccount } from '@/lib/auth';
 const RECENT_COUNT = 3;
 
 const LINKS = [
-  { href: '/orders', icon: 'receipt_long', label: 'All orders' },
-  { href: '/cart', icon: 'shopping_cart', label: 'Cart' },
-  { href: '/refunds', icon: 'currency_rupee', label: 'Cancellations and refunds' },
-  { href: '/privacy', icon: 'shield_person', label: 'Privacy policy' },
-  { href: '/terms', icon: 'gavel', label: 'Terms of service' },
+  { href: '/orders', icon: 'receipt_long', label: tx('All orders') },
+  { href: '/cart', icon: 'shopping_cart', label: tx('Cart') },
+  { href: '/refunds', icon: 'currency_rupee', label: tx('Cancellations and refunds') },
+  { href: '/privacy', icon: 'shield_person', label: tx('Privacy policy') },
+  { href: '/terms', icon: 'gavel', label: tx('Terms of service') },
 ];
 
 function RecentOrders() {
   const client = useApiClient();
+  const t = useT();
   const [state, setState] = useState<{ status: 'loading' } | { status: 'success'; orders: BuyerOrder[] } | { status: 'error' }>({ status: 'loading' });
 
   useEffect(() => {
@@ -37,13 +39,13 @@ function RecentOrders() {
   return (
     <section>
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-xl font-semibold tracking-tight">Recent orders</h2>
-        <Link href="/orders" className="text-[14px] font-medium text-cobalt hover:underline">View all</Link>
+        <h2 className="font-display text-xl font-semibold tracking-tight">{t('Recent orders')}</h2>
+        <Link href="/orders" className="text-[14px] font-medium text-cobalt hover:underline">{t('View all')}</Link>
       </div>
       <div className="mt-4 flex flex-col gap-3">
         {state.status === 'loading' && [0, 1].map((i) => <div key={i} className="skeleton h-[92px]" />)}
         {state.status === 'success' && state.orders.length === 0 && (
-          <p className="card px-5 py-6 text-[15px] text-stone">No orders yet. Your orders will show up here.</p>
+          <p className="card px-5 py-6 text-[15px] text-stone">{t('No orders yet. Your orders will show up here.')}</p>
         )}
         {state.status === 'success' && state.orders.map((order) => <OrderRow key={order._id} order={order} />)}
       </div>
@@ -55,6 +57,7 @@ function RecentOrders() {
 // page (no browser dialog); the API refuses while an order is still open and says why.
 function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
   const client = useApiClient();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +69,7 @@ function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
       await deleteAccount(client);
       onDeleted();
     } catch (err) {
-      setError(err instanceof ApiClientError && err.status === 409 ? err.message : 'Could not delete your account. Please try again.');
+      setError(err instanceof ApiClientError && err.status === 409 ? err.message : t('Could not delete your account. Please try again.'));
       setBusy(false);
     }
   }
@@ -74,23 +77,22 @@ function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className="text-[14px] font-medium text-stone underline-offset-4 hover:text-error hover:underline">
-        Delete my account
+        {t('Delete my account')}
       </button>
     );
   }
   return (
     <section className="card p-5" aria-labelledby="delete-title">
-      <h2 id="delete-title" className="font-display text-lg font-semibold">Delete your account?</h2>
+      <h2 id="delete-title" className="font-display text-lg font-semibold">{t('Delete your account?')}</h2>
       <p className="mt-2 text-[14px] leading-relaxed text-stone">
-        Your name, phone or email and saved addresses are erased and you are signed out. Past orders are kept without
-        your contact details, because invoices must be kept by law. You can sign up again later with the same number.
+        {t('Your name, phone or email and saved addresses are erased and you are signed out. Past orders are kept without your contact details, because invoices must be kept by law. You can sign up again later with the same number.')}
       </p>
       {error && <p role="alert" className="mt-3 text-[14px] text-error">{error}</p>}
       <div className="mt-4 flex gap-2">
         <button type="button" onClick={confirm} disabled={busy} className="btn-ink flex-1 bg-error">
-          {busy ? 'Deleting...' : 'Delete my account'}
+          {busy ? t('Deleting...') : t('Delete my account')}
         </button>
-        <button type="button" onClick={() => setOpen(false)} disabled={busy} className="btn-ghost flex-1">Cancel</button>
+        <button type="button" onClick={() => setOpen(false)} disabled={busy} className="btn-ghost flex-1">{t('Cancel')}</button>
       </div>
     </section>
   );
@@ -98,6 +100,7 @@ function DeleteAccount({ onDeleted }: { onDeleted: () => void }) {
 
 function ProfileDetails() {
   const { user, signOut } = useAuth();
+  const t = useT();
   if (!user) return null;
 
   return (
@@ -116,17 +119,25 @@ function ProfileDetails() {
           </div>
           <p className="relative mt-5 flex items-center gap-1.5 text-[13px] text-stone-light">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">verified_user</span>
-            {user.phone ? 'Signed in with your phone number' : 'Signed in with Google'}
+            {user.phone ? t('Signed in with your phone number') : t('Signed in with Google')}
           </p>
         </section>
 
-        <nav className="card overflow-hidden" aria-label="Account">
+        <section className="card flex items-center justify-between gap-3 px-5 py-4" aria-label={t('Language')}>
+          <span className="flex items-center gap-3 text-[15px] font-medium">
+            <span className="material-symbols-outlined text-[20px] text-stone" aria-hidden="true">translate</span>
+            {t('Language')}
+          </span>
+          <LanguageSwitcher />
+        </section>
+
+        <nav className="card overflow-hidden" aria-label={t('Account')}>
           <ul className="divide-y divide-sand-4/70">
             {LINKS.map((l) => (
               <li key={l.href}>
                 <Link href={l.href} className="group flex min-h-[52px] items-center gap-3 px-5 py-3 text-[15px] transition-colors hover:bg-sand-3">
                   <span className="material-symbols-outlined text-[20px] text-stone" aria-hidden="true">{l.icon}</span>
-                  <span className="flex-1">{l.label}</span>
+                  <span className="flex-1">{t(l.label)}</span>
                   <span className="material-symbols-outlined text-[20px] text-stone transition-transform group-hover:translate-x-1" aria-hidden="true">
                     chevron_right
                   </span>
@@ -138,7 +149,7 @@ function ProfileDetails() {
 
         <button onClick={() => signOut()} className="btn-ghost w-full">
           <span className="material-symbols-outlined text-[20px]" aria-hidden="true">logout</span>
-          Sign out
+          {t('Sign out')}
         </button>
 
         <DeleteAccount onDeleted={() => signOut()} />

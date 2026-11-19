@@ -2,12 +2,14 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useT } from '@sthiva/web-core';
 import { useAuth } from './AuthProvider';
 
 // Wraps just the pages that need a signed-in buyer (cart/checkout, orders, profile) — browsing
 // and product pages stay public, unlike apps/seller-web's whole-app RequireSupplier.
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { status, signOut } = useAuth();
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -19,18 +21,17 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   if (status === 'signed-in') return <>{children}</>;
 
   if (status === 'config-error') {
-    return <p className="py-24 text-center font-body text-sm text-error">Sign-in isn't configured yet.</p>;
+    return <p className="py-24 text-center font-body text-sm text-error">{t("Sign-in isn't configured yet.")}</p>;
   }
 
   if (status === 'wrong-role') {
     return (
       <div className="flex flex-col items-center gap-2 px-6 py-24 text-center">
-        <p className="font-headline text-lg font-bold text-on-surface">This account isn't a buyer account</p>
+        <p className="font-headline text-lg font-bold text-on-surface">{t('This account is not a buyer account')}</p>
         <p className="max-w-sm font-body text-sm text-on-surface-variant">
-          It is already registered on Sthiva with a different role, such as a supplier. Sign out, then
-          sign in with another account to shop here.
+          {t('It is already registered on Sthiva with a different role, such as a supplier. Sign out, then sign in with another Google account to shop here.')}
         </p>
-        <button type="button" onClick={() => void signOut()} className="btn-ink mt-4">Sign out</button>
+        <button type="button" onClick={() => void signOut()} className="btn-ink mt-4">{t('Sign out')}</button>
       </div>
     );
   }

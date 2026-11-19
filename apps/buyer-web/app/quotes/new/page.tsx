@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useApiClient, useSelectedLocation } from '@sthiva/web-core';
+import { useApiClient, useSelectedLocation, useT } from '@sthiva/web-core';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { RequireAuth } from '@/components/auth/RequireAuth';
@@ -19,6 +19,7 @@ const dayPlus = (n: number) => new Date(Date.now() + IST_MS + n * 86_400_000).to
 
 function NewQuote() {
   const client = useApiClient();
+  const t = useT();
   const router = useRouter();
   const cart = useCart();
   const { user } = useAuth();
@@ -53,7 +54,7 @@ function NewQuote() {
       });
       router.push(`/quotes/${r._id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send. Try again.');
+      setError(err instanceof Error ? err.message : t('Could not send. Try again.'));
     } finally {
       setBusy(false);
     }
@@ -62,7 +63,7 @@ function NewQuote() {
   return (
     <form onSubmit={submit} className="flex flex-col gap-6">
       <section className="card p-5 sm:p-6">
-        <h2 className="font-display text-lg font-semibold">Items ({items.length})</h2>
+        <h2 className="font-display text-lg font-semibold">{t('Items ({n})', { n: items.length })}</h2>
         <ul className="mt-3 divide-y divide-sand-4 text-[15px]">
           {items.map((i) => (
             <li key={i.productId} className="flex justify-between gap-3 py-2">
@@ -71,53 +72,54 @@ function NewQuote() {
             </li>
           ))}
         </ul>
-        <Link href="/cart" className="mt-2 inline-block text-[14px] font-medium text-cobalt hover:underline">Change quantities in the cart</Link>
+        <Link href="/cart" className="mt-2 inline-block text-[14px] font-medium text-cobalt hover:underline">{t('Change quantities in the cart')}</Link>
       </section>
 
       <section className="card grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
         <label className="flex flex-col gap-2 sm:col-span-2">
-          <span className="text-[14px] font-medium text-stone">Site address</span>
-          <textarea value={fullAddress} onChange={(e) => setFullAddress(e.target.value.slice(0, 500))} rows={2} className="field resize-none" placeholder="Plot, street, area, town" />
+          <span className="text-[14px] font-medium text-stone">{t('Site address')}</span>
+          <textarea value={fullAddress} onChange={(e) => setFullAddress(e.target.value.slice(0, 500))} rows={2} className="field resize-none" placeholder={t('Plot, street, area, town')} />
         </label>
         <label className="flex flex-col gap-2">
-          <span className="text-[14px] font-medium text-stone">Site PIN code</span>
+          <span className="text-[14px] font-medium text-stone">{t('Site PIN code')}</span>
           <input value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" className="field font-mono" />
         </label>
         <label className="flex flex-col gap-2">
-          <span className="text-[14px] font-medium text-stone">Phone for the person on site</span>
+          <span className="text-[14px] font-medium text-stone">{t('Phone for the person on site')}</span>
           <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(-10))} inputMode="tel" className="field font-mono" />
         </label>
         <label className="flex flex-col gap-2">
-          <span className="text-[14px] font-medium text-stone">Needed by</span>
+          <span className="text-[14px] font-medium text-stone">{t('Needed by')}</span>
           <input type="date" value={neededBy} min={dayPlus(1)} max={dayPlus(60)} onChange={(e) => setNeededBy(e.target.value)} className="field" />
         </label>
         <label className="flex flex-col gap-2">
-          <span className="text-[14px] font-medium text-stone">Name for this site</span>
+          <span className="text-[14px] font-medium text-stone">{t('Name for this site')}</span>
           <input value={label} onChange={(e) => setLabel(e.target.value.slice(0, 50))} className="field" />
         </label>
         <label className="flex flex-col gap-2 sm:col-span-2">
-          <span className="text-[14px] font-medium text-stone">Anything sellers should know? (optional)</span>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value.slice(0, 500))} rows={2} className="field resize-none" placeholder="e.g. 12 flats, delivery in two lots, truck access only before 9 am" />
+          <span className="text-[14px] font-medium text-stone">{t('Anything sellers should know? (optional)')}</span>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value.slice(0, 500))} rows={2} className="field resize-none" placeholder={t('e.g. 12 flats, delivery in two lots, truck access only before 9 am')} />
         </label>
-        <p className="text-[13px] text-stone sm:col-span-2">Sellers see your PIN and area, not your phone or full address, until you accept their quote.</p>
+        <p className="text-[13px] text-stone sm:col-span-2">{t('Sellers see your PIN and area, not your phone or full address, until you accept their quote.')}</p>
       </section>
 
       {error && <ErrorNote>{error}</ErrorNote>}
       <button type="submit" disabled={!ready || busy} className="btn-lime self-start px-8 py-4 text-[16px]">
-        {busy ? 'Sending' : 'Ask sellers for a quote'}
+        {busy ? t('Sending') : t('Ask sellers for a quote')}
       </button>
     </form>
   );
 }
 
 export default function NewQuotePage() {
+  const t = useT();
   return (
     <>
       <Header />
       <main id="main" className="container-x min-h-[70vh] max-w-3xl pb-32 pt-[calc(var(--header-h)+40px)]">
         <PageHead eyebrow="Bulk quote" title="Get a" accent="bulk quote" />
         <p className="mt-3 max-w-2xl text-[15px] text-stone">
-          For big jobs: verified sellers near your site reply with their best price and a delivery date within 48 hours. Compare them and accept one. It becomes a confirmed order, paid on delivery.
+          {t('For big jobs: verified sellers near your site reply with their best price and a delivery date within 48 hours. Compare them and accept one. It becomes a confirmed order, paid on delivery.')}
         </p>
         <div className="mt-8"><RequireAuth><NewQuote /></RequireAuth></div>
       </main>

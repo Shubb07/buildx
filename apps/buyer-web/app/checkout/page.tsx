@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { buyerDeliveryPhrase, checkGstin, useApiClient, useLocationSelector, useSelectedLocation } from '@sthiva/web-core';
+import { buyerDeliveryPhrase, checkGstin, locationMessageT, tx, useApiClient, useLocationSelector, useSelectedLocation, useT } from '@sthiva/web-core';
+import { deliveryPhraseT } from '@/lib/i18n/delivery';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { RequireAuth } from '@/components/auth/RequireAuth';
@@ -14,22 +15,24 @@ import { checkoutPrefill, forgetAddress, quoteCart, placeOrder, type Quote, type
 import { rupees } from '@/lib/format';
 import { SlotPicker, slotText, type DeliverySlot, type SlotOptions } from '@/components/checkout/SlotPicker';
 
-const LABELS = ['Site', 'Home', 'Office', 'Warehouse'];
+// Money stays in English (owner): prices, GST invoice, payment, the order summary and Place order.
+const LABELS = [tx('Site'), tx('Home'), tx('Office'), tx('Warehouse')];
 
 // One step of checkout. Finished steps fold into a short summary with a Change button.
 function Step({ n, title, open, done, summary, onEdit, children }: {
   n: number; title: string; open: boolean; done: boolean; summary?: React.ReactNode; onEdit: () => void; children: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <section className="card p-5 sm:p-6" aria-labelledby={`step-${n}`}>
       <div className="flex items-center gap-3">
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-mono text-[13px] ${done && !open ? 'bg-lime text-ink' : open ? 'bg-ink text-lime' : 'bg-sand-3 text-stone'}`}>
           {done && !open ? <span className="material-symbols-outlined text-[18px]" aria-hidden="true">check</span> : n}
         </span>
-        <h2 id={`step-${n}`} className={`font-display text-xl font-semibold tracking-tight ${open || done ? '' : 'text-stone'}`}>{title}</h2>
+        <h2 id={`step-${n}`} className={`font-display text-xl font-semibold tracking-tight ${open || done ? '' : 'text-stone'}`}>{t(title)}</h2>
         {!open && done && (
-          <button type="button" onClick={onEdit} className="ml-auto text-[14px] font-semibold text-cobalt hover:underline" aria-label={`Change: ${title}`}>
-            Change
+          <button type="button" onClick={onEdit} className="ml-auto text-[14px] font-semibold text-cobalt hover:underline" aria-label={t('Change: {step}', { step: t(title) })}>
+            {t('Change')}
           </button>
         )}
       </div>
@@ -44,6 +47,7 @@ function CheckoutForm() {
   const cart = useCart();
   const location = useSelectedLocation();
   const router = useRouter();
+  const t = useT();
 
   const [quote, setQuote] = useState<{ status: 'loading' } | { status: 'success'; data: Quote } | { status: 'error'; message: string }>({ status: 'loading' });
   const [label, setLabel] = useState('Site');
@@ -137,13 +141,13 @@ function CheckoutForm() {
   }
 
   const pinCheck = pinState.phase === 'result' ? pinState.check : null;
-  const pinProblem = pinCheck && pinCheck.status !== 'serviceable' && pinCheck.status !== 'not-serviceable' ? pinCheck.message : null;
+  const pinProblem = pinCheck && pinCheck.status !== 'serviceable' && pinCheck.status !== 'not-serviceable' ? locationMessageT(t, pinCheck.message) : null;
   const phoneOk = /^[6-9]\d{9}$/.test(contactPhone);
   const addressReady = fullAddress.trim().length >= 5 && phoneOk && !!location?.pincode;
   const stepOneHint = addressReady ? null
-    : !location?.pincode ? 'Enter the site PIN code so we can check delivery and price it.'
-    : fullAddress.trim().length < 5 ? 'Write the full delivery address.'
-    : 'Enter a 10-digit mobile number for the person on site.';
+    : !location?.pincode ? t('Enter the site PIN code so we can check delivery and price it.')
+    : fullAddress.trim().length < 5 ? t('Write the full delivery address.')
+    : t('Enter a 10-digit mobile number for the person on site.');
 
   // Out of area is allowed (Sthiva finds a supplier); any other not-serviceable answer blocks the order
   const notServiceable = quote.status === 'success' && quote.data.delivery !== null && !quote.data.delivery.serviceable && !quote.data.outOfArea;
@@ -183,13 +187,13 @@ function CheckoutForm() {
       <div className="flex flex-col gap-4">
         <Step
           n={1}
-          title="Delivery address"
+          title={tx('Delivery address')}
           open={step === 1}
           done={addressReady}
           onEdit={() => setStep(1)}
           summary={
             <>
-              <p className="font-semibold">{label}{location?.pincode && <span className="font-normal text-stone"> · PIN <span className="font-mono text-ink">{location.pincode}</span></span>}</p>
+              <p className="font-semibold">{t(label)}{location?.pincode && <span className="font-normal text-stone"> · {t('PIN')} <span className="font-mono text-ink">{location.pincode}</span></span>}</p>
               <p className="text-stone">{fullAddress}</p>
               <p className="mt-1 font-mono text-[14px]">+91 {contactPhone}</p>
             </>
@@ -197,26 +201,26 @@ function CheckoutForm() {
         >
           {saved.length > 0 && (
             <fieldset className="mb-5">
-              <legend className="text-[14px] font-medium text-stone">Your addresses</legend>
+              <legend className="text-[14px] font-medium text-stone">{t('Your addresses')}</legend>
               <div className="mt-2 flex flex-col gap-2">
                 {saved.map((a) => (
                   <div key={a._id} className={`flex items-start gap-3 rounded-xl border p-4 transition-colors ${chosen === a._id ? 'border-ink bg-sand' : 'border-sand-4 hover:border-ink'}`}>
                     <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
                       <input type="radio" name="saved-address" checked={chosen === a._id} onChange={() => pickSaved(a)} className="mt-1 h-4 w-4 accent-ink" />
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold">{a.label}{a.pincode && <span className="font-normal text-stone"> · PIN <span className="font-mono">{a.pincode}</span></span>}</span>
+                        <span className="block font-semibold">{t(a.label)}{a.pincode && <span className="font-normal text-stone"> · {t('PIN')} <span className="font-mono">{a.pincode}</span></span>}</span>
                         <span className="block text-[14px] text-stone">{a.fullAddress}</span>
                         <span className="block font-mono text-[13px] text-stone">+91 {a.contactPhone}</span>
                       </span>
                     </label>
-                    <button type="button" onClick={() => forget(a._id)} className="text-[13px] text-stone hover:text-error" aria-label={`Remove saved address: ${a.fullAddress}`}>
-                      Remove
+                    <button type="button" onClick={() => forget(a._id)} className="text-[13px] text-stone hover:text-error" aria-label={t('Remove saved address: {address}', { address: a.fullAddress })}>
+                      {t('Remove')}
                     </button>
                   </div>
                 ))}
                 <label className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors ${chosen === 'new' ? 'border-ink bg-sand' : 'border-sand-4 hover:border-ink'}`}>
                   <input type="radio" name="saved-address" checked={chosen === 'new'} onChange={pickNew} className="h-4 w-4 accent-ink" />
-                  <span className="font-semibold">A new address</span>
+                  <span className="font-semibold">{t('A new address')}</span>
                 </label>
               </div>
             </fieldset>
@@ -225,7 +229,7 @@ function CheckoutForm() {
           {chosen === 'new' && (
             <>
               <fieldset>
-                <legend className="text-[14px] font-medium text-stone">Save this address as</legend>
+                <legend className="text-[14px] font-medium text-stone">{t('Save this address as')}</legend>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {LABELS.map((l) => (
                     <button
@@ -237,19 +241,19 @@ function CheckoutForm() {
                         label === l ? 'border-ink bg-ink text-sand' : 'border-sand-4 bg-sand hover:border-ink'
                       }`}
                     >
-                      {l}
+                      {t(l)}
                     </button>
                   ))}
                 </div>
               </fieldset>
 
               <label className="mt-5 flex flex-col gap-2">
-                <span className="text-[14px] font-medium text-stone">Full address</span>
+                <span className="text-[14px] font-medium text-stone">{t('Full address')}</span>
                 <textarea
                   rows={3}
                   value={fullAddress}
                   onChange={(e) => setFullAddress(e.target.value)}
-                  placeholder="Plot or house no., street, area, landmark, city"
+                  placeholder={t('Plot or house no., street, area, landmark, city')}
                   autoComplete="street-address"
                   className="field resize-none"
                 />
@@ -259,13 +263,13 @@ function CheckoutForm() {
 
           {/* Site PIN: the same saved PIN as the rest of the site; prices and delivery follow it */}
           <div className="mt-5 flex flex-col gap-2">
-            <span className="text-[14px] font-medium text-stone">Site PIN code</span>
+            <span className="text-[14px] font-medium text-stone">{t('Site PIN code')}</span>
             {location && !editingPin && pinState.phase !== 'checking' ? (
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px]">
                 <span className="material-symbols-outlined text-[18px] text-stone" aria-hidden="true">location_on</span>
                 <span className="font-mono font-semibold">{location.pincode}</span>
                 <span className="text-stone">{location.label}</span>
-                <button type="button" onClick={() => { setPinInput(''); setEditingPin(true); }} className="text-[14px] font-semibold text-cobalt hover:underline">Change</button>
+                <button type="button" onClick={() => { setPinInput(''); setEditingPin(true); }} className="text-[14px] font-semibold text-cobalt hover:underline">{t('Change')}</button>
               </p>
             ) : (
               <div className="flex gap-2">
@@ -275,12 +279,12 @@ function CheckoutForm() {
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); checkPin(); } }}
                   inputMode="numeric"
                   autoComplete="postal-code"
-                  placeholder="6-digit PIN"
-                  aria-label="Site PIN code"
+                  placeholder={t('6-digit PIN')}
+                  aria-label={t('Site PIN code')}
                   className="field w-40 font-mono"
                 />
                 <button type="button" disabled={pinInput.length !== 6 || pinState.phase === 'checking'} onClick={checkPin} className="btn-ink px-5">
-                  {pinState.phase === 'checking' ? 'Checking' : 'Check'}
+                  {pinState.phase === 'checking' ? t('Checking') : t('Check')}
                 </button>
               </div>
             )}
@@ -288,7 +292,7 @@ function CheckoutForm() {
           </div>
 
           <label className="mt-5 flex flex-col gap-2">
-            <span className="text-[14px] font-medium text-stone">Mobile number to call on delivery</span>
+            <span className="text-[14px] font-medium text-stone">{t('Mobile number to call on delivery')}</span>
             <div className="flex items-center gap-2 rounded-xl border border-sand-4 bg-sand-2 pl-4 transition-[border-color,box-shadow] focus-within:border-ink focus-within:shadow-[0_0_0_4px_rgba(243,184,6,0.55)]">
               <span className="font-mono text-[15px] text-stone">+91</span>
               <input
@@ -305,30 +309,30 @@ function CheckoutForm() {
 
           {stepOneHint && <p className="mt-4 text-[14px] text-stone">{stepOneHint}</p>}
           <button type="button" disabled={!addressReady} onClick={() => setStep(2)} className="btn-ink mt-6 w-full py-4 sm:w-auto sm:px-8">
-            Continue
+            {t('Continue')}
           </button>
         </Step>
 
         <Step
           n={2}
-          title="Check your order"
+          title={tx('Check your order')}
           open={step === 2}
           done={step > 2}
           onEdit={() => setStep(2)}
           summary={
             quote.status === 'success' ? (
               <p className="text-stone">
-                {quote.data.items.length} item{quote.data.items.length === 1 ? '' : 's'}
-                {slot ? `, slot ${slotText(slot)}` : ''}
+                {quote.data.items.length === 1 ? t('1 item') : t('{n} items', { n: quote.data.items.length })}
+                {slot ? `, ${t('slot {slot}', { slot: slotText(slot, t) })}` : ''}
                 {wantGst && gstCheck?.ok ? `, GST invoice to ${gstName.trim()}` : ''}
               </p>
             ) : null
           }
         >
-          {quote.status === 'loading' && <div className="skeleton h-24" role="status" aria-label="Pricing your cart" />}
+          {quote.status === 'loading' && <div className="skeleton h-24" role="status" aria-label={t('Pricing your cart')} />}
           {quote.status === 'error' && <p role="alert" className="text-[15px] text-error">{quote.message}</p>}
           {quote.status === 'error' && slot && (
-            <button type="button" onClick={() => setSlot(null)} className="btn-ghost mt-3">Use standard delivery instead</button>
+            <button type="button" onClick={() => setSlot(null)} className="btn-ghost mt-3">{t('Use standard delivery instead')}</button>
           )}
           {quote.status === 'success' && (
             <>
@@ -336,8 +340,8 @@ function CheckoutForm() {
                 <div className="mb-4 flex items-start gap-3 rounded-xl bg-[#FFF4D6] p-4 text-[14px] text-[#5C4300]">
                   <span className="material-symbols-outlined mt-0.5 text-[20px]" aria-hidden="true">local_shipping</span>
                   <div>
-                    <p className="font-semibold">Delivered in {quote.data.parts.length} parts</p>
-                    <p>No single nearby seller has everything, so each part comes from a different verified seller, with its own delivery and tracking. You pay each part on delivery.</p>
+                    <p className="font-semibold">{t('Delivered in {n} parts', { n: quote.data.parts.length })}</p>
+                    <p>{t('No single nearby seller has everything, so each part comes from a different verified seller, with its own delivery and tracking. You pay each part on delivery.')}</p>
                     <ul className="mt-2 flex flex-col gap-0.5">
                       {quote.data.parts.map((p) => (
                         <li key={p.part}>Part {p.part}: {p.items} item{p.items === 1 ? '' : 's'}, {rupees.format(p.goods)}{p.deliveryCharge > 0 ? ` + ${rupees.format(p.deliveryCharge)} delivery` : ''}</li>
@@ -350,13 +354,13 @@ function CheckoutForm() {
                 {quote.data.items.map((item) => (
                   <li key={item.productId} className="flex items-start justify-between gap-4 p-4 text-[15px]">
                     <span className="min-w-0">
-                      {quote.data.parts && quote.data.parts.length > 1 && item.part && <span className="mb-1 inline-block rounded-full bg-sand-3 px-2 py-0.5 text-[12px] font-medium">Part {item.part}</span>}
+                      {quote.data.parts && quote.data.parts.length > 1 && item.part && <span className="mb-1 inline-block rounded-full bg-sand-3 px-2 py-0.5 text-[12px] font-medium">{t('Part {n}', { n: item.part })}</span>}
                       <span className="block font-semibold">{item.name}</span>
                       <span className="block text-[14px] text-stone">
                         <span className="font-mono text-ink">{item.quantity}</span> {item.unit.toLowerCase()} × {rupees.format(item.pricePerUnit)}
                         {item.pricePerUnit < item.listPrice && <span className="text-tertiary"> (bulk price)</span>}
                       </span>
-                      {!item.inStock && <span className="block text-[13px] text-error">Only {item.stockQuantity} left</span>}
+                      {!item.inStock && <span className="block text-[13px] text-error">{t('Only {n} left', { n: item.stockQuantity })}</span>}
                     </span>
                     <span className="shrink-0 font-semibold tabular-nums">{rupees.format(item.lineTotal)}</span>
                   </li>
@@ -364,7 +368,7 @@ function CheckoutForm() {
               </ul>
               <Link href="/cart" className="mt-3 inline-flex items-center gap-1 text-[14px] font-medium text-cobalt hover:underline">
                 <span className="material-symbols-outlined text-[18px]" aria-hidden="true">edit</span>
-                Change quantities in the cart
+                {t('Change quantities in the cart')}
               </Link>
             </>
           )}
@@ -402,7 +406,7 @@ function CheckoutForm() {
           )}
 
           <button type="button" disabled={quote.status !== 'success' || !gstReady} onClick={() => setStep(3)} className="btn-ink mt-6 w-full py-4 sm:w-auto sm:px-8">
-            Continue
+            {t('Continue')}
           </button>
         </Step>
 
@@ -447,7 +451,7 @@ function CheckoutForm() {
                       {item.pricePerUnit < item.listPrice && (
                         <span className="mt-0.5 block text-[12px] text-lime">Bulk price {rupees.format(item.pricePerUnit)} / {item.unit.toLowerCase()}</span>
                       )}
-                      {!item.inStock && <span className="mt-0.5 block text-[12px] text-signal-red">Only {item.stockQuantity} left</span>}
+                      {!item.inStock && <span className="mt-0.5 block text-[12px] text-signal-red">{t('Only {n} left', { n: item.stockQuantity })}</span>}
                     </span>
                     <span className="flex-shrink-0 tabular-nums">{rupees.format(item.lineTotal)}</span>
                   </li>
@@ -468,25 +472,25 @@ function CheckoutForm() {
                 <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-white/[0.06] px-4 py-3 text-[14px] text-sand/80">
                   <span className="material-symbols-outlined mt-0.5 text-[18px] text-lime" aria-hidden="true">pending</span>
                   <span>
-                    <strong className="font-semibold text-sand">Your order will be in process.</strong>{' '}
+                    <strong className="font-semibold text-sand">{t('Your order will be in process.')}</strong>{' '}
                     {quote.data.outOfArea
-                      ? 'No supplier delivers to your PIN yet. Sthiva finds one and tells you the delivery date and charge within 24 hours. You can cancel if it does not suit you.'
-                      : 'Something here is ordered from the company or made for you. The supplier confirms the delivery date within 24 hours and you will be notified.'}
+                      ? t('No supplier delivers to your PIN yet. Sthiva finds one and tells you the delivery date and charge within 24 hours. You can cancel if it does not suit you.')
+                      : t('Something here is ordered from the company or made for you. The supplier confirms the delivery date within 24 hours and you will be notified.')}
                   </span>
                 </p>
               ) : slot ? (
                 <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-white/[0.06] px-4 py-3 text-[14px] text-sand/80">
                   <span className="material-symbols-outlined mt-0.5 text-[18px] text-lime" aria-hidden="true">schedule</span>
                   <span>
-                    Delivery slot <strong className="font-semibold text-sand">{slotText(slot)}</strong>. The seller confirms it when they accept your order.
+                    {t('Delivery slot')} <strong className="font-semibold text-sand">{slotText(slot, t)}</strong>. {t('The seller confirms it when they accept your order.')}
                   </span>
                 </p>
               ) : quote.data.expectedDelivery && (
                 <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-white/[0.06] px-4 py-3 text-[14px] text-sand/80">
                   <span className="material-symbols-outlined mt-0.5 text-[18px] text-lime" aria-hidden="true">event</span>
                   <span>
-                    Usually delivered <strong className="font-semibold text-sand">{buyerDeliveryPhrase(quote.data.expectedDelivery.minDays, quote.data.expectedDelivery.maxDays)}</strong> after
-                    the supplier accepts. They confirm the exact date then, and your order page shows it.
+                    {t('Usual delivery time')}: <strong className="font-semibold text-sand">{deliveryPhraseT(t, buyerDeliveryPhrase(quote.data.expectedDelivery.minDays, quote.data.expectedDelivery.maxDays))}</strong>.{' '}
+                    {t('The supplier confirms the exact date when they accept, and your order page shows it.')}
                   </span>
                 </p>
               )}
@@ -495,14 +499,14 @@ function CheckoutForm() {
               )}
               {notServiceable && (
                 <p role="alert" className="mt-4 rounded-xl bg-signal-red/15 px-4 py-3 text-[14px] text-[#FFB4B6]">
-                  This supplier does not deliver to PIN {quote.data.delivery?.pincode}. Change your PIN on the home page or pick another supplier.
+                  {t('This supplier does not deliver to PIN {pin}. Change your PIN on the home page or pick another supplier.', { pin: quote.data.delivery?.pincode ?? '' })}
                 </p>
               )}
             </>
           )}
 
           {placeError && <p role="alert" className="mt-4 hidden text-[14px] text-signal-red lg:block">{placeError}</p>}
-          {step !== 3 && <p className="mt-6 hidden text-center text-[14px] text-stone-light lg:block">Finish the steps on the left to place your order.</p>}
+          {step !== 3 && <p className="mt-6 hidden text-center text-[14px] text-stone-light lg:block">{t('Finish the steps on the left to place your order.')}</p>}
 
           <button type="submit" disabled={!canPlace || step !== 3} className="btn-lime mt-6 hidden w-full py-4 text-[16px] lg:inline-flex">
             {placing ? (
@@ -516,7 +520,7 @@ function CheckoutForm() {
               </>
             )}
           </button>
-          <p className="mt-3 text-center text-[12px] text-stone-light">The supplier confirms the order before it is dispatched.</p>
+          <p className="mt-3 text-center text-[12px] text-stone-light">{t('The supplier confirms the order before it is dispatched.')}</p>
         </div>
       </aside>
     </form>

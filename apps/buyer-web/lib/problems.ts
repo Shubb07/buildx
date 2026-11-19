@@ -1,16 +1,16 @@
 import { z } from 'zod';
-import type { ApiClient } from '@sthiva/web-core';
+import { tx, type ApiClient } from '@sthiva/web-core';
 import { getFirebaseAuth } from './firebase';
 
 // Problems after delivery (API features/problems): damaged, wrong, short or defective items, or a
 // change-of-mind return where the product allows it. Each item's window was promised when ordered.
 
 export const PROBLEM_KINDS = [
-  { id: 'DAMAGED', label: 'Damaged', hint: 'Cracked, broken, wet or bent' },
-  { id: 'SHORT', label: 'Fewer than ordered', hint: 'Count or weight is short' },
-  { id: 'WRONG_ITEM', label: 'Wrong item', hint: 'Different brand, size or grade' },
-  { id: 'DEFECTIVE', label: 'Not working or faulty', hint: 'Fittings, switches, motors' },
-  { id: 'CHANGE_OF_MIND', label: 'Changed my mind', hint: 'Sealed and unused items only' },
+  { id: 'DAMAGED', label: tx('Damaged'), hint: tx('Cracked, broken, wet or bent') },
+  { id: 'SHORT', label: tx('Fewer than ordered'), hint: tx('Count or weight is short') },
+  { id: 'WRONG_ITEM', label: tx('Wrong item'), hint: tx('Different brand, size or grade') },
+  { id: 'DEFECTIVE', label: tx('Not working or faulty'), hint: tx('Fittings, switches, motors') },
+  { id: 'CHANGE_OF_MIND', label: tx('Changed my mind'), hint: tx('Sealed and unused items only') },
 ] as const;
 export type ProblemKind = (typeof PROBLEM_KINDS)[number]['id'];
 

@@ -28,3 +28,12 @@ export function usuallyDeliveredT(t: T, phrase: string): string {
   if ((m = phrase.match(/^in (.+)$/))) return t('Usually delivered in {time} after the supplier accepts', { time: deliveryLabelT(t, m[1]) });
   return t('Usually delivered {time} after the supplier accepts', { time: phrase });
 }
+
+/** "in 2 to 3 days" -> the time on its own, translated ("2 to 3 days", "the same day or next day") */
+export function deliveryPhraseT(t: T, phrase: string): string {
+  if (phrase === 'the same day or next day') return t('the same day or next day');
+  if (phrase === 'the same day') return t('the same day');
+  const within = phrase.match(/^within (\d+) days?$/);
+  if (within) return t('within {n} days', { n: within[1] });
+  return deliveryLabelT(t, phrase.replace(/^in /, ''));
+}

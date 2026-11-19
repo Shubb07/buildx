@@ -7,7 +7,7 @@ import { validate } from '../../shared/middleware/validate.middleware';
 import { AppError } from '../../shared/errors/AppError';
 import { SupplierProfile } from '../../infrastructure/database/models/SupplierProfile.model';
 import {
-  createRequest, listBuyerRequests, getBuyerRequest, cancelRequest, acceptQuote,
+  createRequest, createCustomRequest, listBuyerRequests, getBuyerRequest, cancelRequest, acceptQuote,
   sellerRequests, submitQuote, withdrawQuote,
 } from './quote.service';
 
@@ -26,6 +26,28 @@ export const createQuoteSchema = z.object({
     lat: z.number().min(-90).max(90).optional(),
     lng: z.number().min(-180).max(180).optional(),
   }).strict(),
+  neededBy: date,
+  notes: z.string().trim().max(500).optional(),
+}).strict();
+
+const addressSchema = createQuoteSchema.shape.deliveryAddress;
+
+// Made to measure: the work type comes from the shared catalogue's made-to-order items
+export const customQuoteSchema = z.object({
+  work: z.object({
+    type: z.string().trim().regex(/^[a-z0-9-]{2,60}$/),
+    name: z.string().trim().min(2).max(80),
+    categorySlug: z.string().trim().regex(/^[a-z0-9-]{2,60}$/),
+  }).strict(),
+  pieces: z.array(z.object({
+    label: z.string().trim().min(1, 'Name each piece, e.g. Bedroom window').max(60),
+    widthMm: z.number().int('Width in whole millimetres').min(50, 'Width looks too small').max(20_000),
+    heightMm: z.number().int('Height in whole millimetres').min(50, 'Height looks too small').max(20_000),
+    quantity: z.number().int().min(1).max(500),
+  }).strict()).min(1, 'Add at least one piece').max(30),
+  spec: z.string().trim().min(3, 'Describe the material, e.g. 10 mm toughened fluted glass').max(500),
+  siteVisit: z.boolean().default(false),
+  deliveryAddress: addressSchema,
   neededBy: date,
   notes: z.string().trim().max(500).optional(),
 }).strict();
@@ -57,6 +79,7 @@ async function myProfileId(req: Request) {
 export const buyerQuoteRoutes = Router();
 buyerQuoteRoutes.use(requireAuth, requireRole('BUYER'));
 buyerQuoteRoutes.post('/', validate(createQuoteSchema), wrap((req) => createRequest({ buyerId: req.auth!.userId, ...req.body }), 201));
+buyerQuoteRoutes.post('/custom', validate(customQuoteSchema), wrap((req) => createCustomRequest({ buyerId: req.auth!.userId, ...req.body }), 201));
 buyerQuoteRoutes.get('/', wrap((req) => listBuyerRequests(req.auth!.userId)));
 buyerQuoteRoutes.get('/:id', wrap((req) => getBuyerRequest(req.auth!.userId, id(req))));
 buyerQuoteRoutes.post('/:id/accept', validate(acceptQuoteSchema), wrap((req) => acceptQuote({ buyerId: req.auth!.userId, id: id(req), ...req.body }), 201));

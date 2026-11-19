@@ -21,6 +21,8 @@ export type QuoteReply = z.infer<typeof replySchema>;
 const requestSchema = z.object({
   _id: z.string(),
   number: z.string(),
+  kind: z.enum(['LIST', 'CUSTOM']).optional(),
+  custom: z.object({ workName: z.string(), spec: z.string(), siteVisit: z.boolean() }).passthrough().optional(),
   status: z.enum(['OPEN', 'ACCEPTED', 'CANCELLED', 'EXPIRED']),
   repliesOpen: z.boolean(),
   lines: z.array(z.object({ name: z.string(), unit: z.string(), quantity: z.number() })),
@@ -34,7 +36,7 @@ const requestSchema = z.object({
 export type QuoteRequestView = z.infer<typeof requestSchema>;
 
 const summarySchema = z.object({
-  _id: z.string(), number: z.string(), status: z.string(), neededBy: z.string(), items: z.number(), replies: z.number(), createdAt: z.string(), orderId: z.string().optional(),
+  _id: z.string(), number: z.string(), kind: z.string().optional(), workName: z.string().optional(), status: z.string(), neededBy: z.string(), items: z.number(), replies: z.number(), createdAt: z.string(), orderId: z.string().optional(),
 });
 export type QuoteSummary = z.infer<typeof summarySchema>;
 
@@ -48,6 +50,20 @@ export type NewQuoteRequest = {
 export async function createQuoteRequest(client: ApiClient, body: NewQuoteRequest): Promise<{ _id: string }> {
   return client.request('/quotes', { method: 'POST', auth: true, envelope: true, schema: z.object({ _id: z.string() }).passthrough(), body });
 }
+export type NewCustomRequest = {
+  work: { type: string; name: string; categorySlug: string };
+  pieces: { label: string; widthMm: number; heightMm: number; quantity: number }[];
+  spec: string;
+  siteVisit: boolean;
+  deliveryAddress: { label: string; fullAddress: string; pincode: string; contactPhone: string };
+  neededBy: string;
+  notes?: string;
+};
+
+export async function createCustomQuoteRequest(client: ApiClient, body: NewCustomRequest): Promise<{ _id: string }> {
+  return client.request('/quotes/custom', { method: 'POST', auth: true, envelope: true, schema: z.object({ _id: z.string() }).passthrough(), body });
+}
+
 export async function fetchQuoteRequests(client: ApiClient): Promise<QuoteSummary[]> {
   return client.request('/quotes', { auth: true, envelope: true, schema: z.array(summarySchema) });
 }

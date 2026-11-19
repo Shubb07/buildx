@@ -177,6 +177,12 @@ export default function MaterialPage({ params }: { params: Promise<{ id: string 
                 {item.note}
               </p>
             )}
+            {item.madeToOrder && (
+              <Link href={`/made-to-measure?type=${item.id}`} className="btn-ink self-start px-6">
+                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">straighten</span>
+                Get it made to your sizes
+              </Link>
+            )}
           </div>
 
           {/* order panel */}

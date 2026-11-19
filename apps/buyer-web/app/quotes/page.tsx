@@ -25,7 +25,7 @@ function List() {
           <Link href={`/quotes/${r._id}`} className="card flex flex-wrap items-center justify-between gap-3 p-5 hover:border-ink">
             <span>
               <span className="block font-mono text-[14px] font-medium">{r.number}</span>
-              <span className="block text-[14px] text-stone">{r.items} item{r.items === 1 ? '' : 's'} · needed by {r.neededBy}</span>
+              <span className="block text-[14px] text-stone">{r.workName ? `${r.workName}, made to measure` : `${r.items} item${r.items === 1 ? '' : 's'}`} · needed by {r.neededBy}</span>
             </span>
             <span className="text-[14px]">
               <span className="font-semibold">{r.replies} repl{r.replies === 1 ? 'y' : 'ies'}</span> · {STATUS[r.status] ?? r.status}

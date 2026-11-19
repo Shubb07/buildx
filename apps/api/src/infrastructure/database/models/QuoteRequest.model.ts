@@ -4,7 +4,11 @@ import { Schema, model, Types } from 'mongoose';
 // the site PIN and a needed-by date. Verified sellers near the site reply with their price per item
 // and a delivery date; the buyer accepts one, which becomes a confirmed order at those prices.
 
-export type QuoteLine = { catalogItemId: Types.ObjectId; categoryId: Types.ObjectId; name: string; unit: string; quantity: number; gstRate: number };
+// catalogItemId is absent for made-to-measure pieces, which carry their size instead
+export type QuoteLine = {
+  catalogItemId?: Types.ObjectId; categoryId: Types.ObjectId; name: string; unit: string; quantity: number; gstRate: number;
+  label?: string; widthMm?: number; heightMm?: number;
+};
 export type SellerQuote = {
   _id: Types.ObjectId;
   supplierId: Types.ObjectId;
@@ -20,6 +24,9 @@ export type SellerQuote = {
 export interface IQuoteRequest {
   _id: Types.ObjectId;
   number: string;              // RQ-XXXXXX
+  // LIST: catalogue items (bulk quote). CUSTOM: made to measure (glass, windows, doors, kitchens...)
+  kind: 'LIST' | 'CUSTOM';
+  custom?: { workType: string; workName: string; spec: string; siteVisit: boolean };
   buyerId: Types.ObjectId;
   lines: QuoteLine[];
   deliveryAddress: { label: string; fullAddress: string; pincode: string; district?: string; state?: string; contactPhone: string; lat?: number; lng?: number };
@@ -38,15 +45,26 @@ export interface IQuoteRequest {
 const quoteRequestSchema = new Schema<IQuoteRequest>(
   {
     number: { type: String, required: true, unique: true },
+    kind: { type: String, enum: ['LIST', 'CUSTOM'], default: 'LIST' },
+    custom: {
+      _id: false,
+      workType: String,
+      workName: String,
+      spec: { type: String, maxlength: 500 },
+      siteVisit: Boolean,
+    },
     buyerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     lines: [{
       _id: false,
-      catalogItemId: { type: Schema.Types.ObjectId, ref: 'CatalogItem', required: true },
+      catalogItemId: { type: Schema.Types.ObjectId, ref: 'CatalogItem' },
       categoryId: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
       name: { type: String, required: true },
       unit: { type: String, required: true },
       quantity: { type: Number, required: true, min: 0.001 },
       gstRate: { type: Number, required: true },
+      label: { type: String, maxlength: 60 },
+      widthMm: Number,
+      heightMm: Number,
     }],
     deliveryAddress: {
       _id: false,

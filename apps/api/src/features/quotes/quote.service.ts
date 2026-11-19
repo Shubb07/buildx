@@ -58,10 +58,7 @@ export async function createRequest(params: {
   notes?: string;
 }) {
   const { buyerId, items, neededBy, notes } = params;
-  const ahead = daysFromToday(neededBy);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(neededBy) || Number.isNaN(Date.parse(`${neededBy}T00:00:00Z`))) throw AppError.badRequest('Choose a valid date', { field: 'neededBy' });
-  if (ahead < 1) throw AppError.badRequest('Choose tomorrow or a later date', { field: 'neededBy' });
-  if (ahead > MAX_NEEDED_BY_DAYS) throw AppError.badRequest(`Choose a date within ${MAX_NEEDED_BY_DAYS} days`, { field: 'neededBy' });
+  checkNeededBy(neededBy);
 
   const destination = await resolveDestination(params.deliveryAddress.pincode);
   const products = await Product.find({ _id: { $in: items.map((i) => i.productId) } }).select('catalogItemId').lean();
@@ -85,29 +82,88 @@ export async function createRequest(params: {
   const invited = [...new Set([...listers.map(String), ...byCategory.map((p) => String(p._id))])].map((id) => new Types.ObjectId(id));
   if (!invited.length) throw AppError.conflict('No verified seller near your site sells these items yet. Try a different PIN, or order what is listed.');
 
+  return openRequest({ buyerId, kind: 'LIST', lines, deliveryAddress: params.deliveryAddress, destination, neededBy, notes, invited });
+}
+
+/** Save a new request (either kind) and alert the invited sellers */
+async function openRequest(p: {
+  buyerId: string; kind: 'LIST' | 'CUSTOM'; lines: Lean['lines']; custom?: Lean['custom'];
+  deliveryAddress: Omit<Address, 'district' | 'state'>; destination: Awaited<ReturnType<typeof resolveDestination>>;
+  neededBy: string; notes?: string; invited: Types.ObjectId[];
+}) {
   const now = new Date();
-  const expiresAt = new Date(Math.min(now.getTime() + REPLY_HOURS * 3600_000, endOfIstDay(neededBy).getTime()));
+  const expiresAt = new Date(Math.min(now.getTime() + REPLY_HOURS * 3600_000, endOfIstDay(p.neededBy).getTime()));
   const request = await QuoteRequest.create({
     number: newNumber(),
-    buyerId,
-    lines,
-    deliveryAddress: { ...params.deliveryAddress, pincode: destination.pincode, district: destination.district, state: destination.state },
-    neededBy,
-    ...(notes ? { notes } : {}),
+    kind: p.kind,
+    ...(p.custom ? { custom: p.custom } : {}),
+    buyerId: p.buyerId,
+    lines: p.lines,
+    deliveryAddress: { ...p.deliveryAddress, pincode: p.destination.pincode, district: p.destination.district, state: p.destination.state },
+    neededBy: p.neededBy,
+    ...(p.notes ? { notes: p.notes } : {}),
     status: 'OPEN',
     expiresAt,
-    invitedSupplierIds: invited,
+    invitedSupplierIds: p.invited,
     quotes: [],
   });
 
-  const sellers = await SupplierProfile.find({ _id: { $in: invited } }).select('userId').lean();
-  notifyUsers(sellers.map((s) => s.userId.toString()), {
-    title: 'New bulk quote request',
-    body: `${lines.length} item${lines.length === 1 ? '' : 's'} for PIN ${destination.pincode}, needed by ${neededBy}. Reply within ${REPLY_HOURS} hours.`,
+  const sellers = await SupplierProfile.find({ _id: { $in: p.invited } }).select('userId').lean();
+  const what = p.kind === 'CUSTOM'
+    ? `${p.custom!.workName}, ${p.lines.length} piece type${p.lines.length === 1 ? '' : 's'}${p.custom!.siteVisit ? ', site visit wanted' : ''}`
+    : `${p.lines.length} item${p.lines.length === 1 ? '' : 's'}`;
+  notifyUsers(sellers.map((x) => x.userId.toString()), {
+    title: p.kind === 'CUSTOM' ? 'New made-to-measure request' : 'New bulk quote request',
+    body: `${what} for PIN ${p.destination.pincode}, needed by ${p.neededBy}. Reply within ${REPLY_HOURS} hours.`,
     data: { screen: 'supplier_quotes', requestId: request._id.toString() },
   });
-  logger.info('[quotes] request created', { requestId: String(request._id), lines: lines.length, invited: invited.length });
+  logger.info('[quotes] request created', { requestId: String(request._id), kind: p.kind, lines: p.lines.length, invited: p.invited.length });
   return request.toObject();
+}
+
+/** Check a needed-by date: tomorrow up to MAX_NEEDED_BY_DAYS */
+function checkNeededBy(neededBy: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(neededBy) || Number.isNaN(Date.parse(`${neededBy}T00:00:00Z`))) throw AppError.badRequest('Choose a valid date', { field: 'neededBy' });
+  const ahead = daysFromToday(neededBy);
+  if (ahead < 1) throw AppError.badRequest('Choose tomorrow or a later date', { field: 'neededBy' });
+  if (ahead > MAX_NEEDED_BY_DAYS) throw AppError.badRequest(`Choose a date within ${MAX_NEEDED_BY_DAYS} days`, { field: 'neededBy' });
+}
+
+/** Made to measure (market study step 6): glass, windows, doors, kitchens and other work cut to the site */
+export const CUSTOM_GST_RATE = 18;
+export async function createCustomRequest(params: {
+  buyerId: string;
+  work: { type: string; name: string; categorySlug: string };
+  pieces: { label: string; widthMm: number; heightMm: number; quantity: number }[];
+  spec: string;
+  siteVisit: boolean;
+  deliveryAddress: Omit<Address, 'district' | 'state'>;
+  neededBy: string;
+  notes?: string;
+}) {
+  checkNeededBy(params.neededBy);
+  const destination = await resolveDestination(params.deliveryAddress.pincode);
+  const category = await Category.findOne({ slug: params.work.categorySlug }).select('_id slug').lean();
+  if (!category) throw AppError.badRequest('Choose the type of work again', { field: 'work' });
+  const lines = params.pieces.map((p) => ({
+    categoryId: category._id,
+    name: `${params.work.name}: ${p.label} (${p.widthMm} x ${p.heightMm} mm)`,
+    unit: 'PIECE',
+    quantity: p.quantity,
+    gstRate: CUSTOM_GST_RATE,
+    label: p.label,
+    widthMm: p.widthMm,
+    heightMm: p.heightMm,
+  }));
+  // Sellers who deliver here and do this kind of work
+  const eligible = await eligibleSupplierIds(destination.pincode);
+  const makers = await SupplierProfile.find({ _id: { $in: eligible }, categories: category.slug }).select('_id').lean();
+  if (!makers.length) throw AppError.conflict('No verified seller near your site does this work on Sthiva yet. Try again soon.');
+  return openRequest({
+    buyerId: params.buyerId, kind: 'CUSTOM', lines,
+    custom: { workType: params.work.type, workName: params.work.name, spec: params.spec, siteVisit: params.siteVisit },
+    deliveryAddress: params.deliveryAddress, destination, neededBy: params.neededBy, notes: params.notes, invited: makers.map((m) => m._id),
+  });
 }
 
 /** Buyer prices for one seller's quote: commission per category added, then GST, like listed prices */
@@ -158,8 +214,8 @@ export async function buyerView(r: Lean) {
   replies.sort((a, b) => a.total - b.total);
   const state = requestState(r);
   return {
-    _id: String(r._id), number: r.number, status: state.status, repliesOpen: state.repliesOpen,
-    lines: r.lines.map((l) => ({ name: l.name, unit: l.unit, quantity: l.quantity })),
+    _id: String(r._id), number: r.number, kind: r.kind ?? 'LIST', custom: r.custom, status: state.status, repliesOpen: state.repliesOpen,
+    lines: r.lines.map((l) => ({ name: l.name, unit: l.unit, quantity: l.quantity, label: l.label, widthMm: l.widthMm, heightMm: l.heightMm })),
     neededBy: r.neededBy, notes: r.notes, expiresAt: r.expiresAt, invited: r.invitedSupplierIds.length,
     deliveryAddress: r.deliveryAddress, orderId: r.orderId, createdAt: r.createdAt, replies,
   };
@@ -174,7 +230,7 @@ export async function getBuyerRequest(buyerId: string, id: string) {
 export async function listBuyerRequests(buyerId: string) {
   const rows = await QuoteRequest.find({ buyerId }).sort({ createdAt: -1 }).limit(30).lean<Lean[]>();
   return rows.map((r) => ({
-    _id: String(r._id), number: r.number, status: requestState(r).status, neededBy: r.neededBy,
+    _id: String(r._id), number: r.number, kind: r.kind ?? 'LIST', workName: r.custom?.workName, status: requestState(r).status, neededBy: r.neededBy,
     items: r.lines.length, replies: r.quotes.filter((q) => q.status !== 'WITHDRAWN').length, createdAt: r.createdAt, orderId: r.orderId,
   }));
 }
@@ -203,7 +259,7 @@ export async function acceptQuote(params: { buyerId: string; id: string; quoteId
       const t = await buyerTotals(r, q);
       if (expectedTotal !== undefined && toPaise(expectedTotal) !== t.totalPaise) throw AppError.conflict('Prices changed. Please check the reply again.');
 
-      const listings = await Product.find({ supplierId: q.supplierId, catalogItemId: { $in: r.lines.map((l) => l.catalogItemId) } })
+      const listings = await Product.find({ supplierId: q.supplierId, catalogItemId: { $in: r.lines.map((l) => l.catalogItemId).filter(Boolean) } })
         .select('catalogItemId images hsn').session(session).lean();
       const listingOf = new Map(listings.map((l) => [String(l.catalogItemId), l]));
       const now = new Date();
@@ -212,11 +268,11 @@ export async function acceptQuote(params: { buyerId: string; id: string; quoteId
         buyerId,
         supplierId: q.supplierId,
         items: r.lines.map((l, i) => {
-          const own = listingOf.get(String(l.catalogItemId));
+          const own = l.catalogItemId ? listingOf.get(String(l.catalogItemId)) : undefined;
           const line = t.buyer.lines[i];
           return {
             ...(own ? { productId: own._id } : {}),
-            catalogItemId: l.catalogItemId,
+            ...(l.catalogItemId ? { catalogItemId: l.catalogItemId } : {}),
             name: l.name,
             imageUrl: own?.images?.[0]?.url ?? '',
             unit: l.unit,
@@ -247,7 +303,7 @@ export async function acceptQuote(params: { buyerId: string; id: string; quoteId
         subtotal: paiseToRupees(t.buyer.subtotalPaise),
         gstAmount: paiseToRupees(t.buyer.gstPaise),
         total: paiseToRupees(t.totalPaise),
-        notes: [`From bulk quote ${r.number}`, r.notes].filter(Boolean).join('. '),
+        notes: [r.kind === 'CUSTOM' ? `Made to measure ${r.number}: ${r.custom?.spec ?? ''}` : `From bulk quote ${r.number}`, r.notes].filter(Boolean).join('. '),
         paymentMethod: 'COD',
         paymentStatus: 'PENDING',
         // The seller already agreed in their quote
@@ -294,7 +350,7 @@ export async function acceptQuote(params: { buyerId: string; id: string; quoteId
 export async function sellerRequests(supplierId: Types.ObjectId) {
   const since = new Date(Date.now() - 30 * DAY);
   const rows = await QuoteRequest.find({ invitedSupplierIds: supplierId, createdAt: { $gte: since } }).sort({ createdAt: -1 }).limit(50).lean<Lean[]>();
-  const listings = await Product.find({ supplierId, catalogItemId: { $in: rows.flatMap((r) => r.lines.map((l) => l.catalogItemId)) } })
+  const listings = await Product.find({ supplierId, catalogItemId: { $in: rows.flatMap((r) => r.lines.map((l) => l.catalogItemId).filter(Boolean)) } })
     .select('catalogItemId basePrice isGstInclusive stockQuantity supply').lean();
   const mineOf = new Map(listings.map((l) => [String(l.catalogItemId), l]));
   return rows.map((r) => {
@@ -302,12 +358,12 @@ export async function sellerRequests(supplierId: Types.ObjectId) {
     const mine = r.quotes.find((q) => q.supplierId.equals(supplierId));
     const won = r.status === 'ACCEPTED' && mine?.status === 'ACCEPTED';
     return {
-      _id: String(r._id), number: r.number, status: state.status, repliesOpen: state.repliesOpen, expiresAt: r.expiresAt,
+      _id: String(r._id), number: r.number, kind: r.kind ?? 'LIST', custom: r.custom, status: state.status, repliesOpen: state.repliesOpen, expiresAt: r.expiresAt,
       neededBy: r.neededBy, notes: r.notes,
       area: { pincode: r.deliveryAddress.pincode, district: r.deliveryAddress.district },
       lines: r.lines.map((l) => {
-        const own = mineOf.get(String(l.catalogItemId));
-        return { name: l.name, unit: l.unit, quantity: l.quantity, gstRate: l.gstRate, yourListing: own ? { price: own.basePrice, isGstInclusive: own.isGstInclusive, stock: own.supply === 'ON_ORDER' ? null : own.stockQuantity } : null };
+        const own = l.catalogItemId ? mineOf.get(String(l.catalogItemId)) : undefined;
+        return { name: l.name, unit: l.unit, quantity: l.quantity, gstRate: l.gstRate, widthMm: l.widthMm, heightMm: l.heightMm, yourListing: own ? { price: own.basePrice, isGstInclusive: own.isGstInclusive, stock: own.supply === 'ON_ORDER' ? null : own.stockQuantity } : null };
       }),
       yourQuote: mine ? { prices: mine.prices, isGstInclusive: mine.isGstInclusive, deliveryCharge: mine.deliveryCharge, deliveryDate: mine.deliveryDate, note: mine.note, status: mine.status } : null,
       ...(won ? { orderId: r.orderId } : {}),

@@ -16,6 +16,8 @@ const lineSchema = z.object({
 });
 const requestSchema = z.object({
   _id: z.string(), number: z.string(), status: z.string(), repliesOpen: z.boolean(), expiresAt: z.string(),
+  kind: z.enum(['LIST', 'CUSTOM']).optional(),
+  custom: z.object({ workName: z.string(), spec: z.string(), siteVisit: z.boolean() }).passthrough().optional(),
   neededBy: z.string(), notes: z.string().optional(),
   area: z.object({ pincode: z.string(), district: z.string().optional() }),
   lines: z.array(lineSchema),
@@ -86,6 +88,14 @@ function RequestCard({ r, onChanged }: { r: Req; onChanged: () => void }) {
         </span>
       </div>
       {canReply && <p className="text-[13px] text-stone">Replies close {new Date(r.expiresAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' })}.</p>}
+      {r.kind === 'CUSTOM' && r.custom && (
+        <div className="rounded-xl bg-[#E7F1FB] px-3 py-2 text-[14px]">
+          <p className="font-semibold">Made to measure: {r.custom.workName}</p>
+          <p>Material: {r.custom.spec}</p>
+          {r.custom.siteVisit && <p className="font-medium">The buyer wants a site visit to measure. Say when you can come in your note.</p>}
+          <p className="text-stone">Quote a price per piece, including fitting if you fit it.</p>
+        </div>
+      )}
       {r.notes && <p className="rounded-xl bg-sand-2 px-3 py-2 text-[14px]">Buyer&apos;s note: {r.notes}</p>}
 
       <ul className="divide-y divide-sand-4">
@@ -95,7 +105,7 @@ function RequestCard({ r, onChanged }: { r: Req; onChanged: () => void }) {
               <p className="text-[15px] font-semibold">{l.name}</p>
               <p className="text-[13px] text-stone">
                 {l.quantity.toLocaleString('en-IN')} {unitLabel(l.unit, l.quantity)} · GST {l.gstRate}%
-                {l.yourListing ? ` · you list it at ${rupees.format(l.yourListing.price)}${l.yourListing.stock !== null ? `, ${l.yourListing.stock} in stock` : ', on order'}` : ' · not in your listings (you can still quote)'}
+                {r.kind === 'CUSTOM' ? '' : l.yourListing ? ` · you list it at ${rupees.format(l.yourListing.price)}${l.yourListing.stock !== null ? `, ${l.yourListing.stock} in stock` : ', on order'}` : ' · not in your listings (you can still quote)'}
               </p>
             </div>
             {(editing || (!mine && canReply)) ? (

@@ -85,7 +85,8 @@ function View({ id }: { id: string }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="card flex flex-col gap-2 p-5 sm:p-6">
-        <p className="font-mono text-[14px]">{d.number}</p>
+        <p className="font-mono text-[14px]">{d.number}{d.kind === 'CUSTOM' && d.custom ? <span className="ml-2 font-sans font-semibold">{d.custom.workName}, made to measure</span> : null}</p>
+        {d.kind === 'CUSTOM' && d.custom && <p className="text-[14px]">Material: {d.custom.spec}{d.custom.siteVisit ? ' · site visit wanted' : ''}</p>}
         <p className="text-[15px]">{d.lines.map((l) => `${l.quantity} ${l.unit.toLowerCase()} ${l.name}`).join(', ')}</p>
         <p className="text-[14px] text-stone">
           Needed by {day(d.neededBy)} · sent to {d.invited} nearby seller{d.invited === 1 ? '' : 's'}

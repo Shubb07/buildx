@@ -30,12 +30,13 @@ function BalanceCard({ b, canEdit, onDone }: { b: Balance; canEdit: boolean; onD
         <p className="text-[16px] font-semibold">{b.partyName}</p>
         {b.waitingForCash > 0 && <Pill tone="wait">{b.waitingForCash} waiting for cash confirmation</Pill>}
       </div>
-      {b.orders > 0 ? (
+      {b.orders > 0 || (b.deducted ?? 0) > 0 ? (
         <>
           <dl className="grid grid-cols-3 gap-2 text-[14px]">
             <div><dt className="text-stone">Orders</dt><dd className="font-mono">{b.orders}</dd></div>
             <div><dt className="text-stone">Earned</dt><dd className="tabular-nums">{rupees.format(b.earned)}</dd></div>
             <div><dt className="text-stone">Cash they kept</dt><dd className="tabular-nums">{rupees.format(b.cashHeld)}</dd></div>
+            {(b.deducted ?? 0) > 0 && <div><dt className="text-stone">Problem charges</dt><dd className="tabular-nums">{rupees.format(b.deducted!)}</dd></div>}
           </dl>
           <p className="text-[15px]"><Net net={b.net} /></p>
           {canEdit && <button type="button" disabled={busy} onClick={create} className="btn-lime self-start px-4">{busy ? 'Creating' : 'Create statement'}</button>}
@@ -79,7 +80,7 @@ function StatementCard({ s, canEdit, onDone }: { s: Settlement; canEdit: boolean
         <p className="text-[13px] text-stone">{s.party === 'SUPPLIER' ? 'Supplier' : 'Driver'} · {shortDate.format(new Date(s.createdAt))}</p>
       </div>
       <p className="text-[15px]"><Net net={s.net} /></p>
-      <p className="text-[13px] text-stone">Earned {rupees.format(s.earned)} · cash they kept {rupees.format(s.cashHeld)}</p>
+      <p className="text-[13px] text-stone">Earned {rupees.format(s.earned)} · cash they kept {rupees.format(s.cashHeld)}{(s.deducted ?? 0) > 0 && <> · problem charges {rupees.format(s.deducted!)}</>}</p>
       {s.status === 'PAID' && <p className="text-[13px] text-stone">Reference <span className="font-mono">{s.reference}</span>{s.paidAt && <> · {shortDate.format(new Date(s.paidAt))}</>}</p>}
       {s.paidTo && <p className="text-[13px] text-stone">Paid to {s.paidTo}</p>}
       {s.status === 'CANCELLED' && s.cancelReason && <p className="text-[13px] text-stone">Reason: {s.cancelReason}</p>}

@@ -34,6 +34,7 @@ const router = Router();
 
 router.get('/ping', (_req, res) => res.json({ feature: 'upload', status: 'ok' }));
 
-router.post('/image', requireAuth, requireRole('SUPPLIER'), handleUpload, uploadImage);
+// Sellers: product photos. Buyers: photos of a problem with a delivered order.
+router.post('/image', requireAuth, requireRole('SUPPLIER', 'BUYER'), handleUpload, uploadImage);
 
 export { router as uploadRoutes };

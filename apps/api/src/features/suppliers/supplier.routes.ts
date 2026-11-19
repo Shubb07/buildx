@@ -27,6 +27,7 @@ import { myPayoutAccount, savePayoutAccount } from './payout-account';
 import { myGoLive, acceptAgreement, agreementSchema } from './go-live';
 import { quickAddList, quickAddSave, quickAddSchema } from './quick-add';
 import { sellerQuoteRoutes } from '../quotes/quote.routes';
+import { sellerProblemRoutes } from '../problems/problem.routes';
 
 // Strings are format-checked per item in the controller so each bad entry gets its own reason
 const addPincodesSchema = z.object({
@@ -167,6 +168,8 @@ router.put('/me/payout-account', documentUpload, savePayoutAccount);
 
 // Bulk quote requests from buyers near you (features/quotes)
 router.use('/me/quotes', sellerQuoteRoutes);
+// Buyer problem reports on your delivered orders (features/problems)
+router.use('/me/problems', sellerProblemRoutes);
 router.get('/me/orders', listSupplierOrders);
 router.get('/me/orders/:id/invoice', supplierInvoice);
 // Orders are offered to one supplier at a time: accept, or reject so the next supplier gets it

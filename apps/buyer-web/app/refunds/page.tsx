@@ -42,8 +42,9 @@ export default function RefundsPage() {
         </p>
         <ul>
           <li>
-            <strong>Damaged, wrong or short items:</strong> note them at delivery. Some products also let you report a problem within
-            24 hours, 48 hours or 7 days of delivery, as shown on the product page. Send your order number and photos.
+            <strong>Damaged, wrong or short items:</strong> note them at delivery and tell the driver. Then use <strong>Report a
+            problem</strong> on your order page, with photos, within 2 hours of delivery. Some products give you longer: 24 hours,
+            48 hours or 7 days, as shown on the product page.
           </li>
           <li>
             <strong>Change of mind:</strong> most building materials cannot be returned once delivered. Where the product page allows it,

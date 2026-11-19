@@ -9,7 +9,7 @@ cloudinary.config({
   secure: true,
 });
 
-export type UploadFolder = 'products' | 'suppliers' | 'categories' | 'users';
+export type UploadFolder = 'products' | 'suppliers' | 'categories' | 'users' | 'problems';
 
 export interface UploadResult {
   publicId: string;

@@ -25,8 +25,11 @@ function StatementCard({ s }: { s: Statement }) {
       </div>
       <p className="text-[16px] font-semibold"><Net net={s.net} /></p>
       <p className="text-[14px] text-stone">
-        Earned {rupees.format(s.earned)} · cash you collected {rupees.format(s.cashHeld)} · {shortDate.format(new Date(s.createdAt))}
+        Earned {rupees.format(s.earned)} · cash you collected {rupees.format(s.cashHeld)}{(s.deducted ?? 0) > 0 && <> · problem charges {rupees.format(s.deducted!)}</>} · {shortDate.format(new Date(s.createdAt))}
       </p>
+      {(s.deductions ?? []).map((d) => (
+        <p key={d.number} className="text-[14px] text-stone">Charge for problem {d.number} on order {d.orderNumber}: <span className="tabular-nums">{rupees.format(d.amount)}</span></p>
+      ))}
       {s.status === 'PAID' && <p className="text-[14px] text-stone">Reference <span className="font-mono">{s.reference}</span>{s.paidAt && <> · {shortDate.format(new Date(s.paidAt))}</>}</p>}
       {s.paidTo && <p className="text-[14px] text-stone">Paid to {s.paidTo}</p>}
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="self-start text-[14px] font-medium text-cobalt hover:underline">
@@ -59,7 +62,7 @@ export default function PayoutsPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHead eyebrow="Money" title="Payouts">
-        <p className="max-w-sm text-[15px] text-stone">Your earnings on delivered orders, less any cash you collected from buyers.</p>
+        <p className="max-w-sm text-[15px] text-stone">Your earnings on delivered orders, less any cash you collected from buyers and any charges for problems you were at fault for.</p>
       </PageHead>
 
       <PayoutAccountCard />
@@ -70,11 +73,12 @@ export default function PayoutsPage() {
         <>
           <section className="card flex flex-col gap-2 p-5 sm:p-6">
             <p className="eyebrow text-stone">Not settled yet</p>
-            {state.data.balance.orders > 0 ? (
+            {state.data.balance.orders > 0 || (state.data.balance.deducted ?? 0) > 0 ? (
               <>
                 <p className="font-display text-2xl font-semibold"><Net net={state.data.balance.net} /></p>
                 <p className="text-[14px] text-stone">
                   {state.data.balance.orders} delivered order{state.data.balance.orders === 1 ? '' : 's'} · earned {rupees.format(state.data.balance.earned)} · cash you collected {rupees.format(state.data.balance.cashHeld)}
+                  {(state.data.balance.deducted ?? 0) > 0 && <> · charges for problems reported by buyers {rupees.format(state.data.balance.deducted!)}</>}
                 </p>
               </>
             ) : (

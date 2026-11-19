@@ -36,11 +36,18 @@ describe('POST /upload/image', () => {
     expect(mocks.uploadImage).not.toHaveBeenCalled();
   });
 
-  it('rejects a buyer (supplier-only endpoint)', async () => {
-    const { headers } = await seedUser('buyer1', { role: 'BUYER' });
+  it('rejects drivers and staff (sellers upload product photos, buyers problem photos)', async () => {
+    const { headers } = await seedUser('driver1', { role: 'DELIVERY_PARTNER' });
     const res = await request(app).post(URL_).set(headers).attach('image', jpeg, 'photo.jpg');
     expect(res.status).toBe(403);
     expect(mocks.uploadImage).not.toHaveBeenCalled();
+  });
+
+  it('takes a buyer photo for a problem report, kept whole (not cropped) in its own folder', async () => {
+    const { headers } = await seedUser('buyer1', { role: 'BUYER' });
+    const res = await request(app).post(URL_).set(headers).attach('image', jpeg, 'photo.jpg');
+    expect(res.status).toBe(201);
+    expect(mocks.uploadImage).toHaveBeenCalledWith(expect.any(String), 'problems', undefined);
   });
 
   it('rejects a request with no file', async () => {

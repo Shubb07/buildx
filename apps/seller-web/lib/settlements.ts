@@ -7,12 +7,14 @@ export const statementSchema = z
   .object({
     _id: z.string(), number: z.string(), orders: z.array(lineSchema),
     earned: z.number(), cashHeld: z.number(), net: z.number(),
+    // Charges for buyer problems you were at fault for (features/problems)
+    deductions: z.array(z.object({ number: z.string(), orderNumber: z.string(), amount: z.number() }).passthrough()).optional(), deducted: z.number().optional(),
     status: z.enum(['PENDING', 'PAID', 'CANCELLED']), reference: z.string().optional(), paidTo: z.string().optional(), paidAt: z.string().optional(), createdAt: z.string(),
   })
   .passthrough();
 export type Statement = z.infer<typeof statementSchema>;
 export const payoutsSchema = z.object({
-  balance: z.object({ orders: z.number(), earned: z.number(), cashHeld: z.number(), net: z.number(), waitingForCash: z.number() }).passthrough(),
+  balance: z.object({ orders: z.number(), earned: z.number(), cashHeld: z.number(), deducted: z.number().optional(), net: z.number(), waitingForCash: z.number() }).passthrough(),
   settlements: z.array(statementSchema),
 });
 export type Payouts = z.infer<typeof payoutsSchema>;

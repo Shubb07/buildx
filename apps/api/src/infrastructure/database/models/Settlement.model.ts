@@ -13,6 +13,14 @@ export interface ISettlementOrder {
   cashHeld: number;  // cash from the buyer that the party collected and kept
 }
 
+// A charge to a supplier from a buyer problem they were at fault for (features/problems)
+export interface ISettlementDeduction {
+  problemId: Types.ObjectId;
+  number: string;       // PR-...
+  orderNumber: string;
+  amount: number;       // rupees
+}
+
 export interface ISettlement extends Document {
   _id: Types.ObjectId;
   number: string;              // e.g. ST-2611-0001
@@ -23,7 +31,9 @@ export interface ISettlement extends Document {
   orders: ISettlementOrder[];
   earned: number;
   cashHeld: number;
-  // earned − cashHeld. Positive: Sthiva pays the party. Negative: the party pays Sthiva.
+  deductions?: ISettlementDeduction[];
+  deducted?: number;   // Σ deductions
+  // earned − cashHeld − deducted. Positive: Sthiva pays the party. Negative: the party pays Sthiva.
   net: number;
   status: 'PENDING' | 'PAID' | 'CANCELLED';
   createdBy: Types.ObjectId;
@@ -58,6 +68,16 @@ const settlementSchema = new Schema<ISettlement>(
     ],
     earned: { type: Number, required: true },
     cashHeld: { type: Number, required: true },
+    deductions: [
+      {
+        _id: false,
+        problemId: { type: Schema.Types.ObjectId, ref: 'ProblemReport', required: true },
+        number: { type: String, required: true },
+        orderNumber: { type: String, required: true },
+        amount: { type: Number, required: true },
+      },
+    ],
+    deducted: { type: Number, default: 0 },
     net: { type: Number, required: true },
     status: { type: String, enum: ['PENDING', 'PAID', 'CANCELLED'], default: 'PENDING', index: true },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },

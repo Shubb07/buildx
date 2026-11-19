@@ -290,7 +290,7 @@ export const catalogApi = {
 export type Party = 'SUPPLIER' | 'DRIVER';
 export const balanceSchema = z.object({
   party: z.enum(['SUPPLIER', 'DRIVER']), partyId: z.string(), partyName: z.string(),
-  orders: z.number(), earned: z.number(), cashHeld: z.number(), net: z.number(), waitingForCash: z.number(),
+  orders: z.number(), earned: z.number(), cashHeld: z.number(), deducted: z.number().optional(), net: z.number(), waitingForCash: z.number(),
 });
 export type Balance = z.infer<typeof balanceSchema>;
 export const settlementSchema = z
@@ -298,6 +298,7 @@ export const settlementSchema = z
     _id: z.string(), number: z.string(), party: z.enum(['SUPPLIER', 'DRIVER']), partyName: z.string(),
     orders: z.array(z.object({ orderId: z.string(), orderNumber: z.string(), deliveredAt: z.string().optional(), earned: z.number(), cashHeld: z.number() })),
     earned: z.number(), cashHeld: z.number(), net: z.number(),
+    deductions: z.array(z.object({ number: z.string(), orderNumber: z.string(), amount: z.number() }).passthrough()).optional(), deducted: z.number().optional(),
     status: z.enum(['PENDING', 'PAID', 'CANCELLED']),
     reference: z.string().optional(), paidTo: z.string().optional(), note: z.string().optional(), cancelReason: z.string().optional(),
     paidAt: z.string().optional(), createdAt: z.string(),
@@ -351,6 +352,34 @@ export const peopleApi = {
 export type Load<T> = { status: 'loading' } | { status: 'success'; data: T } | { status: 'error'; error: unknown };
 
 // Fetches on mount and whenever `deps` change. `reload` refetches without flashing a skeleton.
+// Buyer problem reports after delivery (API features/problems)
+export const problemSchema = z.object({
+  _id: z.string(), number: z.string(), orderId: z.string(), orderNumber: z.string(), kind: z.string(),
+  status: z.enum(['OPEN', 'SELLER_REPLIED', 'RESOLVED', 'REJECTED', 'WITHDRAWN']),
+  lines: z.array(z.object({ index: z.number(), name: z.string(), unit: z.string(), quantity: z.number(), orderedQuantity: z.number(), buyerUnitPrice: z.number(), sellerShare: z.number() })),
+  description: z.string(), photos: z.array(z.string()), want: z.enum(['REFUND', 'REPLACEMENT']), upiId: z.string().optional(), claimValue: z.number(),
+  sellerReply: z.object({ agrees: z.boolean(), note: z.string().optional(), at: z.string() }).optional(),
+  resolution: z.object({
+    outcome: z.enum(['REFUND', 'REPLACEMENT', 'REJECTED']), atFault: z.enum(['SELLER', 'BUYER', 'NONE']),
+    refundAmount: z.number(), returnTripCharge: z.number(), sellerCharge: z.number(), note: z.string(), refundDueBy: z.string().optional(), at: z.string(),
+  }).passthrough().optional(),
+  refund: z.object({ paidAt: z.string(), reference: z.string() }).passthrough().optional(),
+  settlementId: z.string().optional(),
+  buyer: z.object({ name: z.string(), phone: z.string().optional() }),
+  seller: z.object({ name: z.string(), phone: z.string().optional() }),
+  createdAt: z.string(),
+}).passthrough();
+export type Problem = z.infer<typeof problemSchema>;
+export type ProblemDecision = {
+  outcome: 'REFUND' | 'REPLACEMENT' | 'REJECTED'; atFault: 'SELLER' | 'BUYER' | 'NONE';
+  refundAmount?: number; returnTripCharge?: number; sellerCharge?: number; note: string;
+};
+export const problemApi = {
+  list: (c: ApiClient, status: string) => get(c, '/ops/problems', z.array(problemSchema), { status }),
+  resolve: (c: ApiClient, id: string, body: ProblemDecision) => send(c, 'POST', `/ops/problems/${id}/resolve`, body, z.unknown()),
+  refundPaid: (c: ApiClient, id: string, reference: string) => send(c, 'POST', `/ops/problems/${id}/refund-paid`, { reference }, z.unknown()),
+};
+
 export function useLoad<T>(fetcher: (c: ApiClient) => Promise<T>, deps: unknown[]) {
   const client = useApiClient();
   const [state, setState] = useState<Load<T>>({ status: 'loading' });

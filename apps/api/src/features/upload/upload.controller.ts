@@ -5,6 +5,7 @@ import { StorageService, type UploadFolder } from '../../infrastructure/storage/
 
 const FOLDER_BY_ROLE: Record<string, UploadFolder> = {
   SUPPLIER: 'products',
+  BUYER: 'problems', // photos for a problem report (features/problems)
 };
 
 // POST /upload/image — multipart/form-data, field name "image" (see upload.routes.ts for multer config)
@@ -14,7 +15,8 @@ export async function uploadImage(req: Request, res: Response, next: NextFunctio
 
     const folder = FOLDER_BY_ROLE[req.auth!.role] ?? 'products';
     const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    const result = await StorageService.uploadImage(dataUri, folder, { width: 1200, height: 1200 });
+    // Product photos are cropped to a square; problem photos are evidence, so they are kept whole
+    const result = await StorageService.uploadImage(dataUri, folder, folder === 'products' ? { width: 1200, height: 1200 } : undefined);
 
     res.status(201).json(ok({ url: result.secureUrl, publicId: result.publicId }));
   } catch (err) {

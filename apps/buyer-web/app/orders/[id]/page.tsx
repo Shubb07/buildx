@@ -13,6 +13,7 @@ import { fetchOrder, cancelBuyerOrder, type BuyerOrder } from '@/lib/orders';
 import { OrderTimeline } from '@/components/OrderTimeline';
 import { DeliveryDateCard } from '@/components/account/DeliveryDateCard';
 import { OrderReview } from '@/components/account/OrderReview';
+import { ReportProblem } from '@/components/account/ReportProblem';
 import { rupees, shortDate } from '@/lib/format';
 
 function OrderDetail({ id }: { id: string }) {
@@ -87,6 +88,7 @@ function OrderDetail({ id }: { id: string }) {
         </p>
       )}
       <DeliveryDateCard order={order} />
+      {order.status === 'DELIVERED' && <ReportProblem orderId={order._id} />}
       {order.status === 'DELIVERED' && <OrderReview orderId={order._id} />}
       {(order.status === 'PICKED_UP' || order.status === 'IN_TRANSIT') && order.deliveryMode !== 'SUPPLIER' && (
         <LiveTracking orderId={order._id} onStatusChange={load} />

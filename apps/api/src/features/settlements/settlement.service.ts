@@ -5,12 +5,15 @@
 // nobody knows who holds the money. Each order is counted in at most one statement per party
 // (Order.supplierSettlementId / driverSettlementId). Cancelling an unpaid statement frees its orders.
 // Amounts come from the same rules the supplier already sees on each order (commission.ts).
+// A supplier's statement also takes off charges for buyer problems they were at fault for
+// (features/problems), each charge in at most one statement (ProblemReport.settlementId).
 
 import mongoose, { Types, type ClientSession } from 'mongoose';
 import { payoutDestination } from '../suppliers/payout-account';
 import { randomBytes } from 'crypto';
 import { Order, type IOrder } from '../../infrastructure/database/models/Order.model';
-import { Settlement, type SettlementParty, type ISettlementOrder } from '../../infrastructure/database/models/Settlement.model';
+import { Settlement, type SettlementParty, type ISettlementOrder, type ISettlementDeduction } from '../../infrastructure/database/models/Settlement.model';
+import { ProblemReport } from '../../infrastructure/database/models/ProblemReport.model';
 import { SupplierProfile } from '../../infrastructure/database/models/SupplierProfile.model';
 import { User } from '../../infrastructure/database/models/User.model';
 import { AppError } from '../../shared/errors/AppError';
@@ -78,10 +81,24 @@ function linesFor(party: SettlementParty, orders: LeanOrder[]): ISettlementOrder
   return lines;
 }
 
-function totals(lines: ISettlementOrder[]) {
+function totals(lines: ISettlementOrder[], deductions: ISettlementDeduction[] = []) {
   const earned = lines.reduce((s, l) => s + toPaise(l.earned), 0);
   const cashHeld = lines.reduce((s, l) => s + toPaise(l.cashHeld), 0);
-  return { earned: paiseToRupees(earned), cashHeld: paiseToRupees(cashHeld), net: paiseToRupees(earned - cashHeld) };
+  const deducted = deductions.reduce((s, d) => s + toPaise(d.amount), 0);
+  return { earned: paiseToRupees(earned), cashHeld: paiseToRupees(cashHeld), deducted: paiseToRupees(deducted), net: paiseToRupees(earned - cashHeld - deducted) };
+}
+
+/** Problem charges not yet in a statement, per supplier. */
+async function pendingCharges(supplierId?: string, session?: ClientSession): Promise<Map<string, ISettlementDeduction[]>> {
+  const q: Record<string, unknown> = { status: 'RESOLVED', 'resolution.sellerCharge': { $gt: 0 }, settlementId: { $exists: false } };
+  if (supplierId) q.supplierId = new Types.ObjectId(supplierId);
+  const rows = await ProblemReport.find(q).select('supplierId number orderNumber resolution.sellerCharge').session(session ?? null).lean();
+  const out = new Map<string, ISettlementDeduction[]>();
+  for (const r of rows) {
+    const k = String(r.supplierId);
+    out.set(k, [...(out.get(k) ?? []), { problemId: r._id, number: r.number, orderNumber: r.orderNumber, amount: r.resolution!.sellerCharge }]);
+  }
+  return out;
 }
 
 const partyKey = (party: SettlementParty, o: LeanOrder) => String(party === 'SUPPLIER' ? o.supplierId : o.driverId);
@@ -108,7 +125,7 @@ async function waitingForCash(party: SettlementParty, partyId?: string) {
 
 export type Balance = {
   party: SettlementParty; partyId: string; partyName: string;
-  orders: number; earned: number; cashHeld: number; net: number; waitingForCash: number;
+  orders: number; earned: number; cashHeld: number; deducted: number; net: number; waitingForCash: number;
 };
 
 /** Unsettled balance for every supplier or driver (or one of them). */
@@ -120,14 +137,16 @@ export async function balances(party: SettlementParty, partyId?: string): Promis
     byParty.set(k, [...(byParty.get(k) ?? []), o]);
   }
   const waiting = await waitingForCash(party, partyId);
-  const ids = [...new Set([...byParty.keys(), ...waiting.keys()])];
+  const charges = party === 'SUPPLIER' ? await pendingCharges(partyId) : new Map<string, ISettlementDeduction[]>();
+  const ids = [...new Set([...byParty.keys(), ...waiting.keys(), ...charges.keys()])];
   const names = await partyNames(party, ids);
   const out: Balance[] = [];
   for (const id of ids) {
     const lines = linesFor(party, byParty.get(id) ?? []);
     const w = waiting.get(id) ?? 0;
-    if (lines.length === 0 && w === 0) continue;
-    out.push({ party, partyId: id, partyName: names.get(id) ?? 'Unknown', orders: lines.length, ...totals(lines), waitingForCash: w });
+    const due = charges.get(id) ?? [];
+    if (lines.length === 0 && w === 0 && due.length === 0) continue;
+    out.push({ party, partyId: id, partyName: names.get(id) ?? 'Unknown', orders: lines.length, ...totals(lines, due), waitingForCash: w });
   }
   return out.sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
 }
@@ -159,7 +178,8 @@ export async function createSettlement(party: SettlementParty, partyId: string, 
   return inTransaction(async (session) => {
     const orders = await Order.find(unsettledFilter(party, partyId)).select(ORDER_FIELDS).session(session).lean<LeanOrder[]>();
     const lines = linesFor(party, orders);
-    if (lines.length === 0) throw AppError.conflict('Nothing to settle: no delivered orders with confirmed cash');
+    const due = party === 'SUPPLIER' ? (await pendingCharges(partyId, session)).get(partyId) ?? [] : [];
+    if (lines.length === 0 && due.length === 0) throw AppError.conflict('Nothing to settle: no delivered orders with confirmed cash');
     const id = new Types.ObjectId();
     const link = party === 'SUPPLIER' ? 'supplierSettlementId' : 'driverSettlementId';
     const claimed = await Order.updateMany(
@@ -168,10 +188,18 @@ export async function createSettlement(party: SettlementParty, partyId: string, 
       { session }
     );
     if (claimed.modifiedCount !== lines.length) throw AppError.conflict('Orders changed while settling. Please try again.');
+    if (due.length) {
+      const taken = await ProblemReport.updateMany(
+        { _id: { $in: due.map((d) => d.problemId) }, settlementId: { $exists: false } },
+        { $set: { settlementId: id } },
+        { session }
+      );
+      if (taken.modifiedCount !== due.length) throw AppError.conflict('Problem charges changed while settling. Please try again.');
+    }
     const [doc] = await Settlement.create([{
       _id: id, number: settlementNumber(), party,
       ...(party === 'SUPPLIER' ? { supplierId: partyId } : { driverUserId: partyId }),
-      partyName, orders: lines, ...totals(lines), createdBy: adminUserId,
+      partyName, orders: lines, deductions: due, ...totals(lines, due), createdBy: adminUserId,
     }], { session });
     return doc.toObject();
   });
@@ -211,6 +239,7 @@ export async function cancelSettlement(id: string, adminUserId: string, reason: 
     }
     const link = doc.party === 'SUPPLIER' ? 'supplierSettlementId' : 'driverSettlementId';
     await Order.updateMany({ [link]: doc._id }, { $unset: { [link]: 1 } }, { session });
+    await ProblemReport.updateMany({ settlementId: doc._id }, { $unset: { settlementId: 1 } }, { session });
     return doc;
   });
 }
@@ -238,7 +267,7 @@ export async function myView(party: SettlementParty, partyId: string): Promise<{
     listSettlements(party === 'SUPPLIER' ? { supplierId: partyId } : { driverUserId: partyId }, 50),
   ]);
   return {
-    balance: bal[0] ?? { party, partyId, orders: 0, earned: 0, cashHeld: 0, net: 0, waitingForCash: 0 },
+    balance: bal[0] ?? { party, partyId, orders: 0, earned: 0, cashHeld: 0, deducted: 0, net: 0, waitingForCash: 0 },
     settlements: list
       .filter((s) => s.status !== 'CANCELLED')
       .map(({ createdBy: _c, paidBy: _p, cancelledBy: _x, ...rest }) => rest as Record<string, unknown>),

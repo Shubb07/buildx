@@ -29,6 +29,7 @@ import { opsBalances, opsList as settlementList, opsGet as settlementGet, opsCre
 import { balancesQuery, settlementListQuery, createSettlementSchema, markPaidSchema, cancelSettlementSchema } from '../settlements/settlement.schemas';
 import { commissionSchema, vehicleCreateSchema, vehicleUpdateSchema, generalSettingsSchema, categoryCreateSchema, categoryUpdateSchema } from '../settings/settings.schemas';
 import { opsInvoice } from '../invoices/invoice.controller';
+import { opsProblemRoutes } from '../problems/problem.routes';
 
 const router = Router();
 
@@ -37,6 +38,8 @@ const router = Router();
 router.use(requireAuth, requireRole('OPERATOR', 'ADMIN'));
 
 router.get('/summary', summary);
+// Buyer problem reports: decide, refund, charge the seller (features/problems)
+router.use('/problems', opsProblemRoutes);
 
 router.get('/orders', validate(listOrdersQuery, 'query'), listOrders);
 router.get('/orders/:id', getOrder);

@@ -58,8 +58,9 @@ function MergePicker({ item, onDone }: { item: OpsCatalogItem; onDone: () => voi
 
 // Group sizes of one product (e.g. every thickness of a plywood) so buyers pick them with chips on
 // one page. Same family on each item, then up to three details that tell them apart.
-function SizesEditor({ item, busy, onSave, onCancel }: { item: OpsCatalogItem; busy: boolean; onSave: (b: { family: string | null; variant: Record<string, string> | null }) => void; onCancel: () => void }) {
+function SizesEditor({ item, busy, onSave, onCancel }: { item: OpsCatalogItem; busy: boolean; onSave: (b: { family: string | null; variant: Record<string, string> | null; variantNote: string | null }) => void; onCancel: () => void }) {
   const [family, setFamily] = useState(item.family ?? '');
+  const [note, setNote] = useState(item.variantNote ?? '');
   const start = Object.entries(item.variant ?? {});
   const [rows, setRows] = useState<[string, string][]>(start.length ? start : [['Thickness', ''], ['Size', '']]);
   const set = (i: number, j: 0 | 1, v: string) => setRows((r) => r.map((row, k) => (k === i ? (j === 0 ? [v, row[1]] : [row[0], v]) : row)));
@@ -69,7 +70,7 @@ function SizesEditor({ item, busy, onSave, onCancel }: { item: OpsCatalogItem; b
       onSubmit={(e) => {
         e.preventDefault();
         const f = family.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-        onSave({ family: f || null, variant: f && filled.length ? Object.fromEntries(filled.map(([k, v]) => [k.trim(), v.trim()])) : null });
+        onSave({ family: f || null, variant: f && filled.length ? Object.fromEntries(filled.map(([k, v]) => [k.trim(), v.trim()])) : null, variantNote: f && note.trim().length >= 3 ? note.trim() : null });
       }}
       className="flex flex-col gap-3 rounded-xl border border-sand-4 p-4"
     >
@@ -82,6 +83,9 @@ function SizesEditor({ item, busy, onSave, onCancel }: { item: OpsCatalogItem; b
         </div>
       ))}
       {rows.length < 3 && <button type="button" onClick={() => setRows((r) => [...r, ['', '']])} className="self-start text-[13px] font-medium text-cobalt hover:underline">Add a detail</button>}
+      <label className="flex flex-col gap-1 text-[13px] text-stone">Guide for buyers who pick this option (optional)
+        <input value={note} onChange={(e) => setNote(e.target.value.slice(0, 120))} className="field" placeholder="e.g. 12 mm: for shelves, partitions and drawer sides" />
+      </label>
       <div className="flex gap-2">
         <button type="submit" disabled={busy} className="btn-lime px-4">Save sizes</button>
         <button type="button" onClick={onCancel} className="btn-ghost">Cancel</button>

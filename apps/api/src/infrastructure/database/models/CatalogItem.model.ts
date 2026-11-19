@@ -19,6 +19,8 @@ export interface ICatalogItem extends Document {
   // same family, told apart by their variant details, e.g. { Thickness: '18 mm', Size: '8 x 4 ft' }
   family?: string;
   variant?: Map<string, string> | Record<string, string>;
+  // One line shown when buyers pick this option, e.g. "12 mm: for shelves and partitions"
+  variantNote?: string;
   status: 'ACTIVE' | 'INACTIVE';
   needsReview: boolean;
   mergedInto?: Types.ObjectId;
@@ -45,6 +47,7 @@ const catalogItemSchema = new Schema<ICatalogItem>(
     weightKgPerUnit: { type: Number, min: 0 },
     family: { type: String, trim: true, lowercase: true, maxlength: 80, index: true },
     variant: { type: Map, of: String },
+    variantNote: { type: String, trim: true, maxlength: 120 },
     status: { type: String, enum: ['ACTIVE', 'INACTIVE'], default: 'ACTIVE', index: true },
     needsReview: { type: Boolean, default: false, index: true },
     mergedInto: { type: Schema.Types.ObjectId, ref: 'CatalogItem' },

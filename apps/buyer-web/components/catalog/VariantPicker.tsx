@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { rupees } from '@/lib/format';
 
@@ -14,6 +15,7 @@ export type VariantOption = {
   productId: string | null;
   price: number | null;
   current: boolean;
+  note?: string; // one-line guide for this option, e.g. "12 mm: for shelves and partitions"
 };
 
 // "6 mm" before "12 mm": compare by the first number, then as text
@@ -23,7 +25,8 @@ const byValue = (a: string, b: string) => {
   return Number.isFinite(na) && Number.isFinite(nb) && na !== nb ? na - nb : a.localeCompare(b);
 };
 
-export function VariantPicker({ keys, options, unit }: { keys: string[]; options: VariantOption[]; unit: string }) {
+// customType: the made-to-measure work type for this product, if any, for an "Order any size" chip
+export function VariantPicker({ keys, options, unit, customType }: { keys: string[]; options: VariantOption[]; unit: string; customType?: string }) {
   const router = useRouter();
   const current = options.find((o) => o.current);
   if (!current) return null;
@@ -73,6 +76,18 @@ export function VariantPicker({ keys, options, unit }: { keys: string[]; options
           </div>
         );
       })}
+      {current.note && (
+        <p className="flex items-start gap-2 rounded-xl bg-sand-3 px-3 py-2 text-[14px]">
+          <span className="material-symbols-outlined mt-0.5 text-[18px] text-tertiary" aria-hidden="true">lightbulb</span>
+          <span><span className="font-semibold">{Object.values(current.details).join(', ')}:</span> {current.note}</span>
+        </p>
+      )}
+      {customType && (
+        <Link href={`/made-to-measure?type=${customType}`} className="inline-flex items-center gap-1.5 self-start text-[14px] font-semibold text-cobalt hover:underline">
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">straighten</span>
+          Need a size not shown? Order it made to measure
+        </Link>
+      )}
     </section>
   );
 }

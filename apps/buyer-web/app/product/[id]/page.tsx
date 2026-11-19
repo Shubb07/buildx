@@ -14,7 +14,7 @@ import { pricePerSqFt } from '@/lib/sheet-area';
 import { useProduct } from '@/lib/products';
 import { useProductReviews } from '@/lib/reviews';
 import { addToCart } from '@/lib/cart';
-import { buyerDeliveryPhrase, matchCatalogItem } from '@sthiva/web-core';
+import { buyerDeliveryPhrase, buyerDeliveryRange, formatDeliveryDate, istDate, matchCatalogItem } from '@sthiva/web-core';
 import { rupees } from '@/lib/format';
 
 const relativeDate = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
@@ -243,7 +243,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   </div>
                 </div>
 
-                {data.variants && <VariantPicker keys={data.variants.keys} options={data.variants.options} unit={unit} />}
+                {data.variants && <VariantPicker keys={data.variants.keys} options={data.variants.options} unit={unit} customType={catalog?.madeToOrder ? catalog.id : undefined} />}
+                {!data.variants && catalog?.madeToOrder && (
+                  <a href={`/made-to-measure?type=${catalog.id}`} className="inline-flex items-center gap-1.5 self-start text-[14px] font-semibold text-cobalt hover:underline">
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">straighten</span>
+                    Need it in your own size? Order it made to measure
+                  </a>
+                )}
 
                 {/* price */}
                 <section className="rounded-2xl bg-ink p-5 text-sand sm:p-6" aria-label="Price">
@@ -293,6 +299,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     <p className="mt-2 flex items-center gap-1.5 text-[14px] text-stone-light">
                       <span className="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
                       Usually delivered {buyerDeliveryPhrase(data.deliveryDays, data.deliveryDaysMax)} after the supplier accepts
+                    </p>
+                  )}
+                  {inStock && data.deliveryDays !== undefined && !onOrder && !outOfArea && location?.pincode && !blockedByPin && (
+                    <p className="mt-1 flex items-center gap-1.5 text-[15px] text-sand">
+                      <span className="material-symbols-outlined text-[18px]" aria-hidden="true">local_shipping</span>
+                      Get it by <span className="font-semibold">{formatDeliveryDate(istDate(buyerDeliveryRange(data.deliveryDays, data.deliveryDaysMax).max))}</span>
+                      <span className="text-[13px] text-stone-light">to {location.pincode}, if ordered today</span>
                     </p>
                   )}
                   {(onOrder || outOfArea) && (
@@ -364,10 +377,39 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     <Link href="/cart" className="shrink-0 text-[14px] font-semibold text-cobalt hover:underline">View cart</Link>
                   </div>
                 )}
-                <p className="flex items-center justify-center gap-1.5 text-[13px] text-stone">
-                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">payments</span>
-                  Cash on delivery
-                </p>
+                {/* What every order comes with: only promises Sthiva already keeps */}
+                <ul className="grid grid-cols-2 gap-2 text-[13px]">
+                  <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
+                    <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">payments</span>
+                    <span><span className="block font-semibold">Pay on delivery</span><span className="text-stone">Pay when it arrives</span></span>
+                  </li>
+                  <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
+                    <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">fact_check</span>
+                    <span><span className="block font-semibold">Check before you pay</span><Link href="/refunds" className="text-stone underline">Refuse damaged or short items</Link></span>
+                  </li>
+                  {data.warranty ? (
+                    <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
+                      <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">verified_user</span>
+                      <span><span className="block font-semibold">{data.warranty.months % 12 === 0 ? `${data.warranty.months / 12} year` : `${data.warranty.months} month`} warranty</span><span className="text-stone">{data.warranty.by === 'MANUFACTURER' ? 'From the manufacturer' : 'From the seller'}</span></span>
+                    </li>
+                  ) : (
+                    <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
+                      <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">verified</span>
+                      <span><span className="block font-semibold">Verified sellers</span><span className="text-stone">GST, licence and bank checked</span></span>
+                    </li>
+                  )}
+                  {catalog?.madeToOrder ? (
+                    <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
+                      <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">straighten</span>
+                      <span><span className="block font-semibold">Any size</span><Link href={`/made-to-measure?type=${catalog.id}`} className="text-stone underline">Order made to measure</Link></span>
+                    </li>
+                  ) : (
+                    <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
+                      <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">receipt_long</span>
+                      <span><span className="block font-semibold">GST invoice</span><span className="text-stone">For business buyers</span></span>
+                    </li>
+                  )}
+                </ul>
               </aside>
             </div>
 

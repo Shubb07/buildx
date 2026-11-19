@@ -51,7 +51,7 @@ export const productDetailSchema = z
     variants: z.object({
       keys: z.array(z.string()),
       options: z.array(z.object({
-        catalogItemId: z.string(), name: z.string(), details: z.record(z.string(), z.string()),
+        catalogItemId: z.string(), name: z.string(), details: z.record(z.string(), z.string()), note: z.string().optional(),
         productId: z.string().nullable(), price: z.number().nullable(), current: z.boolean(),
       })),
     }).optional(),

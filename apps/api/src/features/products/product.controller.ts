@@ -129,7 +129,7 @@ const detailsOf = (v: unknown): Record<string, string> =>
 async function familyOptions(catalogItemId: unknown, pincode?: string) {
   const item = await CatalogItem.findById(catalogItemId).select('family').lean();
   if (!item?.family) return undefined;
-  const items = await CatalogItem.find({ family: item.family, status: 'ACTIVE' }).select('name variant').sort({ name: 1 }).lean();
+  const items = await CatalogItem.find({ family: item.family, status: 'ACTIVE' }).select('name variant variantNote').sort({ name: 1 }).lean();
   if (items.length < 2) return undefined;
   const listings = await Product.find({
     catalogItemId: { $in: items.map((i) => i._id) }, ...orderable(),
@@ -149,6 +149,7 @@ async function familyOptions(catalogItemId: unknown, pincode?: string) {
       catalogItemId: String(i._id),
       name: i.name,
       details: detailsOf(i.variant),
+      ...(i.variantNote ? { note: i.variantNote } : {}),
       productId: best.get(String(i._id))?.productId ?? null,
       price: best.get(String(i._id))?.price ?? null,
       current: String(i._id) === String(catalogItemId),

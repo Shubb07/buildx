@@ -106,7 +106,7 @@ export async function opsUpdate(req: Request, res: Response, next: NextFunction)
     const body = { ...req.body };
     if (body.categoryId && !(await Category.exists({ _id: body.categoryId }))) throw AppError.badRequest('That category does not exist');
     const unset: Record<string, ''> = {};
-    for (const k of ['brand', 'weightKgPerUnit', 'family', 'variant'] as const) {
+    for (const k of ['brand', 'weightKgPerUnit', 'family', 'variant', 'variantNote'] as const) {
       if (body[k] === null) { unset[k] = ''; delete body[k]; }
     }
     const item = await CatalogItem.findByIdAndUpdate(

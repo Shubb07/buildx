@@ -107,7 +107,7 @@ export default function MaterialPage({ params }: { params: Promise<{ id: string 
               </div>
             </header>
 
-            <p className="max-w-2xl text-[18px] leading-relaxed">{item.summary}</p>
+            <p className="max-w-2xl text-[18px] leading-relaxed">{t(item.summary)}</p>
 
             <section aria-labelledby="uses-title">
               <h2 id="uses-title" className="font-display text-xl font-semibold tracking-tight">{t('Where it is used')}</h2>
@@ -115,7 +115,7 @@ export default function MaterialPage({ params }: { params: Promise<{ id: string 
                 {item.uses.map((u) => (
                   <li key={u} className="flex items-start gap-2.5 rounded-xl bg-sand-2 px-4 py-3 text-[15px]">
                     <span className="material-symbols-outlined mt-0.5 text-[18px] text-tertiary" aria-hidden="true">check_circle</span>
-                    {u}
+                    {t(u)}
                   </li>
                 ))}
               </ul>
@@ -148,7 +148,7 @@ export default function MaterialPage({ params }: { params: Promise<{ id: string 
                 {item.soldAs.map((s) => (
                   <li key={s.label} className="rounded-xl border border-sand-4 bg-sand-2 px-4 py-2.5 text-[15px]">
                     <span className="font-medium">{t(s.label)}</span>
-                    {s.note && <span className="text-stone"> · {s.note}</span>}
+                    {s.note && <span className="text-stone"> · {t(s.note)}</span>}
                   </li>
                 ))}
               </ul>
@@ -166,8 +166,8 @@ export default function MaterialPage({ params }: { params: Promise<{ id: string 
                   )}
                   {item.specs.map((s) => (
                     <div key={s.label} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-4 px-5 py-3.5 text-[15px]">
-                      <dt className="text-stone">{s.label}</dt>
-                      <dd className="font-medium">{s.value}</dd>
+                      <dt className="text-stone">{t(s.label)}</dt>
+                      <dd className="font-medium">{t(s.value)}</dd>
                     </div>
                   ))}
                 </dl>
@@ -177,7 +177,7 @@ export default function MaterialPage({ params }: { params: Promise<{ id: string 
             {item.note && (
               <p className="flex items-start gap-3 rounded-2xl bg-[#FFF4D6] px-5 py-4 text-[15px] text-[#5C4300]">
                 <span className="material-symbols-outlined mt-0.5 text-[20px]" aria-hidden="true">info</span>
-                {item.note}
+                {t(item.note)}
               </p>
             )}
             {item.madeToOrder && (

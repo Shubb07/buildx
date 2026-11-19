@@ -77,5 +77,17 @@ describe('translations', () => {
         .filter((text): text is string => !!text && !DICTIONARIES[lang][text]);
       expect(missing).toEqual([]);
     });
+
+    // Values that are only measurements ("12 m", "100 cft", "600 × 600 mm") stay as they are.
+    it(`${lang}: every material description, use, note and specification is translated`, () => {
+      const wordy = (v?: string) => (v && /[a-z]{4,}/.test(v) ? v : undefined);
+      const missing = CATALOG_CATEGORIES.flatMap((c) => catalogItems(c.slug)).flatMap((i) => [
+        i.summary, i.note, ...i.uses,
+        ...i.soldAs.map((s) => wordy(s.note)),
+        ...i.specs.flatMap((s) => [s.label, wordy(s.value)]),
+      ])
+        .filter((text): text is string => !!text && !DICTIONARIES[lang][text]);
+      expect([...new Set(missing)]).toEqual([]);
+    });
   }
 });

@@ -31,7 +31,7 @@ export function MaterialCard({ item }: { item: CatalogItem }) {
           )}
         </div>
       </div>
-      <p className="mt-4 text-[14px] leading-relaxed text-stone">{item.summary}</p>
+      <p className="mt-4 text-[14px] leading-relaxed text-stone">{t(item.summary)}</p>
       {sizes && (
         <div className="mt-4 flex flex-wrap gap-1.5">
           {sizes.options.slice(0, 5).map((o) => (

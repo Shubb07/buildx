@@ -214,11 +214,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <section className="card p-5 sm:p-6" aria-labelledby="material-title">
                     <p className="eyebrow text-stone">{t('About the material')}</p>
                     <h2 id="material-title" className="mt-2 font-display text-xl font-semibold tracking-tight">{catalog.name}</h2>
-                    <p className="mt-2 text-[15px] leading-relaxed text-stone">{catalog.summary}</p>
+                    <p className="mt-2 text-[15px] leading-relaxed text-stone">{t(catalog.summary)}</p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {catalog.standard && <span className="rounded-full bg-cobalt-soft px-3 py-1 font-mono text-[12px] text-[#0F2A8A]">{catalog.standard}</span>}
                       {catalog.soldAs.map((s) => (
-                        <span key={s.label} className="rounded-full bg-sand-3 px-3 py-1 text-[13px]">{t(s.label)}{s.note ? ` (${s.note})` : ''}</span>
+                        <span key={s.label} className="rounded-full bg-sand-3 px-3 py-1 text-[13px]">{t(s.label)}{s.note ? ` (${t(s.note)})` : ''}</span>
                       ))}
                     </div>
                     <Link href={`/materials/${catalog.id}`} className="mt-4 inline-flex items-center gap-1 text-[14px] font-medium text-cobalt hover:underline">

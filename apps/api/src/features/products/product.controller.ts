@@ -7,6 +7,7 @@ import { deliveryPoint } from '../delivery/delivery-pricing';
 import { supplierDistances } from '../orders/allocation.service';
 import { buyerProduct, ratesFor } from '../orders/commission';
 import { orderable, isPaused } from './availability';
+import { CatalogItem } from '../../infrastructure/database/models/CatalogItem.model';
 
 // Public catalogue. Every client (mobile included) only sees ACTIVE products from suppliers that
 // are verified, active and not suspended. With ?pincode=, results are further limited to
@@ -117,6 +118,44 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
   }
 }
 
+const detailsOf = (v: unknown): Record<string, string> =>
+  v instanceof Map ? Object.fromEntries(v) : ((v as Record<string, string> | undefined) ?? {});
+
+/**
+ * Other sizes of the same product (catalogue family, e.g. every thickness of one plywood), each at
+ * its best buyer price from sellers who can take an order now, near the PIN when one is given.
+ * Undefined when the item has no family or is alone in it.
+ */
+async function familyOptions(catalogItemId: unknown, pincode?: string) {
+  const item = await CatalogItem.findById(catalogItemId).select('family').lean();
+  if (!item?.family) return undefined;
+  const items = await CatalogItem.find({ family: item.family, status: 'ACTIVE' }).select('name variant').sort({ name: 1 }).lean();
+  if (items.length < 2) return undefined;
+  const listings = await Product.find({
+    catalogItemId: { $in: items.map((i) => i._id) }, ...orderable(),
+    supplierId: { $in: await eligibleSupplierIds(pincode) }, categoryId: { $in: await sellableCategoryIds() },
+  }).select('catalogItemId categoryId basePrice bulkPricing name unit gstRate isGstInclusive').lean();
+  const priced = await forBuyers(listings);
+  const best = new Map<string, { productId: string; price: number }>();
+  for (const p of priced as unknown as { _id: unknown; catalogItemId: unknown; basePrice: number }[]) {
+    const key = String(p.catalogItemId);
+    const cur = best.get(key);
+    if (!cur || p.basePrice < cur.price) best.set(key, { productId: String(p._id), price: p.basePrice });
+  }
+  const keys = [...new Set(items.flatMap((i) => Object.keys(detailsOf(i.variant))))];
+  return {
+    keys,
+    options: items.map((i) => ({
+      catalogItemId: String(i._id),
+      name: i.name,
+      details: detailsOf(i.variant),
+      productId: best.get(String(i._id))?.productId ?? null,
+      price: best.get(String(i._id))?.price ?? null,
+      current: String(i._id) === String(catalogItemId),
+    })),
+  };
+}
+
 export async function getProduct(req: Request, res: Response, next: NextFunction) {
   try {
     if (!isValidObjectId(req.params.id)) {
@@ -161,6 +200,8 @@ export async function getProduct(req: Request, res: Response, next: NextFunction
           supplierId: { $in: await eligibleSupplierIds(eligibility.serviceable ? destination?.pincode : undefined) },
         }))
       : !!(product as { slotDelivery?: boolean }).slotDelivery && !isPaused(product);
+    // Every size of this product on one page (thickness, size...)
+    const variants = catalogItemId ? await familyOptions(catalogItemId, eligibility.serviceable ? destination?.pincode : undefined) : undefined;
     // Nobody can take it now: say when this listing's seller is back
     const backOn = sellerCount === 0 && isPaused(product) ? product.pausedUntil : undefined;
 
@@ -169,6 +210,7 @@ export async function getProduct(req: Request, res: Response, next: NextFunction
       sellerCount: Math.max(1, sellerCount),
       ...(backOn ? { backOn } : {}),
       slotDelivery,
+      ...(variants ? { variants } : {}),
       // Only present when a PIN was given: can this product be delivered there?
       ...(destination && {
         availability: {

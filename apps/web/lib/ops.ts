@@ -259,6 +259,9 @@ export const catalogItemSchema = z
     brand: z.string().optional(),
     unit: z.string(),
     weightKgPerUnit: z.number().optional(),
+    // Sizes shown together on one product page
+    family: z.string().optional(),
+    variant: z.record(z.string(), z.string()).optional(),
     status: z.enum(['ACTIVE', 'INACTIVE']),
     needsReview: z.boolean(),
     categoryId: ref(z.object({ _id: z.string(), name: z.string() }).passthrough()),
@@ -269,7 +272,7 @@ export const catalogItemSchema = z
   })
   .passthrough();
 export type OpsCatalogItem = z.infer<typeof catalogItemSchema>;
-export type CatalogEdit = Partial<{ name: string; brand: string | null; weightKgPerUnit: number | null; status: 'ACTIVE' | 'INACTIVE'; needsReview: boolean }>;
+export type CatalogEdit = Partial<{ name: string; brand: string | null; weightKgPerUnit: number | null; status: 'ACTIVE' | 'INACTIVE'; needsReview: boolean; family: string | null; variant: Record<string, string> | null }>;
 
 export const catalogApi = {
   list: (c: ApiClient, q: Query): Promise<{ data: OpsCatalogItem[]; meta: PaginationMeta }> =>

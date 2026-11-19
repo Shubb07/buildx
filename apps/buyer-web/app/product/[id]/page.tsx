@@ -9,6 +9,7 @@ import { SiteFooter } from '@/components/layout/SiteFooter';
 import { ProductGallery } from '@/components/ProductGallery';
 import { DeliveryCheck } from '@/components/catalog/DeliveryCheck';
 import { QuantityHelper } from '@/components/catalog/QuantityHelper';
+import { VariantPicker } from '@/components/catalog/VariantPicker';
 import { useProduct } from '@/lib/products';
 import { useProductReviews } from '@/lib/reviews';
 import { addToCart } from '@/lib/cart';
@@ -240,6 +241,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     )}
                   </div>
                 </div>
+
+                {data.variants && <VariantPicker keys={data.variants.keys} options={data.variants.options} unit={unit} />}
 
                 {/* price */}
                 <section className="rounded-2xl bg-ink p-5 text-sand sm:p-6" aria-label="Price">

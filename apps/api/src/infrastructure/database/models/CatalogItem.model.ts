@@ -15,6 +15,10 @@ export interface ICatalogItem extends Document {
   specifications: Record<string, string>;
   gstRate: number;
   weightKgPerUnit?: number; // for picking a delivery vehicle; unknown until someone enters it
+  // Sizes of one product shown together on one page (features/products/variants.ts): items with the
+  // same family, told apart by their variant details, e.g. { Thickness: '18 mm', Size: '8 x 4 ft' }
+  family?: string;
+  variant?: Map<string, string> | Record<string, string>;
   status: 'ACTIVE' | 'INACTIVE';
   needsReview: boolean;
   mergedInto?: Types.ObjectId;
@@ -39,6 +43,8 @@ const catalogItemSchema = new Schema<ICatalogItem>(
     specifications: { type: Map, of: String, default: {} },
     gstRate: { type: Number, default: 18, min: 0, max: 40 },
     weightKgPerUnit: { type: Number, min: 0 },
+    family: { type: String, trim: true, lowercase: true, maxlength: 80, index: true },
+    variant: { type: Map, of: String },
     status: { type: String, enum: ['ACTIVE', 'INACTIVE'], default: 'ACTIVE', index: true },
     needsReview: { type: Boolean, default: false, index: true },
     mergedInto: { type: Schema.Types.ObjectId, ref: 'CatalogItem' },

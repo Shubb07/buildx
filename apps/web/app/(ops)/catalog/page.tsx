@@ -56,9 +56,43 @@ function MergePicker({ item, onDone }: { item: OpsCatalogItem; onDone: () => voi
   );
 }
 
+// Group sizes of one product (e.g. every thickness of a plywood) so buyers pick them with chips on
+// one page. Same family on each item, then up to three details that tell them apart.
+function SizesEditor({ item, busy, onSave, onCancel }: { item: OpsCatalogItem; busy: boolean; onSave: (b: { family: string | null; variant: Record<string, string> | null }) => void; onCancel: () => void }) {
+  const [family, setFamily] = useState(item.family ?? '');
+  const start = Object.entries(item.variant ?? {});
+  const [rows, setRows] = useState<[string, string][]>(start.length ? start : [['Thickness', ''], ['Size', '']]);
+  const set = (i: number, j: 0 | 1, v: string) => setRows((r) => r.map((row, k) => (k === i ? (j === 0 ? [v, row[1]] : [row[0], v]) : row)));
+  const filled = rows.filter(([k, v]) => k.trim() && v.trim());
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const f = family.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        onSave({ family: f || null, variant: f && filled.length ? Object.fromEntries(filled.map(([k, v]) => [k.trim(), v.trim()])) : null });
+      }}
+      className="flex flex-col gap-3 rounded-xl border border-sand-4 p-4"
+    >
+      <p className="text-[13px] text-stone">Give every size of the same product the same family name, for example <span className="font-mono">century-sainik-mr</span>, then the details that differ. Leave the family empty to remove it.</p>
+      <label className="flex flex-col gap-1 text-[13px] text-stone">Family<input value={family} onChange={(e) => setFamily(e.target.value)} className="field font-mono" maxLength={80} placeholder="brand-product-grade" /></label>
+      {rows.map(([k, v], i) => (
+        <div key={i} className="grid grid-cols-2 gap-2">
+          <input value={k} onChange={(e) => set(i, 0, e.target.value)} className="field" maxLength={20} placeholder="Detail, e.g. Thickness" aria-label={`Detail ${i + 1} name`} />
+          <input value={v} onChange={(e) => set(i, 1, e.target.value)} className="field" maxLength={30} placeholder="Value, e.g. 18 mm" aria-label={`Detail ${i + 1} value`} />
+        </div>
+      ))}
+      {rows.length < 3 && <button type="button" onClick={() => setRows((r) => [...r, ['', '']])} className="self-start text-[13px] font-medium text-cobalt hover:underline">Add a detail</button>}
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy} className="btn-lime px-4">Save sizes</button>
+        <button type="button" onClick={onCancel} className="btn-ghost">Cancel</button>
+      </div>
+    </form>
+  );
+}
+
 function ItemCard({ item, onChanged }: { item: OpsCatalogItem; onChanged: () => void }) {
   const client = useApiClient();
-  const [mode, setMode] = useState<'view' | 'edit' | 'merge'>('view');
+  const [mode, setMode] = useState<'view' | 'edit' | 'merge' | 'sizes'>('view');
   const [name, setName] = useState(item.name);
   const [brand, setBrand] = useState(item.brand ?? '');
   const [weight, setWeight] = useState(item.weightKgPerUnit !== undefined ? String(item.weightKgPerUnit) : '');
@@ -99,16 +133,23 @@ function ItemCard({ item, onChanged }: { item: OpsCatalogItem; onChanged: () => 
             {item.weightKgPerUnit !== undefined ? `${item.weightKgPerUnit} kg per ${unitName(item.unit)}` : 'Weight not set (needed to choose a delivery vehicle)'}
             {item.createdBy?.role === 'SUPPLIER' ? ' · added by a supplier' : ''}
           </p>
+          {item.family && (
+            <p className="mt-1 text-[13px] text-stone">
+              Sizes: <span className="font-mono">{item.family}</span>{item.variant && Object.keys(item.variant).length ? ` · ${Object.entries(item.variant).map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}
+            </p>
+          )}
         </div>
       )}
 
       {mode === 'merge' && <MergePicker item={item} onDone={() => { setMode('view'); onChanged(); }} />}
+      {mode === 'sizes' && <SizesEditor item={item} busy={busy} onSave={(b) => save(b)} onCancel={() => setMode('view')} />}
       {error && <p className="text-[13px] text-error">{error}</p>}
 
       {mode === 'view' && (
         <div className="flex flex-wrap gap-2">
           {item.needsReview && <button type="button" disabled={busy} onClick={() => save({ needsReview: false })} className="btn-lime px-4">Looks right</button>}
           <button type="button" onClick={() => setMode('edit')} className="btn-ghost">Edit</button>
+          <button type="button" onClick={() => setMode('sizes')} className="btn-ghost">{item.family ? 'Sizes' : 'Group sizes'}</button>
           {item.status === 'ACTIVE' && <button type="button" onClick={() => setMode('merge')} className="btn-ghost">Duplicate? Merge</button>}
           <button type="button" disabled={busy} onClick={() => save({ status: item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' })} className="btn-ghost">
             {item.status === 'ACTIVE' ? 'Switch off' : 'Switch on'}

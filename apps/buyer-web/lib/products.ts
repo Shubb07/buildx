@@ -47,6 +47,14 @@ export const productDetailSchema = z
     slotDelivery: z.boolean().optional(),
     // Warranty stated by the seller (absent = none stated)
     warranty: z.object({ months: z.number(), by: z.enum(['MANUFACTURER', 'SELLER']), note: z.string().optional() }).optional(),
+    // Every size of this product (catalogue family), each at its best price near the buyer
+    variants: z.object({
+      keys: z.array(z.string()),
+      options: z.array(z.object({
+        catalogItemId: z.string(), name: z.string(), details: z.record(z.string(), z.string()),
+        productId: z.string().nullable(), price: z.number().nullable(), current: z.boolean(),
+      })),
+    }).optional(),
     // Present only when a PIN was given to the API
     availability: z.object({ deliverable: z.boolean(), reason: z.string().optional() }).optional(),
   })

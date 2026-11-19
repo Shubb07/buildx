@@ -24,6 +24,10 @@ export const catalogUpdateSchema = z
     weightKgPerUnit: fields.weightKgPerUnit.nullable(),
     status: z.enum(['ACTIVE', 'INACTIVE']),
     needsReview: z.boolean(),
+    // Sizes shown together: same family, told apart by up to 3 details (Thickness, Size...). null removes.
+    family: z.union([z.null(), z.string().trim().toLowerCase().regex(/^[a-z0-9-]{3,80}$/, 'Family: 3 to 80 letters, numbers or dashes')]),
+    variant: z.union([z.null(), z.record(z.string().trim().min(1).max(20), z.string().trim().min(1).max(30))
+      .refine((v) => Object.keys(v).length >= 1 && Object.keys(v).length <= 3, 'Give 1 to 3 details, e.g. Thickness and Size')]),
   })
   .partial()
   .strict();

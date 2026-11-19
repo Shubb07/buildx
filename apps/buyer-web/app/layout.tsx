@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Bricolage_Grotesque, Geist, Geist_Mono, Instrument_Serif } from 'next/font/google';
+import { Bricolage_Grotesque, Geist, Geist_Mono, Instrument_Serif, Noto_Sans_Kannada, Noto_Sans_Devanagari } from 'next/font/google';
+import { cookies } from 'next/headers';
+import { LANG_COOKIE, languageInfo, parseLang } from '@sthiva/web-core';
+import { DICTIONARIES } from '@/lib/i18n';
 import './globals.css';
 import { Providers } from './providers';
 import { SITE } from '@/lib/site';
@@ -19,6 +22,10 @@ const serif = Instrument_Serif({
   variable: '--font-serif',
   display: 'swap',
 });
+// Kannada and Hindi scripts (SIL Open Font License). Not preloaded: the browser fetches them only when
+// a page actually has Kannada or Devanagari letters, so English pages pay nothing.
+const kannada = Noto_Sans_Kannada({ subsets: ['kannada'], variable: '--font-kn', display: 'swap', preload: false });
+const devanagari = Noto_Sans_Devanagari({ subsets: ['devanagari'], variable: '--font-hi', display: 'swap', preload: false });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -52,12 +59,15 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // The visitor's language (Kannada, Hindi or English), chosen on the site and kept in a cookie
+  const chosen = parseLang((await cookies()).get(LANG_COOKIE)?.value);
+  const lang = chosen ?? 'en';
   return (
     <html
-      lang="en-IN"
+      lang={languageInfo(lang).htmlLang}
       suppressHydrationWarning
-      className={`${display.variable} ${sans.variable} ${mono.variable} ${serif.variable}`}
+      className={`${display.variable} ${sans.variable} ${mono.variable} ${serif.variable} ${kannada.variable} ${devanagari.variable}`}
     >
       <head>
         {/* Marks the document as JS-enabled before paint so scroll reveals never hide content without JS */}
@@ -97,7 +107,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
-        <Providers>{children}</Providers>
+        {/* Only the chosen language's words are sent to the browser */}
+        <Providers lang={lang} chosen={chosen !== null} dictionaries={lang === 'en' ? {} : { [lang]: DICTIONARIES[lang] }}>{children}</Providers>
       </body>
     </html>
   );

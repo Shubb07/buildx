@@ -1,7 +1,11 @@
+'use client';
+
 import Link from 'next/link';
+import { useI18n } from '@sthiva/web-core';
 import type { ReactNode } from 'react';
 import { Logo, LogoMark } from '../brand/Logo';
 import { SplitLines } from '../motion/Reveal';
+import { LanguageSwitcher } from '../i18n/Language';
 
 const POINTS = [
   { icon: 'account_circle', text: 'Sign in with Google, no new password' },
@@ -12,6 +16,7 @@ const POINTS = [
 // Split-screen frame for sign-in and onboarding: brand story on ink (desktop), form on sand.
 // recaptcha: show Google's required reCAPTCHA notice, only on screens that send an SMS code
 export function AuthShell({ children, step, recaptcha = false }: { children: ReactNode; step?: string; recaptcha?: boolean }) {
+  const { lang, t } = useI18n();
   return (
     <div className="grid min-h-[100svh] lg:grid-cols-[1.05fr_1fr]">
       <aside className="on-ink grain relative hidden overflow-hidden bg-ink p-12 text-sand lg:flex lg:flex-col xl:p-16">
@@ -26,13 +31,13 @@ export function AuthShell({ children, step, recaptcha = false }: { children: Rea
           <h2 className="font-display text-[clamp(3rem,5vw,4.75rem)] font-bold leading-[0.92] tracking-tightest">
             <SplitLines
               start={100}
-              lines={[
+              lines={lang === 'en' ? [
                 'Order for',
                 'the site,',
                 <em key="e" className="font-serif font-normal italic text-lime">
                   not the queue.
                 </em>,
-              ]}
+              ] : [t('Order for the site, not the queue.')]}
             />
           </h2>
           <ul className="mt-10 space-y-4">
@@ -45,14 +50,14 @@ export function AuthShell({ children, step, recaptcha = false }: { children: Rea
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.05] text-lime">
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{p.icon}</span>
                 </span>
-                {p.text}
+                {t(p.text)}
               </li>
             ))}
           </ul>
         </div>
 
         <div className="relative mt-16 flex items-center justify-between border-t border-white/10 pt-6 text-[12px] text-sand/40">
-          <span className="font-mono uppercase tracking-[0.16em]">Construction materials marketplace</span>
+          <span className="font-mono uppercase tracking-[0.16em]">{t('Construction materials marketplace')}</span>
           <LogoMark size={22} onDark />
         </div>
       </aside>
@@ -62,30 +67,31 @@ export function AuthShell({ children, step, recaptcha = false }: { children: Rea
           <div className="lg:hidden">
             <Logo />
           </div>
+          <div className="ml-auto"><LanguageSwitcher /></div>
           <Link
             href="/"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[14px] font-medium text-stone transition-colors hover:bg-ink/5 hover:text-ink"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[14px] font-medium text-stone transition-colors hover:bg-ink/5 hover:text-ink"
           >
             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
-            Back to store
+            {t('Back to store')}
           </Link>
         </div>
 
         <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center py-12">
-          {step && <p className="eyebrow mb-5 text-stone">{step}</p>}
+          {step && <p className="eyebrow mb-5 text-stone">{t(step)}</p>}
           {children}
         </div>
 
         {recaptcha && <p className="mx-auto max-w-[420px] text-center text-[12px] leading-relaxed text-stone">
-          Protected by reCAPTCHA. Google&apos;s{' '}
+          {t("Protected by reCAPTCHA. Google's")}{' '}
           <a className="underline underline-offset-2 hover:text-ink" href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
-            Privacy Policy
+            {t('Privacy Policy')}
           </a>{' '}
-          and{' '}
+          {t('and')}{' '}
           <a className="underline underline-offset-2 hover:text-ink" href="https://policies.google.com/terms" target="_blank" rel="noreferrer">
-            Terms
+            {t('Terms')}
           </a>{' '}
-          apply.
+          {t('apply.')}
         </p>}
       </main>
     </div>

@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CATALOG_CATEGORIES, useSelectedLocation } from '@sthiva/web-core';
+import { CATALOG_CATEGORIES, useSelectedLocation, useT } from '@sthiva/web-core';
 import { useCart } from '../lib/cart';
 import { useAuth } from './auth/AuthProvider';
 import { Logo } from './brand/Logo';
+import { LanguageSwitcher } from './i18n/Language';
 
 // One solid header on every page, laid out like the big Indian marketplaces:
 //   row 1: logo · deliver to (PIN) · search · account · orders · cart
@@ -20,6 +21,7 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
   const { status } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const t = useT();
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -48,17 +50,17 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
 
   const search = (id: string, className: string) => (
     <form onSubmit={submitSearch} role="search" className={className}>
-      <label htmlFor={id} className="sr-only">Search materials</label>
+      <label htmlFor={id} className="sr-only">{t('Search materials')}</label>
       <div className="flex h-11 w-full overflow-hidden rounded-xl border border-ink/15 bg-sand-2 focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(243,184,6,0.45)]">
         <input
           id={id}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           type="search"
-          placeholder="Search cement, TMT, tiles, wires..."
+          placeholder={t('Search cement, TMT, tiles, wires...')}
           className="min-w-0 flex-1 bg-transparent px-4 text-[15px] text-ink outline-none placeholder:text-stone"
         />
-        <button type="submit" className="grid w-12 shrink-0 place-items-center bg-lime text-ink transition-colors hover:bg-lime-deep" aria-label="Search">
+        <button type="submit" className="grid w-12 shrink-0 place-items-center bg-lime text-ink transition-colors hover:bg-lime-deep" aria-label={t('Search')}>
           <span className="material-symbols-outlined text-[22px]" aria-hidden="true">search</span>
         </button>
       </div>
@@ -69,12 +71,12 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
     <Link
       href="/#site-pin"
       className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-left hover:bg-ink/5"
-      title={location?.label ?? 'Set your site PIN'}
+      title={location?.label ?? t('Set your site PIN')}
     >
       <span className="material-symbols-outlined text-[22px] text-ink" aria-hidden="true">location_on</span>
       <span className="flex flex-col leading-tight">
-        <span className="text-[11px] text-stone">{location ? 'Deliver to' : 'Set your'}</span>
-        <span className="font-mono text-[13px] font-semibold text-ink">{location ? location.pincode : 'site PIN'}</span>
+        <span className="text-[11px] text-stone">{location ? t('Deliver to') : t('Set your')}</span>
+        <span className="font-mono text-[13px] font-semibold text-ink">{location ? location.pincode : t('site PIN')}</span>
       </span>
     </Link>
   );
@@ -89,31 +91,33 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
 
         <div className="ml-auto flex items-center gap-1 md:ml-0">
           <div className="md:hidden">{deliverTo}</div>
+          <div className="md:hidden"><LanguageSwitcher compact /></div>
+          <div className="hidden md:block"><LanguageSwitcher /></div>
           {status === 'signed-in' ? (
-            <Link href="/profile" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 md:flex" aria-label="Your account">
+            <Link href="/profile" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 md:flex" aria-label={t('Your account')}>
               <span className="material-symbols-outlined text-[24px]" aria-hidden="true">account_circle</span>
-              <span className="text-[14px] font-semibold">Account</span>
+              <span className="text-[14px] font-semibold">{t('Account')}</span>
             </Link>
           ) : (
             <Link href={`/signin?next=${encodeURIComponent(pathname || '/')}`} className="hidden rounded-lg bg-ink px-4 py-2.5 text-[14px] font-semibold text-sand hover:bg-ink-3 md:inline-flex">
-              Sign in
+              {t('Sign in')}
             </Link>
           )}
           <Link href="/made-to-measure" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 xl:flex">
             <span className="material-symbols-outlined text-[24px]" aria-hidden="true">straighten</span>
-            <span className="text-[14px] font-semibold">Made to measure</span>
+            <span className="text-[14px] font-semibold">{t('Made to measure')}</span>
           </Link>
           <Link href="/order-by-list" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 lg:flex">
             <span className="material-symbols-outlined text-[24px]" aria-hidden="true">checklist</span>
-            <span className="text-[14px] font-semibold">Order by list</span>
+            <span className="text-[14px] font-semibold">{t('Order by list')}</span>
           </Link>
           <Link href="/orders" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 lg:flex">
             <span className="material-symbols-outlined text-[24px]" aria-hidden="true">receipt_long</span>
-            <span className="text-[14px] font-semibold">Orders</span>
+            <span className="text-[14px] font-semibold">{t('Orders')}</span>
           </Link>
-          <Link href="/cart" className="relative flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5" aria-label={cartCount > 0 ? `Cart, ${cartCount} items` : 'Cart'}>
+          <Link href="/cart" className="relative flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5" aria-label={cartCount > 0 ? t('Cart, {n} items', { n: cartCount }) : t('Cart')}>
             <span className="material-symbols-outlined text-[26px]" aria-hidden="true">shopping_cart</span>
-            <span className="hidden text-[14px] font-semibold md:inline">Cart</span>
+            <span className="hidden text-[14px] font-semibold md:inline">{t('Cart')}</span>
             {cartCount > 0 && (
               <span className="absolute left-5 top-0 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-lime px-1 font-mono text-[10px] font-semibold text-ink">
                 {cartCount}
@@ -135,7 +139,7 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
             className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[14px] font-semibold transition-colors ${menuOpen ? 'bg-ink text-sand' : 'text-ink hover:bg-ink/5'}`}
           >
             <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{menuOpen ? 'close' : 'menu'}</span>
-            All materials
+            {t('All materials')}
           </button>
           <ul className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [mask-image:linear-gradient(90deg,#000_92%,transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {CATALOG_CATEGORIES.map((c) => {
@@ -147,7 +151,7 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
                     aria-current={active ? 'page' : undefined}
                     className={`block whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[14px] transition-colors ${active ? 'bg-ink font-semibold text-sand' : 'text-stone hover:bg-ink/5 hover:text-ink'}`}
                   >
-                    {c.name}
+                    {t(c.name)}
                   </Link>
                 </li>
               );
@@ -162,8 +166,8 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
               {CATALOG_CATEGORIES.map((c) => (
                 <li key={c.slug}>
                   <Link href={`/category/${c.slug}`} className="block rounded-lg px-3 py-2.5 hover:bg-ink/5">
-                    <span className="block text-[15px] font-semibold text-ink">{c.name}</span>
-                    <span className="mt-0.5 block truncate text-[12px] text-stone">{c.groups?.slice(0, 3).join(', ')}</span>
+                    <span className="block text-[15px] font-semibold text-ink">{t(c.name)}</span>
+                    <span className="mt-0.5 block truncate text-[12px] text-stone">{c.groups?.slice(0, 3).map((g) => t(g)).join(', ')}</span>
                   </Link>
                 </li>
               ))}

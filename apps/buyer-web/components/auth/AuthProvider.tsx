@@ -11,7 +11,7 @@ import {
   signOut as firebaseSignOut,
   type ConfirmationResult,
 } from 'firebase/auth';
-import { ApiClientError, useApiClient } from '@sthiva/web-core';
+import { ApiClientError, useApiClient, useI18n } from '@sthiva/web-core';
 import { getFirebaseAuth } from '../../lib/firebase';
 import { syncAuth, onboardBuyer, type SyncedUser } from '../../lib/auth';
 
@@ -81,6 +81,7 @@ function describeAuthError(err: unknown): string {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const client = useApiClient();
+  const { lang } = useI18n();
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<SyncedUser | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -189,14 +190,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (name: string) => {
       setError(null);
       try {
-        const synced = await onboardBuyer(client, name);
+        const synced = await onboardBuyer(client, name, lang);
         setUser(synced);
         setStatus('signed-in');
       } catch {
         setError('Could not complete onboarding. Please try again.');
       }
     },
-    [client]
+    [client, lang]
   );
 
   const resetOtp = useCallback(() => {

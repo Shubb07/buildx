@@ -48,3 +48,8 @@ export { buyerDeliveryPhrase, buyerDeliveryRange, deliveryTimeLabel, deliveryTim
 export { GSTIN_RE, GST_STATES, checkGstin, gstinCheckChar, sameGstState, type GstinCheck } from './gstin';
 export { HSN_RE, SUGGESTED_HSN } from './catalog/hsn';
 export { downloadFile, hasInvoice, INVOICE_STATUSES } from './api/download';
+
+// Languages: Kannada, Hindi, English (i18n/core.ts has the plain parts, safe on the server)
+export { LANGUAGES, DEFAULT_LANG, LANG_COOKIE, isLang, parseLang, languageInfo, translate, saveLangCookie } from './i18n/core';
+export type { Lang, Dictionary, Dictionaries, Vars } from './i18n/core';
+export { I18nProvider, useI18n, useT } from './i18n/provider';

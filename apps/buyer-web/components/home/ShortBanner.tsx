@@ -1,9 +1,13 @@
+'use client';
+
 import Image from 'next/image';
+import { useI18n } from '@sthiva/web-core';
 import { HeroPinCheck } from '@/components/cinematic/HeroPinCheck';
 
 // A short banner like the big marketplaces: one photo, one line, the PIN check. Categories start right
 // below it on every screen size.
 export function ShortBanner() {
+  const { lang, t } = useI18n();
   return (
     <section id="site-pin" className="on-ink relative isolate overflow-hidden bg-ink text-sand scroll-mt-[calc(var(--header-h)+8px)]" aria-label="Sthiva">
       <Image
@@ -18,11 +22,12 @@ export function ShortBanner() {
       <div className="container-x flex flex-col items-start gap-5 py-8 md:flex-row md:items-center md:justify-between md:gap-10 md:py-12">
         <div className="max-w-xl">
           <h1 className="font-display text-[clamp(1.9rem,4.2vw,3.25rem)] font-bold leading-[1.02] tracking-tightest text-white">
-            Building materials,{' '}
-            <span className="font-serif font-normal italic text-lime">delivered to your site.</span>
+            {lang === 'en' ? (
+              <>Building materials,{' '}<span className="font-serif font-normal italic text-lime">delivered to your site.</span></>
+            ) : t('Building materials, delivered to your site.')}
           </h1>
           <p className="mt-3 text-[15px] leading-relaxed text-white/80 sm:text-[17px]">
-            Cement to curtains, from verified suppliers near you. Cash on delivery.
+            {t('Cement to curtains, from verified suppliers near you. Cash on delivery.')}
           </p>
         </div>
         <div className="w-full md:max-w-md">

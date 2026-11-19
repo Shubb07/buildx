@@ -164,7 +164,9 @@ export async function afterUnassign(orderId: string, removedDriver?: Types.Objec
       $push: { 'driverOffer.attempts': { driverUserId: new Types.ObjectId(String(removedDriver)), offeredAt: new Date(), outcome: 'WITHDRAWN', at: new Date(), reason: 'Removed by Sthiva' } },
     });
   }
-  startDriverOffers(orderId);
+  // Waited for (not in the background), so when ops gets the answer the job is already offered to the
+  // next driver; before, a driver opening their list right away could miss it for a moment.
+  await offerNext(orderId, {}).catch((err) => logger.error('[driver-offers] re-offer after unassign failed', { orderId, error: err?.message }));
 }
 
 /** Moves driver offers whose answer time has passed. Returns how many moved. */

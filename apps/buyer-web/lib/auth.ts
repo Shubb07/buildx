@@ -29,13 +29,14 @@ export async function syncAuth(client: ApiClient): Promise<SyncedUser> {
   }
 }
 
-export async function onboardBuyer(client: ApiClient, name: string): Promise<SyncedUser> {
+// preferredLanguage: chosen before creating the account (Kannada, Hindi or English)
+export async function onboardBuyer(client: ApiClient, name: string, preferredLanguage?: string): Promise<SyncedUser> {
   return client.request('/auth/onboard', {
     method: 'POST',
     auth: true,
     envelope: true,
     schema: syncedUserSchema,
-    body: { name, role: 'BUYER' },
+    body: { name, role: 'BUYER', ...(preferredLanguage ? { preferredLanguage } : {}) },
   });
 }
 

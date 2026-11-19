@@ -117,7 +117,7 @@ export class AuthController {
 
       const user = await User.findOneAndUpdate(
         { _id: userId, onboardingComplete: false },
-        { $set: { name: body.name, role: body.role, onboardingComplete: true } },
+        { $set: { name: body.name, role: body.role, onboardingComplete: true, ...(body.preferredLanguage ? { preferredLanguage: body.preferredLanguage } : {}) } },
         { new: true, runValidators: true }
       ).lean();
       if (!user) throw AppError.conflict('Onboarding already complete');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { WebCoreProvider, createApiClient, createLocationStore } from '@sthiva/web-core';
+import { I18nProvider, WebCoreProvider, createApiClient, createLocationStore, type Dictionaries, type Lang } from '@sthiva/web-core';
 import { getFirebaseAuth } from '../lib/firebase';
 import { AuthProvider } from '../components/auth/AuthProvider';
 import { StorageNotice } from '../components/layout/StorageNotice';
@@ -10,7 +10,7 @@ import { Analytics } from '../components/layout/Analytics';
 // No app has a dev server pointed at it by default: set NEXT_PUBLIC_API_URL to the live API.
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children, lang, chosen, dictionaries }: { children: React.ReactNode; lang: Lang; chosen: boolean; dictionaries: Dictionaries }) {
   // Created once per browser session, not on every render
   const [core] = useState(() => ({
     client: createApiClient({
@@ -20,12 +20,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
     locationStore: createLocationStore(),
   }));
   return (
-    <WebCoreProvider client={core.client} locationStore={core.locationStore}>
-      <AuthProvider>
-        {children}
-        <StorageNotice />
-        <Analytics />
-      </AuthProvider>
-    </WebCoreProvider>
+    <I18nProvider lang={lang} chosen={chosen} dictionaries={dictionaries}>
+      <WebCoreProvider client={core.client} locationStore={core.locationStore}>
+        <AuthProvider>
+          {children}
+          <StorageNotice />
+          <Analytics />
+        </AuthProvider>
+      </WebCoreProvider>
+    </I18nProvider>
   );
 }

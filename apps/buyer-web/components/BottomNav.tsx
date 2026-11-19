@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useT } from '@sthiva/web-core';
 import { useCart } from '../lib/cart';
 
 const TABS = [
@@ -16,6 +17,7 @@ const TABS = [
 // header carries navigation. Renders its own spacer so page content never sits underneath it.
 export function BottomNav() {
   const pathname = usePathname();
+  const t = useT();
   const cart = useCart();
   const cartCount = cart?.items.reduce((n, i) => n + i.quantity, 0) ?? 0;
 
@@ -23,7 +25,7 @@ export function BottomNav() {
     <>
       <div className="h-24 md:hidden" aria-hidden="true" />
       <nav
-        aria-label="Tabs"
+        aria-label={t('Tabs')}
         className="fixed inset-x-3 bottom-3 z-50 flex items-center justify-between rounded-[22px] bg-ink/95 px-2 py-2 shadow-[0_18px_50px_-12px_rgba(11,12,10,0.55)] backdrop-blur-xl md:hidden"
         style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       >
@@ -45,7 +47,7 @@ export function BottomNav() {
               >
                 {tab.icon}
               </span>
-              <span className="text-[10px] font-semibold tracking-wide">{tab.label}</span>
+              <span className="text-[10px] font-semibold tracking-wide">{t(tab.label)}</span>
               {tab.href === '/cart' && cartCount > 0 && (
                 <span className="absolute right-[18%] top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-signal-red px-1 font-mono text-[9px] font-semibold text-white">
                   {cartCount}

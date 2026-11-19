@@ -6,11 +6,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../components/auth/AuthProvider';
 import { AuthShell } from '../../components/auth/AuthShell';
 import { safeNext } from '../../lib/safe-next';
+import { languageInfo, useI18n } from '@sthiva/web-core';
 
 function OnboardForm() {
   const { status, error, onboard, user } = useAuth();
   const router = useRouter();
   const next = safeNext(useSearchParams().get('next'));
+  const { lang, t } = useI18n();
   // Google sign-ins arrive with the account's name; phone sign-ins start as 'New User'
   const [name, setName] = useState(user && user.name !== 'New User' ? user.name : '');
   const [agreed, setAgreed] = useState(false);
@@ -35,7 +37,7 @@ function OnboardForm() {
   if (status !== 'needs-onboarding') {
     return (
       <AuthShell>
-        <div className="flex justify-center py-16" role="status" aria-label="Loading">
+        <div className="flex justify-center py-16" role="status" aria-label={t('Loading')}>
           <span className="h-8 w-8 animate-spin rounded-full border-2 border-ink border-t-transparent" />
         </div>
       </AuthShell>
@@ -51,19 +53,22 @@ function OnboardForm() {
           </span>
         </span>
         <h1 className="font-display text-[clamp(2.4rem,6vw,3.25rem)] font-bold leading-[0.95] tracking-tightest">
-          Welcome to Sthiva
+          {t('Welcome to Sthiva')}
         </h1>
         <p className="mt-4 text-[16px] leading-relaxed text-stone">
           {user?.phone ? (
             <>
-              Your number <span className="font-mono text-ink">{user.phone}</span> is verified.{' '}
+              {t('Your number')} <span className="font-mono text-ink">{user.phone}</span> {t('is verified.')}{' '}
             </>
           ) : null}
-          Tell us what to call you and you can start ordering.
+          {t('Tell us what to call you and you can start ordering.')}
+        </p>
+        <p className="mt-2 text-[14px] text-stone">
+          {t('Language')}: <span lang={languageInfo(lang).htmlLang} className="font-semibold text-ink">{languageInfo(lang).name}</span>
         </p>
 
         <label htmlFor="name" className="mt-10 block text-[13px] font-semibold text-ink">
-          Your full name
+          {t('Your full name')}
         </label>
         <input
           id="name"
@@ -85,16 +90,16 @@ function OnboardForm() {
             className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded accent-ink"
           />
           <span>
-            I am 18 or older and I agree to the{' '}
-            <Link href="/terms" target="_blank" className="font-medium text-ink underline underline-offset-2">Terms of service</Link> and{' '}
-            <Link href="/privacy" target="_blank" className="font-medium text-ink underline underline-offset-2">Privacy policy</Link>.
+            {t('I am 18 or older and I agree to the')}{' '}
+            <Link href="/terms" target="_blank" className="font-medium text-ink underline underline-offset-2">{t('Terms of service')}</Link> {t('and')}{' '}
+            <Link href="/privacy" target="_blank" className="font-medium text-ink underline underline-offset-2">{t('Privacy policy')}</Link>.
           </span>
         </label>
 
-        <p role="alert" className="mt-4 min-h-[20px] text-[14px] font-medium text-error">{error}</p>
+        <p role="alert" className="mt-4 min-h-[20px] text-[14px] font-medium text-error">{error ? t(error) : null}</p>
 
         <button type="submit" disabled={!canSubmit} className="btn-ink mt-2 h-14 w-full text-[16px]">
-          {submitting ? 'Setting up your account' : 'Start ordering'}
+          {submitting ? t('Setting up your account') : t('Start ordering')}
           {!submitting && <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span>}
         </button>
       </form>

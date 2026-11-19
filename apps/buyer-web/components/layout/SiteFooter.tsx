@@ -1,10 +1,14 @@
+'use client';
+
 import Link from 'next/link';
 import { ProductHuntBadge } from './ProductHuntBadge';
-import { SthivaLogo } from '@sthiva/web-core';
+import { SthivaLogo, useT } from '@sthiva/web-core';
+import { LanguageSwitcher } from '../i18n/Language';
 import { SITE } from '@/lib/site';
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
+  const t = useT();
   return (
     <footer className="on-ink relative overflow-hidden bg-ink text-sand">
       <div className="container-x relative z-10 grid gap-12 py-16 md:grid-cols-12 md:py-20">
@@ -13,9 +17,10 @@ export function SiteFooter() {
             <SthivaLogo onDark height={44} />
           </div>
           <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-sand/60">
-            The construction materials marketplace. Verified suppliers, honest prices, delivery checked against your PIN code.
+            {t('The construction materials marketplace. Verified suppliers, honest prices, delivery checked against your PIN code.')}
           </p>
           <p className="mt-6 text-[13px] text-sand/65">{SITE.city}</p>
+          <div className="mt-4 -ml-2"><LanguageSwitcher tone="dark" /></div>
           {(SITE.supportEmail || SITE.supportPhone) && (
             <ul className="mt-2 space-y-1 text-[13px] text-sand/60">
               {SITE.supportEmail && (
@@ -63,10 +68,10 @@ export function SiteFooter() {
 
       <div className="container-x relative z-10 flex flex-col gap-3 border-t border-white/10 py-6 text-[12px] text-sand/65 sm:flex-row sm:items-center sm:justify-between">
         <p>
-          © {year} {SITE.legalName}. All rights reserved.
+          © {year} {SITE.legalName}. {t('All rights reserved.')}
         </p>
         <ProductHuntBadge />
-        <p className="font-mono uppercase tracking-[0.16em]">Made in India · Cash on delivery</p>
+        <p className="font-mono uppercase tracking-[0.16em]">{t('Made in India · Cash on delivery')}</p>
       </div>
 
       <div
@@ -80,14 +85,15 @@ export function SiteFooter() {
 }
 
 function FooterCol({ title, links }: { title: string; links: { href: string; label: string }[] }) {
+  const t = useT();
   return (
     <div className="md:col-span-2 lg:col-span-2 [&:nth-child(2)]:md:col-start-7">
-      <h2 className="eyebrow text-sand/65">{title}</h2>
+      <h2 className="eyebrow text-sand/65">{t(title)}</h2>
       <ul className="mt-5 space-y-3">
         {links.map((l) => (
           <li key={l.href}>
             <Link href={l.href} className="text-[14px] text-sand/75 transition-colors hover:text-lime">
-              {l.label}
+              {t(l.label)}
             </Link>
           </li>
         ))}

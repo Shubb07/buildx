@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useI18n } from '@sthiva/web-core';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { SiteFooter } from '@/components/layout/SiteFooter';
@@ -39,10 +40,12 @@ const PRINCIPLES = [
   { icon: 'verified_user', title: 'Verified suppliers only', body: 'Only suppliers that pass verification can list products that buyers see.' },
   { icon: 'receipt_long', title: 'Prices you can audit', body: 'Before an order is placed, our servers recalculate the total from the live listing.' },
   { icon: 'block', title: 'No false promises', body: 'A valid PIN is not a delivery promise. If no supplier delivers to your area yet, we say so before you order, and find one for you.' },
-  { icon: 'lock', title: 'Sign in, no passwords', body: `Use ${SIGNIN_WAYS}. No new password to create, remember or leak.` },
+  { icon: 'lock', title: 'Sign in, no passwords', body: 'Use {ways}. No new password to create, remember or leak.' },
 ];
 
 export default function HomePage() {
+  const { lang, t } = useI18n();
+  const ways = t(SIGNIN_WAYS);
   return (
     <>
       <Header />
@@ -54,8 +57,8 @@ export default function HomePage() {
         <section id="categories" className="scroll-mt-[calc(var(--header-h)+8px)] py-8 md:py-12">
           <div className="container-x">
             <div className="mb-5 flex items-end justify-between gap-4 md:mb-7">
-              <h2 className="font-display text-[24px] font-bold tracking-[-0.02em] md:text-[32px]">Shop by material</h2>
-              <p className="hidden text-[14px] text-stone md:block">From foundation to furnishing, in building order.</p>
+              <h2 className="font-display text-[24px] font-bold tracking-[-0.02em] md:text-[32px]">{t('Shop by material')}</h2>
+              <p className="hidden text-[14px] text-stone md:block">{t('From foundation to furnishing, in building order.')}</p>
             </div>
             <CategoryGrid categories={BUILT_IN_CATEGORIES} />
           </div>
@@ -65,9 +68,9 @@ export default function HomePage() {
         <section id="how-it-works" className="on-ink scroll-mt-16 bg-ink py-20 text-sand md:py-28">
           <div className="container-x">
             <Reveal className="max-w-3xl">
-              <p className="eyebrow text-lime">How it works</p>
+              <p className="eyebrow text-lime">{t('How it works')}</p>
               <h2 className="mt-4 font-display text-[clamp(2.25rem,4.6vw,3.75rem)] font-bold leading-[0.98] tracking-tightest text-balance">
-                From PIN code to site gate in three steps.
+                {t('From PIN code to site gate in three steps.')}
               </h2>
             </Reveal>
 
@@ -83,8 +86,8 @@ export default function HomePage() {
                         {s.n}
                       </span>
                     </div>
-                    <h3 className="mt-10 font-display text-2xl font-semibold tracking-[-0.02em]">{s.title}</h3>
-                    <p className="mt-3 text-[15px] leading-relaxed text-sand/60">{s.body}</p>
+                    <h3 className="mt-10 font-display text-2xl font-semibold tracking-[-0.02em]">{t(s.title)}</h3>
+                    <p className="mt-3 text-[15px] leading-relaxed text-sand/60">{t(s.body)}</p>
                   </div>
                 </Reveal>
               ))}
@@ -96,12 +99,12 @@ export default function HomePage() {
         <section className="py-20 md:py-28">
           <div className="container-x grid gap-12 lg:grid-cols-12">
             <Reveal className="lg:col-span-4">
-              <p className="eyebrow text-stone">Our promise</p>
+              <p className="eyebrow text-stone">{t('Our promise')}</p>
               <h2 className="mt-4 font-display text-[clamp(2.25rem,4.2vw,3.5rem)] font-bold leading-[0.98] tracking-tightest">
-                Built on <span className="font-serif font-normal italic">honesty</span>, not hype.
+                {lang === 'en' ? <>Built on <span className="font-serif font-normal italic">honesty</span>, not hype.</> : t('Built on honesty, not hype.')}
               </h2>
               <p className="mt-5 text-[16px] leading-relaxed text-stone">
-                No invented ratings, no made-up stock, no delivery dates we cannot keep. Just the real marketplace.
+                {t('No invented ratings, no made-up stock, no delivery dates we cannot keep. Just the real marketplace.')}
               </p>
             </Reveal>
             <div className="grid gap-3 sm:grid-cols-2 lg:col-span-8">
@@ -111,8 +114,8 @@ export default function HomePage() {
                     <span className="grid h-12 w-12 place-items-center rounded-xl bg-ink text-lime transition-transform duration-500 ease-out-expo group-hover:rotate-[-6deg] group-hover:scale-110">
                       <span className="material-symbols-outlined text-[24px]" aria-hidden="true">{p.icon}</span>
                     </span>
-                    <h3 className="mt-8 font-display text-[22px] font-semibold tracking-[-0.02em]">{p.title}</h3>
-                    <p className="mt-2 text-[15px] leading-relaxed text-stone">{p.body}</p>
+                    <h3 className="mt-8 font-display text-[22px] font-semibold tracking-[-0.02em]">{t(p.title)}</h3>
+                    <p className="mt-2 text-[15px] leading-relaxed text-stone">{t(p.body, { ways })}</p>
                   </div>
                 </Reveal>
               ))}
@@ -129,23 +132,22 @@ export default function HomePage() {
                 <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-lime/30 blur-[100px]" aria-hidden="true" />
                 <div className="relative grid gap-10 lg:grid-cols-12 lg:items-end">
                   <div className="lg:col-span-8">
-                    <p className="eyebrow text-white/60">For suppliers</p>
+                    <p className="eyebrow text-white/60">{t('For suppliers')}</p>
                     <h2 className="mt-4 font-display text-[clamp(2.25rem,5vw,4.25rem)] font-bold leading-[0.95] tracking-tightest text-balance">
-                      Sell to every site in your service area.
+                      {t('Sell to every site in your service area.')}
                     </h2>
                     <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-white/75">
-                      List your catalogue, set your own prices and bulk tiers, choose the PIN codes you deliver to, and manage
-                      orders from one portal.
+                      {t('List your catalogue, set your own prices and bulk tiers, choose the PIN codes you deliver to, and manage orders from one portal.')}
                     </p>
                   </div>
                   <div className="lg:col-span-4 lg:text-right">
                     {SITE.sellerPortalUrl ? (
                       <a href={SITE.sellerPortalUrl} className="btn bg-white text-ink hover:bg-lime">
-                        Open the seller portal
+                        {t('Open the seller portal')}
                         <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_outward</span>
                       </a>
                     ) : (
-                      <p className="text-[15px] text-white/70">Seller portal access is shared with suppliers during onboarding.</p>
+                      <p className="text-[15px] text-white/70">{t('Seller portal access is shared with suppliers during onboarding.')}</p>
                     )}
                   </div>
                 </div>
@@ -159,16 +161,16 @@ export default function HomePage() {
           <div className="container-x text-center">
             <Reveal>
               <h2 className="mx-auto max-w-4xl font-display text-[clamp(2.75rem,7vw,6rem)] font-bold leading-[0.92] tracking-tightest text-balance">
-                Your next pour starts <span className="relative inline-block">here<span className="absolute -bottom-1 left-0 right-0 h-[0.14em] rounded-full bg-lime" aria-hidden="true" /></span>.
+                {lang === 'en' ? <>Your next pour starts <span className="relative inline-block">here<span className="absolute -bottom-1 left-0 right-0 h-[0.14em] rounded-full bg-lime" aria-hidden="true" /></span>.</> : t('Your next pour starts here.')}
               </h2>
-              <p className="mx-auto mt-6 max-w-md text-[17px] text-stone">Sign in with {SIGNIN_WAYS} in under a minute. No passwords.</p>
+              <p className="mx-auto mt-6 max-w-md text-[17px] text-stone">{t('Sign in with {ways} in under a minute. No passwords.', { ways })}</p>
               <div className="mt-9 flex flex-wrap justify-center gap-3">
                 <Link href="/signin" className="btn-ink group">
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">login</span>
-                  Sign in
+                  {t('Sign in')}
                 </Link>
                 <Link href="#categories" className="btn-ghost">
-                  Browse first
+                  {t('Browse first')}
                 </Link>
               </div>
             </Reveal>

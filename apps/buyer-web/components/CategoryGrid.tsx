@@ -1,16 +1,19 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { categoryIcon, type Category } from '@/lib/categories';
-import { catalogCategory, catalogItems } from '@sthiva/web-core';
+import { catalogCategory, catalogItems, useT } from '@sthiva/web-core';
 import { Reveal } from './motion/Reveal';
 
 export function CategoryGrid({ categories }: { categories: Category[] }) {
+  const t = useT();
   if (categories.length === 0) {
     return (
       <div className="card flex flex-col items-center gap-2 px-6 py-16 text-center">
         <span className="material-symbols-outlined text-4xl text-stone" aria-hidden="true">inventory_2</span>
-        <p className="font-display text-xl font-semibold">No categories listed yet</p>
-        <p className="max-w-sm text-[15px] text-stone">Suppliers are still setting up their catalogues. Check back soon.</p>
+        <p className="font-display text-xl font-semibold">{t('No categories listed yet')}</p>
+        <p className="max-w-sm text-[15px] text-stone">{t('Suppliers are still setting up their catalogues. Check back soon.')}</p>
       </div>
     );
   }
@@ -44,13 +47,13 @@ export function CategoryGrid({ categories }: { categories: Category[] }) {
               </div>
               <div className="flex flex-1 flex-col gap-1.5 p-3 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="font-display text-[16px] font-semibold leading-[1.15] tracking-[-0.02em] sm:text-[18px]">{category.name}</h3>
+                  <h3 className="font-display text-[16px] font-semibold leading-[1.15] tracking-[-0.02em] sm:text-[18px]">{t(category.name)}</h3>
                   <span className="material-symbols-outlined mt-0.5 hidden text-[22px] text-stone transition-transform sm:inline duration-500 ease-out-expo group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ink" aria-hidden="true">
                     arrow_outward
                   </span>
                 </div>
-                {meta?.tagline && <p className="hidden text-[14px] leading-snug text-stone sm:block">{meta.tagline}</p>}
-                {types > 0 && <p className="mt-auto pt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-stone sm:pt-2 sm:text-[11px]">{types} material types</p>}
+                {meta?.tagline && <p className="hidden text-[14px] leading-snug text-stone sm:block">{t(meta.tagline)}</p>}
+                {types > 0 && <p className="mt-auto pt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-stone sm:pt-2 sm:text-[11px]">{t('{n} material types', { n: types })}</p>}
               </div>
             </Link>
           </Reveal>
@@ -61,8 +64,9 @@ export function CategoryGrid({ categories }: { categories: Category[] }) {
 }
 
 export function CategoryGridSkeleton() {
+  const t = useT();
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5" aria-label="Loading categories" role="status">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5" aria-label={t('Loading categories')} role="status">
       {Array.from({ length: 8 }, (_, i) => (
         <div key={i} className="skeleton aspect-[4/5]" />
       ))}

@@ -36,6 +36,13 @@ function failNextUserUpdate(message: string) {
 }
 
 describe('onboarding by role', () => {
+  it('keeps the language chosen before creating the account', async () => {
+    const { user, headers } = await newUser('lang1');
+    expect((await request(app).post(ONBOARD).set(headers).send({ name: 'Ravi', role: 'BUYER', preferredLanguage: 'fr' })).status).toBe(400);
+    expect((await request(app).post(ONBOARD).set(headers).send({ name: 'Ravi', role: 'BUYER', preferredLanguage: 'kn' })).status).toBe(200);
+    expect((await User.findById(user._id).lean())!.preferredLanguage).toBe('kn');
+  });
+
   it('onboards a buyer without creating any profile', async () => {
     const { user, headers } = await newUser('b1');
     const res = await request(app).post(ONBOARD).set(headers).send({ name: 'Rajan', role: 'BUYER' });

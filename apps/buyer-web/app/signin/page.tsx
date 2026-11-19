@@ -7,6 +7,8 @@ import { useAuth } from '../../components/auth/AuthProvider';
 import { AuthShell } from '../../components/auth/AuthShell';
 import { OtpInput } from '../../components/auth/OtpInput';
 import { safeNext } from '../../lib/safe-next';
+import { useI18n } from '@sthiva/web-core';
+import { LanguageChooser } from '../../components/i18n/Language';
 
 const RESEND_AFTER_S = 30;
 // SMS codes need Firebase's paid plan, so buyers sign in with Google. The phone form stays for the
@@ -32,6 +34,7 @@ function SignInForm() {
   const { status, error, sendOtp, signInWithGoogle, confirmOtp, resetOtp, phoneInFlight, signOut } = useAuth();
   const router = useRouter();
   const next = safeNext(useSearchParams().get('next'));
+  const { chosen, t } = useI18n();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -102,11 +105,11 @@ function SignInForm() {
   if (status === 'config-error') {
     return (
       <AuthShell>
-        <h1 className="font-display text-4xl font-bold tracking-tightest">Sign-in is not available yet</h1>
+        <h1 className="font-display text-4xl font-bold tracking-tightest">{t('Sign-in is not available yet')}</h1>
         <p className="mt-4 text-[16px] leading-relaxed text-stone">
-          Sign-in has not been configured for this site. You can still browse materials and check delivery.
+          {t('Sign-in has not been configured for this site. You can still browse materials and check delivery.')}
         </p>
-        <Link href="/" className="btn-ink mt-8 self-start">Browse materials</Link>
+        <Link href="/" className="btn-ink mt-8 self-start">{t('Browse materials')}</Link>
       </AuthShell>
     );
   }
@@ -114,11 +117,20 @@ function SignInForm() {
   if (status === 'wrong-role') {
     return (
       <AuthShell>
-        <h1 className="font-display text-4xl font-bold tracking-tightest">This account is not a buyer account</h1>
+        <h1 className="font-display text-4xl font-bold tracking-tightest">{t('This account is not a buyer account')}</h1>
         <p className="mt-4 text-[16px] leading-relaxed text-stone">
-          It is already registered on Sthiva with a different role, such as a supplier. Sign out, then sign in with another Google account to shop here.
+          {t('It is already registered on Sthiva with a different role, such as a supplier. Sign out, then sign in with another Google account to shop here.')}
         </p>
-        <button type="button" onClick={() => void signOut()} className="btn-ink mt-8 self-start">Sign out</button>
+        <button type="button" onClick={() => void signOut()} className="btn-ink mt-8 self-start">{t('Sign out')}</button>
+      </AuthShell>
+    );
+  }
+
+  // Buyers choose their language before creating an account (owner decision 2026-11-20)
+  if (!chosen && !otpStep) {
+    return (
+      <AuthShell step="Step 1 of 2">
+        <LanguageChooser />
       </AuthShell>
     );
   }
@@ -128,10 +140,10 @@ function SignInForm() {
       {!otpStep ? (
         <div className="animate-fade-up">
           <h1 className="font-display text-[clamp(2.4rem,6vw,3.25rem)] font-bold leading-[0.95] tracking-tightest">
-            Sign in or create an account
+            {t('Sign in or create an account')}
           </h1>
           <p className="mt-4 text-[16px] leading-relaxed text-stone">
-            Use your Google account. New to Sthiva? This creates your account in a few seconds.
+            {t('Use your Google account. New to Sthiva? This creates your account in a few seconds.')}
           </p>
 
           <button
@@ -140,18 +152,18 @@ function SignInForm() {
             disabled={googleBusy || status === 'loading'}
             className="mt-10 flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-sand-4 bg-white text-[16px] font-semibold text-ink transition-[border-color,box-shadow] duration-200 hover:border-ink focus-visible:shadow-[0_0_0_4px_rgba(243,184,6,0.55)] focus-visible:outline-none disabled:opacity-60"
           >
-            {googleBusy || status === 'loading' ? <Spinner label="Signing in" /> : <><GoogleMark /> Continue with Google</>}
+            {googleBusy || status === 'loading' ? <Spinner label={t('Signing in')} /> : <><GoogleMark /> {t('Continue with Google')}</>}
           </button>
-          <p role="alert" className="mt-3 min-h-[20px] text-[14px] font-medium text-error">{error}</p>
+          <p role="alert" className="mt-3 min-h-[20px] text-[14px] font-medium text-error">{error ? t(error) : null}</p>
 
           {PHONE_SIGNIN && (
             <>
               <div className="my-6 flex items-center gap-3 text-[13px] text-stone">
-                <span className="h-px flex-1 bg-sand-4" />or use your mobile number<span className="h-px flex-1 bg-sand-4" />
+                <span className="h-px flex-1 bg-sand-4" />{t('or use your mobile number')}<span className="h-px flex-1 bg-sand-4" />
               </div>
               <form onSubmit={handleSendOtp} noValidate className="animate-fade-up">
                 <label htmlFor="phone" className="block text-[13px] font-semibold text-ink">
-                  Mobile number
+                  {t('Mobile number')}
                 </label>
                 <div className="group mt-2 flex h-16 items-center rounded-2xl border border-sand-4 bg-sand-2 transition-[border-color,box-shadow] duration-200 focus-within:border-ink focus-within:shadow-[0_0_0_4px_rgba(243,184,6,0.55)]">
                   <span className="flex h-full items-center gap-2 border-r border-sand-4 pl-5 pr-4 text-[16px] font-medium text-ink">
@@ -178,24 +190,24 @@ function SignInForm() {
                   )}
                 </div>
                 <p id="phone-hint" className="mt-2 text-[13px] text-stone">
-                  Indian mobile numbers only, starting with 6, 7, 8 or 9.
+                  {t('Indian mobile numbers only, starting with 6, 7, 8 or 9.')}
                 </p>
                 <p id="phone-error" role="alert" className="mt-2 min-h-[20px] text-[14px] font-medium text-error">
-                  {phone.length === 10 && !phoneValid ? 'That does not look like an Indian mobile number.' : null}
+                  {phone.length === 10 && !phoneValid ? t('That does not look like an Indian mobile number.') : null}
                 </p>
 
                 <button type="submit" disabled={!phoneValid || submitting} className="btn-ink mt-4 h-14 w-full text-[16px]">
-                  {submitting ? <Spinner label="Sending code" /> : <>Send code <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span></>}
+                  {submitting ? <Spinner label={t('Sending code')} /> : <>{t('Send code')} <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span></>}
                 </button>
               </form>
             </>
           )}
 
           <p className="mt-6 text-[13px] leading-relaxed text-stone">
-            By continuing you agree to the Sthiva{' '}
-            <Link href="/terms" className="font-medium text-ink underline underline-offset-2">Terms of service</Link> and{' '}
-            <Link href="/privacy" className="font-medium text-ink underline underline-offset-2">Privacy policy</Link>. You add a phone
-            number with your delivery address so the driver can reach you.
+            {t('By continuing you agree to the Sthiva')}{' '}
+            <Link href="/terms" className="font-medium text-ink underline underline-offset-2">{t('Terms of service')}</Link> {t('and')}{' '}
+            <Link href="/privacy" className="font-medium text-ink underline underline-offset-2">{t('Privacy policy')}</Link>.{' '}
+            {t('You add a phone number with your delivery address so the driver can reach you.')}
           </p>
         </div>
       ) : (
@@ -206,31 +218,31 @@ function SignInForm() {
           }}
           className="animate-fade-up"
         >
-          <h1 className="font-display text-[clamp(2.4rem,6vw,3.25rem)] font-bold leading-[0.95] tracking-tightest">Enter the code</h1>
+          <h1 className="font-display text-[clamp(2.4rem,6vw,3.25rem)] font-bold leading-[0.95] tracking-tightest">{t('Enter the code')}</h1>
           <p className="mt-4 text-[16px] leading-relaxed text-stone">
-            We sent a 6-digit code to <span className="font-mono font-medium text-ink">{phoneInFlight}</span>.{' '}
+            {t('We sent a 6-digit code to')} <span className="font-mono font-medium text-ink">{phoneInFlight}</span>.{' '}
             <button type="button" onClick={changeNumber} className="font-medium text-cobalt underline-offset-2 hover:underline">
-              Change number
+              {t('Change number')}
             </button>
           </p>
 
           <div className="mt-10">
             <OtpInput value={code} onChange={setCode} invalid={!!error && code.length === 6} disabled={submitting} />
           </div>
-          <p role="alert" className="mt-3 min-h-[20px] text-[14px] font-medium text-error">{error}</p>
+          <p role="alert" className="mt-3 min-h-[20px] text-[14px] font-medium text-error">{error ? t(error) : null}</p>
 
           <button type="submit" disabled={code.length !== 6 || submitting} className="btn-ink mt-4 h-14 w-full text-[16px]">
-            {submitting ? <Spinner label="Verifying" /> : 'Verify and continue'}
+            {submitting ? <Spinner label={t('Verifying')} /> : t('Verify and continue')}
           </button>
 
           <div className="mt-6 flex items-center justify-center text-[14px] text-stone">
             {resendIn > 0 ? (
               <span>
-                Resend code in <span className="font-mono text-ink">0:{String(resendIn).padStart(2, '0')}</span>
+                {t('Resend code in')} <span className="font-mono text-ink">0:{String(resendIn).padStart(2, '0')}</span>
               </span>
             ) : (
               <button type="button" onClick={resend} disabled={submitting} className="font-semibold text-ink underline underline-offset-4 hover:text-cobalt">
-                Resend code
+                {t('Resend code')}
               </button>
             )}
           </div>

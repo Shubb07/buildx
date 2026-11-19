@@ -14,6 +14,8 @@ export const onboardSchema = z
     name: z.string().trim().min(2).max(100),
     // Only self-assignable roles — OPERATOR/ADMIN can never be chosen by the client
     role: z.enum(SELF_ASSIGNABLE_ROLES),
+    // The language chosen before creating the account (websites: Kannada, Hindi or English)
+    preferredLanguage: z.enum(['en', 'kn', 'hi', 'te']).optional(),
     // Supplier-specific
     businessName: z.string().trim().min(2).max(200).optional(),
     whatsappNumber: indianMobile.optional(),

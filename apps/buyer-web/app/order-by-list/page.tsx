@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { fetchProducts, useApiClient, useSelectedLocation, type ProductSummary } from '@sthiva/web-core';
+import { fetchProducts, useApiClient, useSelectedLocation, useT, type ProductSummary } from '@sthiva/web-core';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { SiteFooter } from '@/components/layout/SiteFooter';
@@ -15,6 +15,7 @@ import { pricePerSqFt } from '@/lib/sheet-area';
 // picking items in a laundry app. Pick a category, set a quantity on each item with - and +, switch
 // categories without losing anything, then add everything to the cart at once. Prices are the
 // best price from verified sellers near the buyer's PIN (same as the product pages).
+// Prices and totals stay in English (owner: money text is not translated).
 
 const UNIT_LABEL: Record<string, [string, string]> = {
   KG: ['kg', 'kg'], TON: ['tonne', 'tonnes'], PIECE: ['piece', 'pieces'], BAG: ['bag', 'bags'], BUNDLE: ['bundle', 'bundles'],
@@ -40,9 +41,10 @@ function Counter({ row, qty, onChange }: { row: Row; qty: number; onChange: (n: 
   const min = Math.max(1, row.minOrderQuantity ?? 1);
   const max = row.stockQuantity && row.stockQuantity > 0 ? row.stockQuantity : 1_000_000;
   const set = (n: number) => onChange(n <= 0 ? 0 : Math.min(max, Math.max(min, n)));
+  const t = useT();
   return (
-    <div className="flex items-center rounded-xl border border-sand-4 bg-sand-2" role="group" aria-label={`Quantity of ${row.name}`}>
-      <button type="button" onClick={() => set(qty - 1 < min ? 0 : qty - 1)} disabled={qty <= 0} className="grid h-11 w-11 place-items-center rounded-l-xl hover:bg-sand-3 disabled:opacity-30" aria-label="One less">
+    <div className="flex items-center rounded-xl border border-sand-4 bg-sand-2" role="group" aria-label={t('Quantity of {name}', { name: row.name })}>
+      <button type="button" onClick={() => set(qty - 1 < min ? 0 : qty - 1)} disabled={qty <= 0} className="grid h-11 w-11 place-items-center rounded-l-xl hover:bg-sand-3 disabled:opacity-30" aria-label={t('One less')}>
         <span className="material-symbols-outlined text-[18px]" aria-hidden="true">remove</span>
       </button>
       <input
@@ -51,9 +53,9 @@ function Counter({ row, qty, onChange }: { row: Row; qty: number; onChange: (n: 
         onChange={(e) => set(Number(e.target.value.replace(/\D/g, '') || 0))}
         inputMode="numeric"
         className="w-14 bg-transparent text-center font-mono text-[15px] outline-none"
-        aria-label={`Quantity in ${unitWord(row.unit, 2)}`}
+        aria-label={t('Quantity in {unit}', { unit: unitWord(row.unit, 2) })}
       />
-      <button type="button" onClick={() => set(qty === 0 ? min : qty + 1)} className="grid h-11 w-11 place-items-center rounded-r-xl hover:bg-sand-3" aria-label="One more">
+      <button type="button" onClick={() => set(qty === 0 ? min : qty + 1)} className="grid h-11 w-11 place-items-center rounded-r-xl hover:bg-sand-3" aria-label={t('One more')}>
         <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
       </button>
     </div>
@@ -63,6 +65,7 @@ function Counter({ row, qty, onChange }: { row: Row; qty: number; onChange: (n: 
 export default function OrderByListPage() {
   const client = useApiClient();
   const location = useSelectedLocation();
+  const t = useT();
   const cats = useCategories();
   const categories = cats.status === 'success' ? cats.data : [];
   const [category, setCategory] = useState<string | null>(null);
@@ -130,41 +133,41 @@ export default function OrderByListPage() {
       <main id="main" className="pb-40 pt-[var(--header-h)]">
         <section className="border-b border-ink/10 bg-sand-2">
           <div className="container-x py-5 md:py-7">
-            <nav aria-label="Breadcrumb" className="text-[13px] text-stone">
-              <Link href="/" className="hover:text-ink">Home</Link> <span aria-hidden="true">›</span> <span className="text-ink">Order by list</span>
+            <nav aria-label={t('Breadcrumb')} className="text-[13px] text-stone">
+              <Link href="/" className="hover:text-ink">{t('Home')}</Link> <span aria-hidden="true">›</span> <span className="text-ink">{t('Order by list')}</span>
             </nav>
-            <h1 className="mt-2 font-display text-[28px] font-bold leading-tight tracking-[-0.02em] md:text-[40px]">Order by list</h1>
+            <h1 className="mt-2 font-display text-[28px] font-bold leading-tight tracking-[-0.02em] md:text-[40px]">{t('Order by list')}</h1>
             <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-stone">
-              Your whole job in one go: set how many of each item you need, across any categories, then add everything to the cart.
-              {location?.pincode ? ` Prices for PIN ${location.pincode}.` : ' Set your site PIN at the top for prices that deliver there.'}
+              {t('Your whole job in one go: set how many of each item you need, across any categories, then add everything to the cart.')}{' '}
+              {location?.pincode ? t('Prices for PIN {pin}.', { pin: location.pincode }) : t('Set your site PIN at the top for prices that deliver there.')}
             </p>
           </div>
         </section>
 
         <div className="container-x flex flex-col gap-4 py-5">
-          <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Category">
+          <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label={t('Category')}>
             {categories.map((c) => (
               <button key={c.slug} type="button" role="tab" aria-selected={active === c.slug} onClick={() => { setCategory(c.slug); setQ(''); }}
                 className={`h-10 shrink-0 rounded-full border px-4 text-[14px] font-medium ${active === c.slug ? 'border-ink bg-ink text-sand' : 'border-sand-4 bg-sand-2 hover:border-ink'}`}>
-                {c.name}
-                {list.some((p) => (p.row as { categoryId?: { slug?: string } }).categoryId?.slug === c.slug) && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-lime align-middle" aria-label="has items" />}
+                {t(c.name)}
+                {list.some((p) => (p.row as { categoryId?: { slug?: string } }).categoryId?.slug === c.slug) && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-lime align-middle" aria-label={t('has items')} />}
               </button>
             ))}
           </div>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search in this category, e.g. 18 mm" className="field md:max-w-sm" aria-label="Search items" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search in this category, e.g. 18 mm')} className="field md:max-w-sm" aria-label={t('Search items')} />
 
           {added !== null && (
             <p role="status" className="flex flex-wrap items-center gap-2 rounded-xl bg-[#E3F4E8] px-4 py-3 text-[15px] text-tertiary">
-              {added} item{added === 1 ? '' : 's'} added to your cart.
-              <Link href="/cart" className="font-semibold underline">Go to cart ({cart?.items.length ?? 0})</Link>
+              {added === 1 ? t('1 item added to your cart.') : t('{n} items added to your cart.', { n: added })}
+              <Link href="/cart" className="font-semibold underline">{t('Go to cart ({n})', { n: cart?.items.length ?? 0 })}</Link>
             </p>
           )}
 
-          {rows.status === 'loading' && <div className="skeleton h-72" role="status" aria-label="Loading items" />}
-          {rows.status === 'error' && <p role="alert" className="text-[15px] text-error">Couldn&apos;t load items. Check your connection and try again.</p>}
+          {rows.status === 'loading' && <div className="skeleton h-72" role="status" aria-label={t('Loading items')} />}
+          {rows.status === 'error' && <p role="alert" className="text-[15px] text-error">{t("Couldn't load items. Check your connection and try again.")}</p>}
           {rows.status === 'ready' && shown.length === 0 && (
             <p className="rounded-xl bg-sand-3 px-4 py-6 text-center text-[15px] text-stone">
-              {q ? 'Nothing matches your search here.' : location?.pincode ? `Nothing in this category delivers to ${location.pincode} yet.` : 'Nothing listed in this category yet.'}
+              {q ? t('Nothing matches your search here.') : location?.pincode ? t('Nothing in this category delivers to {pin} yet.', { pin: location.pincode }) : t('Nothing listed in this category yet.')}
             </p>
           )}
           {rows.status === 'ready' && shown.length > 0 && (
@@ -193,7 +196,7 @@ export default function OrderByListPage() {
                     </div>
                     <div className="flex items-center justify-between gap-3 sm:justify-end">
                       {qty > 0 && <span className="text-[14px] tabular-nums text-stone">{rupees.format(priceFor(row, qty) * qty)}</span>}
-                      {outOfStock ? <span className="text-[13px] text-error">Out of stock</span> : <Counter row={row} qty={qty} onChange={(n) => setQty(row, n)} />}
+                      {outOfStock ? <span className="text-[13px] text-error">{t('Out of stock')}</span> : <Counter row={row} qty={qty} onChange={(n) => setQty(row, n)} />}
                     </div>
                   </li>
                 );
@@ -206,12 +209,12 @@ export default function OrderByListPage() {
           <div className="container-x flex flex-wrap items-center gap-3 py-3">
             <p className="flex-1 text-[15px]">
               {list.length
-                ? <><span className="font-semibold">{list.length}</span> item{list.length === 1 ? '' : 's'} · about <span className="font-semibold tabular-nums">{rupees.format(total)}</span> <span className="text-stone">before delivery</span></>
-                : <span className="text-stone">Tap + to add items from any category</span>}
+                ? <><span className="font-semibold">{list.length === 1 ? t('1 item') : t('{n} items', { n: list.length })}</span> · about <span className="font-semibold tabular-nums">{rupees.format(total)}</span> <span className="text-stone">before delivery</span></>
+                : <span className="text-stone">{t('Tap + to add items from any category')}</span>}
             </p>
             <button type="button" disabled={!list.length} onClick={addAll} className="btn-lime px-7">
               <span className="material-symbols-outlined text-[20px]" aria-hidden="true">add_shopping_cart</span>
-              Add all to cart
+              {t('Add all to cart')}
             </button>
           </div>
         </div>

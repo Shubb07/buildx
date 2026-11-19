@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useDeliveryServiceability, useLocationSelector, useSelectedLocation, useT } from '@sthiva/web-core';
+import { locationMessageT, useDeliveryServiceability, useLocationSelector, useSelectedLocation, useT } from '@sthiva/web-core';
 
 // "Does Sthiva deliver to my site?" answered in the first screen. Uses the same PIN check and saved
 // location as the rest of the site, so product lists and checkout follow the PIN typed here.
@@ -56,7 +56,7 @@ export function HeroPinCheck() {
         </button>
       </div>
       {result && result.status !== 'serviceable' && result.status !== 'not-serviceable' && (
-        <p role="alert" className="mt-2 text-[14px] text-[#FFB4B6]">{t(result.message)}</p>
+        <p role="alert" className="mt-2 text-[14px] text-[#FFB4B6]">{locationMessageT(t, result.message)}</p>
       )}
     </form>
   );

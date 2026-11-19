@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseLang, translate } from '../src/i18n/core';
+import { reverseTranslate } from '../src/i18n/provider';
 
 describe('languages', () => {
   const dicts = { kn: { 'Add to cart': 'ಕಾರ್ಟ್‌ಗೆ ಸೇರಿಸಿ', 'Get it by {date}': '{date} ರೊಳಗೆ ಪಡೆಯಿರಿ' } };
@@ -17,5 +18,14 @@ describe('languages', () => {
     expect(translate(dicts, 'kn', 'Not translated yet')).toBe('Not translated yet');
     expect(translate(dicts, 'hi', 'Add to cart')).toBe('Add to cart');
     expect(translate(dicts, 'en', 'Get it by {date}', { date: 'today' })).toBe('Get it by today');
+  });
+
+  it('turns Kannada or Hindi material words back into English for search, longest match first', () => {
+    const kn = { Cement: 'ಸಿಮೆಂಟ್', 'Cement & Concrete': 'ಸಿಮೆಂಟ್ ಮತ್ತು ಕಾಂಕ್ರೀಟ್', '{n} days': '{n} ದಿನಗಳು' };
+    expect(reverseTranslate(kn, 'ಸಿಮೆಂಟ್')).toBe('Cement');
+    expect(reverseTranslate(kn, 'ಸಿಮೆಂಟ್ 50 kg')).toBe('Cement 50 kg');
+    expect(reverseTranslate(kn, 'ಸಿಮೆಂಟ್ ಮತ್ತು ಕಾಂಕ್ರೀಟ್')).toBe('Cement & Concrete');
+    expect(reverseTranslate(kn, 'tmt bar')).toBe('tmt bar');
+    expect(reverseTranslate(undefined, 'ಸಿಮೆಂಟ್')).toBe('ಸಿಮೆಂಟ್');
   });
 });

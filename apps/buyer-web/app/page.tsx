@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useI18n } from '@sthiva/web-core';
+import { useI18n, tx } from '@sthiva/web-core';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { SiteFooter } from '@/components/layout/SiteFooter';
@@ -14,33 +14,33 @@ import { SITE } from '@/lib/site';
 const STEPS = [
   {
     n: '01',
-    title: 'Set your site PIN',
-    body: 'Enter the PIN code of your site. We match it against the areas each supplier has actually configured, so you only see what can reach you.',
+    title: tx('Set your site PIN'),
+    body: tx('Enter the PIN code of your site. We match it against the areas each supplier has actually configured, so you only see what can reach you.'),
     icon: 'pin_drop',
   },
   {
     n: '02',
-    title: 'Compare and add to cart',
-    body: 'Prices, units, minimum quantities and bulk tiers come straight from the supplier listing. GST and delivery are shown at checkout before you confirm.',
+    title: tx('Compare and add to cart'),
+    body: tx('Prices, units, minimum quantities and bulk tiers come straight from the supplier listing. GST and delivery are shown at checkout before you confirm.'),
     icon: 'compare_arrows',
   },
   {
     n: '03',
-    title: 'Pay cash on delivery',
-    body: 'Place the order with your phone number. Track every status change from confirmed to delivered, and pay when it reaches your site.',
+    title: tx('Pay cash on delivery'),
+    body: tx('Place the order with your phone number. Track every status change from confirmed to delivered, and pay when it reaches your site.'),
     icon: 'local_shipping',
   },
 ];
 
 // Phone (SMS) sign-in is switched on only when the paid SMS plan is active; Google sign-in always works
 const PHONE_SIGNIN = process.env.NEXT_PUBLIC_PHONE_SIGNIN === 'true';
-const SIGNIN_WAYS = PHONE_SIGNIN ? 'your Google account or phone number' : 'your Google account';
+const SIGNIN_WAYS = PHONE_SIGNIN ? tx('your Google account or phone number') : tx('your Google account');
 
 const PRINCIPLES = [
-  { icon: 'verified_user', title: 'Verified suppliers only', body: 'Only suppliers that pass verification can list products that buyers see.' },
-  { icon: 'receipt_long', title: 'Prices you can audit', body: 'Before an order is placed, our servers recalculate the total from the live listing.' },
-  { icon: 'block', title: 'No false promises', body: 'A valid PIN is not a delivery promise. If no supplier delivers to your area yet, we say so before you order, and find one for you.' },
-  { icon: 'lock', title: 'Sign in, no passwords', body: 'Use {ways}. No new password to create, remember or leak.' },
+  { icon: 'verified_user', title: tx('Verified suppliers only'), body: tx('Only suppliers that pass verification can list products that buyers see.') },
+  { icon: 'receipt_long', title: tx('Prices you can audit'), body: tx('Before an order is placed, our servers recalculate the total from the live listing.') },
+  { icon: 'block', title: tx('No false promises'), body: tx('A valid PIN is not a delivery promise. If no supplier delivers to your area yet, we say so before you order, and find one for you.') },
+  { icon: 'lock', title: tx('Sign in, no passwords'), body: tx('Use {ways}. No new password to create, remember or leak.') },
 ];
 
 export default function HomePage() {

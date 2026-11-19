@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
-import { buyerDeliveryRange, deliveryTimeLabel, type ProductSummary } from '@sthiva/web-core';
+import { buyerDeliveryRange, deliveryTimeLabel, useT, type ProductSummary, type Vars } from '@sthiva/web-core';
+import { deliveryLabelT } from '@/lib/i18n/delivery';
 import { illustrationFor } from '@/lib/illustrations';
 import { pricePerSqFt } from '@/lib/sheet-area';
 
@@ -22,23 +25,26 @@ const rupees = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'IN
 
 // The supplier's usual time as buyers see it (a single number gets a day of slack); on-order items have
 // no fixed time until the supplier confirms
-function deliveryLabel(p: ProductExtras): string | null {
-  if (p.supply === 'ON_ORDER') return 'On order, date confirmed in 24h';
+function deliveryLabel(p: ProductExtras, t: (s: string, v?: Vars) => string): string | null {
+  if (p.supply === 'ON_ORDER') return t('On order, date confirmed in 24h');
   if (p.deliveryDays === undefined) return null;
   const r = buyerDeliveryRange(p.deliveryDays, p.deliveryDaysMax);
-  return r.min === 0 && r.max === 1 ? 'Same or next day' : deliveryTimeLabel(r.min, r.max);
+  return r.min === 0 && r.max === 1 ? t('Same or next day') : deliveryLabelT(t, deliveryTimeLabel(r.min, r.max));
 }
+
+// Prices stay in English (owner: money text is not translated)
 
 export function ProductListCard({ product }: { product: ProductSummary }) {
   const extra = product as ProductSummary & ProductExtras;
+  const t = useT();
   const image = extra.images?.find((i) => i.isPrimary) ?? extra.images?.[0];
   const rated = (extra.totalReviews ?? 0) > 0 && extra.avgRating !== undefined;
-  const delivery = deliveryLabel(extra);
+  const delivery = deliveryLabel(extra, t);
   const km = typeof extra.distanceKm === 'number' ? extra.distanceKm : null;
   // Best bulk price (the tier with the lowest price), with every tier in the hover text
   const tiers = [...(extra.bulkPricing ?? [])].sort((a, b) => a.minQty - b.minQty);
   const best = tiers.length ? tiers.reduce((a, b) => (b.price < a.price ? b : a)) : null;
-  const tierText = tiers.map((t) => `${t.minQty}+ at ${rupees.format(t.price)}`).join(', ');
+  const tierText = tiers.map((tier) => `${tier.minQty}+ at ${rupees.format(tier.price)}`).join(', ');
   const perSqFt = pricePerSqFt(product.unit, product.basePrice, product.name, extra.specifications);
 
   return (
@@ -66,7 +72,7 @@ export function ProductListCard({ product }: { product: ProductSummary }) {
               loading="lazy"
             />
             <span className="absolute bottom-3 right-3 rounded-full bg-ink/80 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-sand backdrop-blur">
-              Illustration
+              {t('Illustration')}
             </span>
           </>
         )}
@@ -81,8 +87,8 @@ export function ProductListCard({ product }: { product: ProductSummary }) {
 
       <div className="flex flex-1 flex-col px-5 pb-5 pt-3">
         <h3 className="font-display text-[20px] font-semibold leading-tight tracking-[-0.02em] text-ink">{product.name}</h3>
-        {(extra.sellerCount ?? 0) > 1 && <p className="mt-1 text-[14px] text-stone">{extra.sellerCount} verified suppliers</p>}
-        {km !== null && <p className="mt-1 text-[13px] text-stone">About {km < 1 ? '1' : Math.round(km)} km from your site</p>}
+        {(extra.sellerCount ?? 0) > 1 && <p className="mt-1 text-[14px] text-stone">{t('{n} verified suppliers', { n: extra.sellerCount! })}</p>}
+        {km !== null && <p className="mt-1 text-[13px] text-stone">{t('About {km} km from your site', { km: km < 1 ? '1' : Math.round(km) })}</p>}
 
         <div className="mt-auto flex items-end justify-between gap-3 pt-6">
           <div>

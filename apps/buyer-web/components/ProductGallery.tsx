@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useT } from '@sthiva/web-core';
 import { illustrationFor } from '@/lib/illustrations';
 
 export function ProductGallery({ images, badges, name = 'Product', category }: { images: { url: string; isPrimary?: boolean }[]; badges?: string[]; name?: string; category?: string }) {
   const ordered = [...images].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
   const [active, setActive] = useState(0);
+  const t = useT();
   const main = ordered[active];
 
   if (!main) {
@@ -14,7 +16,7 @@ export function ProductGallery({ images, badges, name = 'Product', category }: {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={illustrationFor(name, category)} alt="" className="h-full w-full object-cover" />
         <span className="absolute bottom-4 right-4 rounded-full bg-ink/80 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-sand backdrop-blur">
-          Illustration. Supplier photo coming soon
+          {t('Illustration. Supplier photo coming soon')}
         </span>
       </div>
     );
@@ -29,7 +31,7 @@ export function ProductGallery({ images, badges, name = 'Product', category }: {
           <div className="absolute top-4 left-4 flex gap-2">
             {badges.map((b) => (
               <span key={b} className="bg-primary text-on-primary px-3 py-1 rounded-md text-xs font-bold font-headline uppercase tracking-wider">
-                {b}
+                {t(b)}
               </span>
             ))}
           </div>
@@ -41,11 +43,11 @@ export function ProductGallery({ images, badges, name = 'Product', category }: {
             <button
               key={img.url + i}
               onClick={() => setActive(i)}
-              aria-label={`Show photo ${i + 1}`}
+              aria-label={t('Show photo {n}', { n: i + 1 })}
               className={i === active ? 'aspect-square rounded-lg overflow-hidden ring-2 ring-primary' : 'aspect-square rounded-lg overflow-hidden bg-surface-container-low'}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.url} alt={`${name}, photo ${i + 1}`} className={i === active ? 'w-full h-full object-cover opacity-80' : 'w-full h-full object-cover'} />
+              <img src={img.url} alt={`${name}, ${t('photo {n}', { n: i + 1 })}`} className={i === active ? 'w-full h-full object-cover opacity-80' : 'w-full h-full object-cover'} />
             </button>
           ))}
         </div>

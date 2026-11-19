@@ -4,6 +4,8 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import { useDeliveryServiceability, useLocationSelector, useSelectedLocation, type UseLocationSelectorOptions } from './hooks';
 import type { PlaceInfo } from './lookup';
 import type { SelectedLocation } from './store';
+import { locationMessageT } from './messages';
+import { useT } from '../i18n/provider';
 
 // Reusable delivery-location picker for the Sthiva web apps.
 // Styling uses the apps' Tailwind theme tokens (primary, muted, destructive, border); add
@@ -46,6 +48,7 @@ export function LocationSelector({ onLocationChange, allowGps = true, title = 'D
   const [editing, setEditing] = useState(!selected);
   const [input, setInput] = useState('');
   const ids = { title: useId(), input: useId(), error: useId(), hint: useId(), gps: useId() };
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const changeRef = useRef<HTMLButtonElement>(null);
@@ -64,7 +67,7 @@ export function LocationSelector({ onLocationChange, allowGps = true, title = 'D
 
   const busy = state.phase === 'checking' || state.phase === 'locating';
   const check = state.phase === 'result' ? state.check : null;
-  const inputError = check?.status === 'invalid' ? check.message : null;
+  const inputError = check?.status === 'invalid' ? locationMessageT(t, check.message) : null;
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -91,25 +94,25 @@ export function LocationSelector({ onLocationChange, allowGps = true, title = 'D
 
   return (
     <section aria-labelledby={ids.title} className={`w-full max-w-xl rounded-lg border border-border bg-background p-4 sm:p-5 ${className}`}>
-      <h2 id={ids.title} className="text-base font-semibold">{title}</h2>
+      <h2 id={ids.title} className="text-base font-semibold">{t(title)}</h2>
 
       {!editing && selected ? (
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm">
-              Deliver to <strong className="font-semibold">{selected.pincode}</strong>
+              {t('Deliver to')} <strong className="font-semibold">{selected.pincode}</strong>
               <span className="text-muted-foreground"> · {selected.label}</span>
             </p>
             <p role="status" aria-live="polite" className="mt-1 text-sm">
-              {delivery.status === 'checking' && <span className="text-muted-foreground">Checking delivery…</span>}
+              {delivery.status === 'checking' && <span className="text-muted-foreground">{t('Checking delivery…')}</span>}
               {delivery.status === 'serviceable' && (
-                <span>Sthiva delivers here · {delivery.supplierCount} supplier{delivery.supplierCount === 1 ? '' : 's'}</span>
+                <span>{delivery.supplierCount === 1 ? t('Sthiva delivers here · 1 supplier') : t('Sthiva delivers here · {n} suppliers', { n: delivery.supplierCount })}</span>
               )}
-              {delivery.status === 'not-serviceable' && <span>Sthiva doesn't deliver to {delivery.pincode} yet.</span>}
+              {delivery.status === 'not-serviceable' && <span>{t("Sthiva doesn't deliver to {pin} yet.", { pin: delivery.pincode })}</span>}
               {delivery.status === 'unavailable' && (
                 <span>
-                  {delivery.message}.{' '}
-                  <button type="button" className={btnLink} onClick={delivery.recheck}>Retry</button>
+                  {locationMessageT(t, delivery.message)}{' '}
+                  <button type="button" className={btnLink} onClick={delivery.recheck}>{t('Retry')}</button>
                 </span>
               )}
             </p>
@@ -119,9 +122,9 @@ export function LocationSelector({ onLocationChange, allowGps = true, title = 'D
             type="button"
             className={btnSecondary}
             onClick={startEditing}
-            aria-label={`Change delivery location (currently ${selected.pincode})`}
+            aria-label={t('Change delivery location (currently {pin})', { pin: selected.pincode })}
           >
-            Change
+            {t('Change')}
           </button>
         </div>
       ) : (
@@ -129,24 +132,24 @@ export function LocationSelector({ onLocationChange, allowGps = true, title = 'D
           {state.phase === 'gps-confirm' ? (
             <div role="group" aria-labelledby={ids.gps} className="flex flex-col gap-3">
               <p id={ids.gps} className="text-sm">
-                Your location looks like PIN <strong className="font-semibold">{state.candidate.pincode}</strong>
-                {state.candidate.detectedLabel ? <> ({state.candidate.detectedLabel})</> : null}. Is this where you want delivery?
+                {t('Your location looks like PIN')} <strong className="font-semibold">{state.candidate.pincode}</strong>
+                {state.candidate.detectedLabel ? <> ({state.candidate.detectedLabel})</> : null}. {t('Is this where you want delivery?')}
               </p>
               {state.candidate.place && <PlaceDetails place={state.candidate.place} />}
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button ref={confirmRef} type="button" className={btnPrimary} onClick={() => confirmGps()}>
-                  Yes, use {state.candidate.pincode}
+                  {t('Yes, use {pin}', { pin: state.candidate.pincode })}
                 </button>
                 <button type="button" className={btnSecondary} onClick={() => { rejectGps(); setInput(''); inputRef.current?.focus(); }}>
-                  No, I'll enter my PIN
+                  {t("No, I'll enter my PIN")}
                 </button>
               </div>
             </div>
           ) : (
             <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
-                <label htmlFor={ids.input} className="text-sm font-medium">PIN code</label>
-                <p id={ids.hint} className="text-xs text-muted-foreground">6-digit Indian PIN code of the delivery site</p>
+                <label htmlFor={ids.input} className="text-sm font-medium">{t('PIN code')}</label>
+                <p id={ids.hint} className="text-xs text-muted-foreground">{t('6-digit Indian PIN code of the delivery site')}</p>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     ref={inputRef}
@@ -164,7 +167,7 @@ export function LocationSelector({ onLocationChange, allowGps = true, title = 'D
                     className="h-10 w-full rounded-md border border-input bg-background px-3 text-base sm:w-40 aria-[invalid=true]:border-destructive focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   <button type="submit" className={btnPrimary} disabled={busy}>
-                    {state.phase === 'checking' ? 'Checking…' : 'Check PIN'}
+                    {state.phase === 'checking' ? t('Checking…') : t('Check PIN')}
                   </button>
                 </div>
                 {inputError && <p id={ids.error} role="alert" className="text-sm text-destructive">{inputError}</p>}
@@ -173,32 +176,32 @@ export function LocationSelector({ onLocationChange, allowGps = true, title = 'D
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 {allowGps && (
                   <button type="button" className={btnSecondary} onClick={() => requestCurrentLocation()} disabled={busy}>
-                    {state.phase === 'locating' ? 'Finding your location…' : 'Use my current location'}
+                    {state.phase === 'locating' ? t('Finding your location…') : t('Use my current location')}
                   </button>
                 )}
-                {selected && <button type="button" className={btnLink} onClick={cancelEditing}>Cancel</button>}
+                {selected && <button type="button" className={btnLink} onClick={cancelEditing}>{t('Cancel')}</button>}
               </div>
             </form>
           )}
 
           <div role="status" aria-live="polite" className="mt-3 text-sm empty:hidden">
-            {state.phase === 'checking' && <p className="text-muted-foreground">Checking {state.pincode}…</p>}
-            {state.phase === 'gps-failed' && <p>{state.message}</p>}
-            {check?.status === 'not-found' && <p>{check.message}</p>}
+            {state.phase === 'checking' && <p className="text-muted-foreground">{t('Checking {pin}…', { pin: state.pincode })}</p>}
+            {state.phase === 'gps-failed' && <p>{locationMessageT(t, state.message)}</p>}
+            {check?.status === 'not-found' && <p>{locationMessageT(t, check.message)}</p>}
             {check?.status === 'not-serviceable' && (
               <div>
                 <PlaceDetails place={check.place} />
-                <p className="mt-1">{check.message}</p>
+                <p className="mt-1">{locationMessageT(t, check.message)}</p>
               </div>
             )}
             {check?.status === 'unavailable' && (
               <div className="flex flex-col gap-2">
                 {check.place && <PlaceDetails place={check.place} />}
-                <p>{check.message}</p>
+                <p>{locationMessageT(t, check.message)}</p>
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <button type="button" className={btnSecondary} onClick={() => submitPincode(check.pincode)}>Retry</button>
+                  <button type="button" className={btnSecondary} onClick={() => submitPincode(check.pincode)}>{t('Retry')}</button>
                   <button type="button" className={btnLink} onClick={() => continueWithoutCheck()}>
-                    Continue browsing without a delivery check
+                    {t('Continue browsing without a delivery check')}
                   </button>
                 </div>
               </div>

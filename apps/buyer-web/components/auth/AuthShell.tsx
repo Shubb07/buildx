@@ -1,16 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useI18n } from '@sthiva/web-core';
+import { useI18n, tx } from '@sthiva/web-core';
 import type { ReactNode } from 'react';
 import { Logo, LogoMark } from '../brand/Logo';
 import { SplitLines } from '../motion/Reveal';
 import { LanguageSwitcher } from '../i18n/Language';
 
 const POINTS = [
-  { icon: 'account_circle', text: 'Sign in with Google, no new password' },
-  { icon: 'pin_drop', text: 'Delivery checked against your site PIN' },
-  { icon: 'payments', text: 'Pay cash when materials arrive' },
+  { icon: 'account_circle', text: tx('Sign in with Google, no new password') },
+  { icon: 'pin_drop', text: tx('Delivery checked against your site PIN') },
+  { icon: 'payments', text: tx('Pay cash when materials arrive') },
 ];
 
 // Split-screen frame for sign-in and onboarding: brand story on ink (desktop), form on sand.

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../components/auth/AuthProvider';
 import { AuthShell } from '../../components/auth/AuthShell';
 import { safeNext } from '../../lib/safe-next';
-import { languageInfo, useI18n } from '@sthiva/web-core';
+import { languageInfo, tx, useI18n } from '@sthiva/web-core';
 
 function OnboardForm() {
   const { status, error, onboard, user } = useAuth();
@@ -45,7 +45,7 @@ function OnboardForm() {
   }
 
   return (
-    <AuthShell step="Last step">
+    <AuthShell step={tx('Last step')}>
       <form onSubmit={handleSubmit} className="animate-fade-up" noValidate>
         <span className="mb-6 inline-grid h-14 w-14 place-items-center rounded-2xl bg-lime text-ink">
           <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">

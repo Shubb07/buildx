@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { LocationSelector, useDeliveryServiceability, useSelectedLocation } from '@sthiva/web-core';
+import { LocationSelector, useDeliveryServiceability, useSelectedLocation, useT, tx } from '@sthiva/web-core';
 
 type Availability = { deliverable: boolean; reason?: string };
 
 const REASONS: Record<string, string> = {
-  PINCODE_NOT_SERVED: 'This supplier has not set up delivery to this PIN.',
-  SUPPLIER_NOT_AVAILABLE: 'This supplier is not taking orders right now.',
-  NO_SUPPLIERS: 'No supplier on Sthiva delivers to this PIN yet.',
+  PINCODE_NOT_SERVED: tx('This supplier has not set up delivery to this PIN.'),
+  SUPPLIER_NOT_AVAILABLE: tx('This supplier is not taking orders right now.'),
+  NO_SUPPLIERS: tx('No supplier on Sthiva delivers to this PIN yet.'),
 };
 
 function Row({ tone, icon, title, body }: { tone: 'ok' | 'no' | 'wait'; icon: string; title: string; body?: string }) {
@@ -29,7 +29,8 @@ function Row({ tone, icon, title, body }: { tone: 'ok' | 'no' | 'wait'; icon: st
 // Delivery panel for the product and material pages. With `availability` (from the product API
 // for the saved PIN) it speaks for that one supplier; without it, for the area as a whole.
 // A valid PIN is never presented as deliverable on its own.
-export function DeliveryCheck({ availability, title = 'Delivery to your site' }: { availability?: Availability; title?: string }) {
+export function DeliveryCheck({ availability, title = tx('Delivery to your site') }: { availability?: Availability; title?: string }) {
+  const t = useT();
   const location = useSelectedLocation();
   const area = useDeliveryServiceability();
   const [editing, setEditing] = useState(false);
@@ -39,30 +40,30 @@ export function DeliveryCheck({ availability, title = 'Delivery to your site' }:
   if (location && !editing) {
     if (availability) {
       status = availability.deliverable ? (
-        <Row tone="ok" icon="local_shipping" title={`Delivers to ${location.pincode}`} body={location.label} />
+        <Row tone="ok" icon="local_shipping" title={t('Delivers to {pin}', { pin: location.pincode })} body={location.label} />
       ) : (
         <Row
           tone="no"
           icon="block"
-          title={`Not deliverable to ${location.pincode}`}
-          body={(availability.reason && REASONS[availability.reason]) ?? 'This supplier does not deliver to this PIN.'}
+          title={t('Not deliverable to {pin}', { pin: location.pincode })}
+          body={t((availability.reason && REASONS[availability.reason]) || 'This supplier does not deliver to this PIN.')}
         />
       );
     } else if (area.status === 'checking') {
-      status = <Row tone="wait" icon="progress_activity" title={`Checking ${location.pincode}`} />;
+      status = <Row tone="wait" icon="progress_activity" title={t('Checking {pin}', { pin: location.pincode })} />;
     } else if (area.status === 'serviceable') {
       status = (
         <Row
           tone="ok"
           icon="local_shipping"
-          title={`${area.supplierCount} supplier${area.supplierCount === 1 ? '' : 's'} deliver to ${location.pincode}`}
-          body="Offers below are filtered to suppliers that deliver to this PIN."
+          title={area.supplierCount === 1 ? t('1 supplier delivers to {pin}', { pin: location.pincode }) : t('{n} suppliers deliver to {pin}', { n: area.supplierCount, pin: location.pincode })}
+          body={t('Offers below are filtered to suppliers that deliver to this PIN.')}
         />
       );
     } else if (area.status === 'not-serviceable') {
-      status = <Row tone="no" icon="block" title={`No supplier delivers to ${location.pincode} yet`} body={location.label} />;
+      status = <Row tone="no" icon="block" title={t('No supplier delivers to {pin} yet', { pin: location.pincode })} body={location.label} />;
     } else if (area.status === 'unavailable') {
-      status = <Row tone="wait" icon="cloud_off" title="Could not check delivery right now" body="Try again in a moment." />;
+      status = <Row tone="wait" icon="cloud_off" title={t('Could not check delivery right now')} body={t('Try again in a moment.')} />;
     }
   }
 
@@ -71,11 +72,11 @@ export function DeliveryCheck({ availability, title = 'Delivery to your site' }:
       <div className="flex items-center justify-between gap-3">
         <h2 id="delivery-title" className="flex items-center gap-2 text-[15px] font-semibold">
           <span className="material-symbols-outlined text-[20px] text-stone" aria-hidden="true">pin_drop</span>
-          {title}
+          {t(title)}
         </h2>
         {location && !editing && (
           <button type="button" onClick={() => setEditing(true)} className="text-[14px] font-medium text-cobalt hover:underline">
-            Change PIN
+            {t('Change PIN')}
           </button>
         )}
       </div>
@@ -83,9 +84,9 @@ export function DeliveryCheck({ availability, title = 'Delivery to your site' }:
         {status}
         {showSelector && (
           <div className="[&_button]:min-h-[44px] [&_button]:rounded-full [&_button]:px-4 [&_input]:h-12 [&_input]:rounded-xl">
-            {!location && <p className="mb-3 text-[14px] text-stone">Enter your site PIN to see if this can be delivered to you.</p>}
+            {!location && <p className="mb-3 text-[14px] text-stone">{t('Enter your site PIN to see if this can be delivered to you.')}</p>}
             <LocationSelector
-              title="Site PIN code"
+              title={t('Site PIN code')}
               className="max-w-none border-0 bg-transparent p-0 sm:p-0"
               onLocationChange={() => setEditing(false)}
             />

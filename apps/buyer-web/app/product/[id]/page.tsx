@@ -2,7 +2,8 @@
 
 import { use, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSelectedLocation } from '@sthiva/web-core';
+import { languageInfo, useI18n, useSelectedLocation } from '@sthiva/web-core';
+import { usuallyDeliveredT } from '@/lib/i18n/delivery';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { SiteFooter } from '@/components/layout/SiteFooter';
@@ -17,11 +18,16 @@ import { addToCart } from '@/lib/cart';
 import { buyerDeliveryPhrase, buyerDeliveryRange, formatDeliveryDate, istDate, matchCatalogItem } from '@sthiva/web-core';
 import { rupees } from '@/lib/format';
 
-const relativeDate = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+// Review dates in the visitor's language ("3 days ago")
+const relativeFormats = new Map<string, Intl.RelativeTimeFormat>();
+const relativeFor = (locale: string) => {
+  if (!relativeFormats.has(locale)) relativeFormats.set(locale, new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }));
+  return relativeFormats.get(locale)!;
+};
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, relativeDate: Intl.RelativeTimeFormat, t: (s: string) => string): string {
   const days = Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (days <= 0) return 'Today';
+  if (days <= 0) return t('Today');
   if (days < 30) return relativeDate.format(-days, 'day');
   if (days < 365) return relativeDate.format(-Math.round(days / 30), 'month');
   return relativeDate.format(-Math.round(days / 365), 'year');
@@ -52,8 +58,9 @@ const UNIT_LABEL: Record<string, string> = {
 const unitLabel = (u: string) => UNIT_LABEL[u] ?? u.toLowerCase();
 
 function Stars({ value, size = 'text-[18px]' }: { value: number; size?: string }) {
+  const { t } = useI18n();
   return (
-    <span className="flex gap-0.5" aria-label={`${value.toFixed(1)} out of 5`}>
+    <span className="flex gap-0.5" aria-label={t('{n} out of 5', { n: value.toFixed(1) })}>
       {Array.from({ length: 5 }, (_, i) => (
         <span key={i} className={`material-symbols-outlined ${size} ${i < Math.round(value) ? 'text-ink' : 'text-sand-4'}`} style={{ fontVariationSettings: "'FILL' 1" }} aria-hidden="true">
           star
@@ -66,6 +73,8 @@ function Stars({ value, size = 'text-[18px]' }: { value: number; size?: string }
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const location = useSelectedLocation();
+  const { lang, t } = useI18n();
+  const relativeDate = relativeFor(languageInfo(lang).htmlLang);
   const [quantity, setQuantity] = useState<number | null>(null);
   const [cartNotice, setCartNotice] = useState<string | null>(null);
   // Phones see the buy box only after the gallery and details, so a slim bar keeps price and
@@ -112,7 +121,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       quantity: qty,
       minOrderQuantity: minQty,
     });
-    setCartNotice(result === 'added' ? `Added ${qty} ${unit} to your cart.` : '');
+    setCartNotice(result === 'added' ? t('Added {qty} {unit} to your cart.', { qty, unit }) : '');
   }
 
   return (
@@ -120,7 +129,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       <Header />
       <main id="main" className="container-x pb-24 pt-[calc(var(--header-h)+32px)]">
         {product.status === 'loading' && (
-          <div className="grid gap-10 lg:grid-cols-12" role="status" aria-label="Loading product">
+          <div className="grid gap-10 lg:grid-cols-12" role="status" aria-label={t('Loading product')}>
             <div className="skeleton aspect-square lg:col-span-7" />
             <div className="flex flex-col gap-4 lg:col-span-5">
               <div className="skeleton h-12 w-3/4" />
@@ -132,19 +141,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         {product.status === 'error' && (
           <div className="card flex flex-col items-center gap-2 px-6 py-16 text-center">
             <span className="material-symbols-outlined text-4xl text-stone" aria-hidden="true">inventory_2</span>
-            <p className="font-display text-xl font-semibold">This listing isn&apos;t available</p>
-            <p className="max-w-sm text-[15px] text-stone">It may have been removed by the supplier.</p>
-            <Link href="/#categories" className="btn-ink mt-3">Browse materials</Link>
+            <p className="font-display text-xl font-semibold">{t("This listing isn't available")}</p>
+            <p className="max-w-sm text-[15px] text-stone">{t('It may have been removed by the supplier.')}</p>
+            <Link href="/#categories" className="btn-ink mt-3">{t('Browse materials')}</Link>
           </div>
         )}
 
         {data && (
           <>
-            <nav aria-label="Breadcrumb" className="mb-6 text-[13px] text-stone">
-              <Link href="/" className="hover:text-ink">Home</Link> <span aria-hidden="true">/</span>{' '}
+            <nav aria-label={t('Breadcrumb')} className="mb-6 text-[13px] text-stone">
+              <Link href="/" className="hover:text-ink">{t('Home')}</Link> <span aria-hidden="true">/</span>{' '}
               {data.categoryId && (
                 <>
-                  <Link href={`/category/${data.categoryId.slug}`} className="hover:text-ink">{data.categoryId.name}</Link> <span aria-hidden="true">/</span>{' '}
+                  <Link href={`/category/${data.categoryId.slug}`} className="hover:text-ink">{t(data.categoryId.name)}</Link> <span aria-hidden="true">/</span>{' '}
                 </>
               )}
               <span className="text-ink">{data.name}</span>
@@ -166,14 +175,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
                 {data.description && (
                   <section aria-labelledby="about-title">
-                    <h2 id="about-title" className="font-display text-xl font-semibold tracking-tight">About this listing</h2>
+                    <h2 id="about-title" className="font-display text-xl font-semibold tracking-tight">{t('About this listing')}</h2>
                     <p className="mt-3 whitespace-pre-line text-[16px] leading-relaxed text-stone">{data.description}</p>
                   </section>
                 )}
 
                 {data.specifications && Object.keys(data.specifications).length > 0 && (
                   <section aria-labelledby="spec-title">
-                    <h2 id="spec-title" className="font-display text-xl font-semibold tracking-tight">Specifications</h2>
+                    <h2 id="spec-title" className="font-display text-xl font-semibold tracking-tight">{t('Specifications')}</h2>
                     <dl className="mt-3 divide-y divide-sand-4 overflow-hidden rounded-2xl border border-sand-4 bg-sand-2">
                       {Object.entries(data.specifications).map(([k, v]) => (
                         <div key={k} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-4 px-5 py-3.5 text-[15px]">
@@ -186,16 +195,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 )}
 
                 {data.warranty && (
-                  <section className="flex items-start gap-4 rounded-2xl border border-sand-4 bg-sand-2 p-5" aria-label="Warranty">
+                  <section className="flex items-start gap-4 rounded-2xl border border-sand-4 bg-sand-2 p-5" aria-label={t('Warranty')}>
                     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-lime text-ink">
                       <span className="material-symbols-outlined text-[22px]" aria-hidden="true">verified_user</span>
                     </span>
                     <div>
                       <p className="text-[16px] font-semibold">
-                        {data.warranty.months % 12 === 0 ? `${data.warranty.months / 12} year${data.warranty.months === 12 ? '' : 's'}` : `${data.warranty.months} months`} warranty
+                        {data.warranty.months % 12 === 0 ? t('{n} year warranty', { n: data.warranty.months / 12 }) : t('{n} month warranty', { n: data.warranty.months })}
                       </p>
                       <p className="text-[14px] text-stone">
-                        {data.warranty.by === 'MANUFACTURER' ? 'From the manufacturer.' : 'From the seller.'}{data.warranty.note ? ` ${data.warranty.note}` : ''} Keep your Sthiva invoice for claims.
+                        {data.warranty.by === 'MANUFACTURER' ? t('From the manufacturer.') : t('From the seller.')}{data.warranty.note ? ` ${data.warranty.note}` : ''} {t('Keep your Sthiva invoice for claims.')}
                       </p>
                     </div>
                   </section>
@@ -203,17 +212,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
                 {catalog && (
                   <section className="card p-5 sm:p-6" aria-labelledby="material-title">
-                    <p className="eyebrow text-stone">About the material</p>
+                    <p className="eyebrow text-stone">{t('About the material')}</p>
                     <h2 id="material-title" className="mt-2 font-display text-xl font-semibold tracking-tight">{catalog.name}</h2>
                     <p className="mt-2 text-[15px] leading-relaxed text-stone">{catalog.summary}</p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {catalog.standard && <span className="rounded-full bg-cobalt-soft px-3 py-1 font-mono text-[12px] text-[#0F2A8A]">{catalog.standard}</span>}
                       {catalog.soldAs.map((s) => (
-                        <span key={s.label} className="rounded-full bg-sand-3 px-3 py-1 text-[13px]">{s.label}{s.note ? ` (${s.note})` : ''}</span>
+                        <span key={s.label} className="rounded-full bg-sand-3 px-3 py-1 text-[13px]">{t(s.label)}{s.note ? ` (${s.note})` : ''}</span>
                       ))}
                     </div>
                     <Link href={`/materials/${catalog.id}`} className="mt-4 inline-flex items-center gap-1 text-[14px] font-medium text-cobalt hover:underline">
-                      Sizes, uses and other brands
+                      {t('Sizes, uses and other brands')}
                       <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
                     </Link>
                   </section>
@@ -225,26 +234,26 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               {/* right: buy box */}
               <aside className="order-2 flex flex-col gap-5 lg:order-none lg:sticky lg:top-[calc(var(--header-h)+24px)] lg:col-span-5 lg:col-start-8 lg:row-span-2 lg:row-start-1 lg:self-start">
                 <div>
-                  {data.categoryId?.name && <p className="eyebrow text-stone">{data.categoryId.name}</p>}
+                  {data.categoryId?.name && <p className="eyebrow text-stone">{t(data.categoryId.name)}</p>}
                   <h1 className="mt-2 font-display text-[clamp(2rem,4vw,3rem)] font-bold leading-[0.98] tracking-tightest">{data.name}</h1>
                   <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[14px]">
-                    <span className="text-stone">by <span className="font-semibold text-ink">{data.supplierId?.businessName ?? 'Supplier'}</span></span>
+                    <span className="text-stone">{t('by')} <span className="font-semibold text-ink">{data.supplierId?.businessName ?? t('Supplier')}</span></span>
                     {data.supplierId?.verificationStatus === 'VERIFIED' && (
                       <span className="inline-flex items-center gap-1 font-medium text-tertiary">
                         <span className="material-symbols-outlined text-[18px]" aria-hidden="true">verified</span>
-                        Verified supplier
+                        {t('Verified supplier')}
                       </span>
                     )}
                     {(data.sellerCount ?? 1) > 1 && (
                       <span className="inline-flex items-center gap-1 text-stone">
                         <span className="material-symbols-outlined text-[18px]" aria-hidden="true">storefront</span>
-                        {data.sellerCount} verified sellers{location?.pincode ? ` deliver to ${location.pincode}` : ' carry this'}
+                        {location?.pincode ? t('{n} verified sellers deliver to {pin}', { n: data.sellerCount!, pin: location.pincode }) : t('{n} verified sellers carry this', { n: data.sellerCount! })}
                       </span>
                     )}
                     {data.slotDelivery && (
                       <span className="inline-flex items-center gap-1 text-stone">
                         <span className="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
-                        Book a delivery slot at checkout
+                        {t('Book a delivery slot at checkout')}
                       </span>
                     )}
                     {(data.totalReviews ?? 0) > 0 && (
@@ -260,7 +269,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 {!data.variants && catalog?.madeToOrder && (
                   <a href={`/made-to-measure?type=${catalog.id}`} className="inline-flex items-center gap-1.5 self-start text-[14px] font-semibold text-cobalt hover:underline">
                     <span className="material-symbols-outlined text-[18px]" aria-hidden="true">straighten</span>
-                    Need it in your own size? Order it made to measure
+                    {t('Need it in your own size? Order it made to measure')}
                   </a>
                 )}
 
@@ -306,19 +315,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   )}
                   <p className={`mt-4 flex items-center gap-1.5 text-[14px] ${inStock ? 'text-lime' : 'text-signal-red'}`}>
                     <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{onOrder ? 'local_shipping' : inStock ? 'inventory' : 'block'}</span>
-                    {onOrder ? 'On order: the supplier gets it from the company or makes it for you' : inStock ? 'In stock with this supplier' : 'Out of stock'}
+                    {onOrder ? t('On order: the supplier gets it from the company or makes it for you') : inStock ? t('In stock with this supplier') : t('Out of stock')}
                   </p>
                   {inStock && data.deliveryDays !== undefined && !onOrder && !outOfArea && (
                     <p className="mt-2 flex items-center gap-1.5 text-[14px] text-stone-light">
                       <span className="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
-                      Usually delivered {buyerDeliveryPhrase(data.deliveryDays, data.deliveryDaysMax)} after the supplier accepts
+                      {usuallyDeliveredT(t, buyerDeliveryPhrase(data.deliveryDays, data.deliveryDaysMax))}
                     </p>
                   )}
                   {inStock && data.deliveryDays !== undefined && !onOrder && !outOfArea && location?.pincode && !blockedByPin && (
                     <p className="mt-1 flex items-center gap-1.5 text-[15px] text-sand">
                       <span className="material-symbols-outlined text-[18px]" aria-hidden="true">local_shipping</span>
-                      Get it by <span className="font-semibold">{formatDeliveryDate(istDate(buyerDeliveryRange(data.deliveryDays, data.deliveryDaysMax).max))}</span>
-                      <span className="text-[13px] text-stone-light">to {location.pincode}, if ordered today</span>
+                      {t('Get it by')} <span className="font-semibold">{formatDeliveryDate(istDate(buyerDeliveryRange(data.deliveryDays, data.deliveryDaysMax).max))}</span>
+                      <span className="text-[13px] text-stone-light">{t('to {pin}, if ordered today', { pin: location.pincode })}</span>
                     </p>
                   )}
                   <div className="mt-3 border-t border-white/10 pt-3 text-[13px] text-stone-light">
@@ -329,10 +338,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     <p className="mt-2 flex items-start gap-1.5 text-[14px] text-stone-light">
                       <span className="material-symbols-outlined mt-0.5 text-[18px]" aria-hidden="true">pending</span>
                       <span>
-                        Your order will be in process.{' '}
+                        {t('Your order will be in process.')}{' '}
                         {outOfArea
-                          ? 'No supplier delivers to your PIN yet; Sthiva finds one and tells you the date within 24 hours.'
-                          : 'The supplier confirms the delivery date within 24 hours and you will be notified.'}
+                          ? t('No supplier delivers to your PIN yet; Sthiva finds one and tells you the date within 24 hours.')
+                          : t('The supplier confirms the delivery date within 24 hours and you will be notified.')}
                       </span>
                     </p>
                   )}
@@ -344,14 +353,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 {/* quantity */}
                 <section className="rounded-2xl border border-sand-4 bg-sand-2 p-5" aria-labelledby="qty-title">
                   <div className="flex items-center justify-between gap-4">
-                    <h2 id="qty-title" className="text-[15px] font-semibold">Quantity <span className="font-normal text-stone">({unit})</span></h2>
+                    <h2 id="qty-title" className="text-[15px] font-semibold">{t('Quantity')} <span className="font-normal text-stone">({unit})</span></h2>
                     <div className="flex items-center rounded-full border border-sand-4 bg-sand">
                       <button
                         type="button"
                         onClick={() => setQuantity(Math.max(minQty, qty - 1))}
                         disabled={qty <= minQty}
                         className="grid h-11 w-11 place-items-center rounded-full hover:bg-sand-3 disabled:opacity-30"
-                        aria-label="Decrease quantity"
+                        aria-label={t('Decrease quantity')}
                       >
                         <span className="material-symbols-outlined text-[18px]">remove</span>
                       </button>
@@ -362,19 +371,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         value={qty}
                         onChange={(e) => setQuantity(Math.max(minQty, Math.floor(Number(e.target.value) || minQty)))}
                         className="w-16 bg-transparent text-center font-mono text-[16px] outline-none"
-                        aria-label={`Quantity in ${unit}`}
+                        aria-label={t('Quantity in {unit}', { unit })}
                       />
                       <button
                         type="button"
                         onClick={() => setQuantity(qty + 1)}
                         className="grid h-11 w-11 place-items-center rounded-full hover:bg-sand-3"
-                        aria-label="Increase quantity"
+                        aria-label={t('Increase quantity')}
                       >
                         <span className="material-symbols-outlined text-[18px]">add</span>
                       </button>
                     </div>
                   </div>
-                  {minQty > 1 && <p className="mt-2 text-[13px] text-stone">Minimum order: {minQty} {unit}</p>}
+                  {minQty > 1 && <p className="mt-2 text-[13px] text-stone">{t('Minimum order: {n} {unit}', { n: minQty, unit })}</p>}
                   <div className="mt-4 flex items-baseline justify-between border-t border-sand-4 pt-4">
                     <span className="text-[14px] text-stone">Estimated total</span>
                     <span className="font-display text-2xl font-bold tabular-nums">{rupees.format(unitPrice * qty)}</span>
@@ -383,15 +392,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
                 <button ref={buyButtonRef} type="button" onClick={handleAddToCart} disabled={!canBuy} className="btn-lime w-full py-4 text-[16px]">
                   <span className="material-symbols-outlined text-[20px]" aria-hidden="true">add_shopping_cart</span>
-                  {blockedByPin ? 'Not deliverable to your PIN' : backOn ? `Available again ${backOn}` : !inStock ? 'Out of stock' : 'Add to cart'}
+                  {blockedByPin ? t('Not deliverable to your PIN') : backOn ? t('Available again {date}', { date: backOn }) : !inStock ? t('Out of stock') : t('Add to cart')}
                 </button>
                 {backOn && !blockedByPin && (
-                  <p className="text-center text-[14px] text-stone">The seller has paused this item for a few days. You can order it again from {backOn}.</p>
+                  <p className="text-center text-[14px] text-stone">{t('The seller has paused this item for a few days. You can order it again from {date}.', { date: backOn })}</p>
                 )}
                 {cartNotice && (
                   <div role="status" className="flex items-center justify-between gap-3 rounded-2xl bg-sand-3 px-4 py-3">
                     <p className="text-[14px]">{cartNotice}</p>
-                    <Link href="/cart" className="shrink-0 text-[14px] font-semibold text-cobalt hover:underline">View cart</Link>
+                    <Link href="/cart" className="shrink-0 text-[14px] font-semibold text-cobalt hover:underline">{t('View cart')}</Link>
                   </div>
                 )}
                 {/* What every order comes with: only promises Sthiva already keeps */}
@@ -402,23 +411,23 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   </li>
                   <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
                     <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">fact_check</span>
-                    <span><span className="block font-semibold">Check before you pay</span><Link href="/refunds" className="text-stone underline">{data.returnPolicy?.problemWindow && data.returnPolicy.problemWindow !== 'AT_DELIVERY' ? 'Or report problems later, see returns' : 'Refuse damaged or short items'}</Link></span>
+                    <span><span className="block font-semibold">{t('Check before you pay')}</span><Link href="/refunds" className="text-stone underline">{data.returnPolicy?.problemWindow && data.returnPolicy.problemWindow !== 'AT_DELIVERY' ? 'Or report problems later, see returns' : 'Refuse damaged or short items'}</Link></span>
                   </li>
                   {data.warranty ? (
                     <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
                       <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">verified_user</span>
-                      <span><span className="block font-semibold">{data.warranty.months % 12 === 0 ? `${data.warranty.months / 12} year` : `${data.warranty.months} month`} warranty</span><span className="text-stone">{data.warranty.by === 'MANUFACTURER' ? 'From the manufacturer' : 'From the seller'}</span></span>
+                      <span><span className="block font-semibold">{data.warranty.months % 12 === 0 ? t('{n} year warranty', { n: data.warranty.months / 12 }) : t('{n} month warranty', { n: data.warranty.months })}</span><span className="text-stone">{data.warranty.by === 'MANUFACTURER' ? t('From the manufacturer') : t('From the seller')}</span></span>
                     </li>
                   ) : (
                     <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
                       <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">verified</span>
-                      <span><span className="block font-semibold">Verified sellers</span><span className="text-stone">GST, licence and bank checked</span></span>
+                      <span><span className="block font-semibold">{t('Verified sellers')}</span><span className="text-stone">{t('GST, licence and bank checked')}</span></span>
                     </li>
                   )}
                   {catalog?.madeToOrder ? (
                     <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
                       <span className="material-symbols-outlined text-[20px] text-tertiary" aria-hidden="true">straighten</span>
-                      <span><span className="block font-semibold">Any size</span><Link href={`/made-to-measure?type=${catalog.id}`} className="text-stone underline">Order made to measure</Link></span>
+                      <span><span className="block font-semibold">{t('Any size')}</span><Link href={`/made-to-measure?type=${catalog.id}`} className="text-stone underline">{t('Order made to measure')}</Link></span>
                     </li>
                   ) : (
                     <li className="flex items-start gap-2 rounded-xl bg-sand-2 p-3">
@@ -434,19 +443,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="fixed inset-x-3 bottom-[92px] z-40 flex items-center justify-between gap-3 rounded-2xl border border-sand-4 bg-sand px-4 py-3 shadow-[0_18px_50px_-12px_rgba(11,12,10,0.45)] md:bottom-4 lg:hidden">
                 <div className="min-w-0">
                   <p className="truncate text-[12px] text-stone" role={cartNotice ? 'status' : undefined}>
-                    {cartNotice ? 'Added to your cart' : `${qty} ${unit} · + GST, delivery`}
+                    {cartNotice ? t('Added to your cart') : `${qty} ${unit} · + GST, delivery`}
                   </p>
                   <p className="font-display text-xl font-bold tabular-nums">{rupees.format(unitPrice * qty)}</p>
                 </div>
                 {cartNotice ? (
                   <Link href="/cart" className="btn-ink shrink-0 px-5 py-3 text-[15px]">
                     <span className="material-symbols-outlined text-[20px]" aria-hidden="true">shopping_cart</span>
-                    View cart
+                    {t('View cart')}
                   </Link>
                 ) : canBuy ? (
                   <button type="button" onClick={handleAddToCart} className="btn-lime shrink-0 px-5 py-3 text-[15px]">
                     <span className="material-symbols-outlined text-[20px]" aria-hidden="true">add_shopping_cart</span>
-                    Add to cart
+                    {t('Add to cart')}
                   </button>
                 ) : (
                   <button
@@ -454,7 +463,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     onClick={() => buyButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     className="btn-ink shrink-0 px-5 py-3 text-[15px]"
                   >
-                    {blockedByPin ? 'Not deliverable' : backOn ? `Back ${backOn}` : 'Out of stock'}
+                    {blockedByPin ? t('Not deliverable') : backOn ? t('Back {date}', { date: backOn }) : t('Out of stock')}
                   </button>
                 )}
               </div>
@@ -466,16 +475,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <span className="grid h-16 w-16 place-items-center rounded-2xl bg-ink font-display text-2xl font-bold text-lime">
                   {data.supplierId?.businessName?.[0] ?? '?'}
                 </span>
-                <p className="mt-4 font-display text-xl font-semibold">{data.supplierId?.businessName ?? 'Supplier'}</p>
+                <p className="mt-4 font-display text-xl font-semibold">{data.supplierId?.businessName ?? t('Supplier')}</p>
                 {data.supplierId?.verificationStatus === 'VERIFIED' && (
                   <p className="mt-1 inline-flex items-center gap-1 text-[14px] text-tertiary">
-                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">verified</span> Verified
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">verified</span> {t('Verified')}
                   </p>
                 )}
                 {(data.supplierId?.avgRating ?? 0) > 0 && <div className="mt-3"><Stars value={data.supplierId!.avgRating!} /></div>}
               </div>
               <div className="card p-6 md:col-span-2 sm:p-8">
-                <h2 id="reviews-title" className="font-display text-xl font-semibold tracking-tight">Buyer reviews</h2>
+                <h2 id="reviews-title" className="font-display text-xl font-semibold tracking-tight">{t('Buyer reviews')}</h2>
                 {reviews.status === 'success' && reviews.data.summary.count > 0 && (
                   <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px]">
                     <span className="inline-flex items-center gap-2">
@@ -483,16 +492,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       <Stars value={reviews.data.summary.average} size="text-[16px]" />
                       <span className="text-stone">({reviews.data.summary.count})</span>
                     </span>
-                    {reviews.data.summary.onTimePercent !== undefined && <span className="text-stone"><span className="font-semibold text-ink">{reviews.data.summary.onTimePercent}%</span> delivered on time</span>}
-                    {reviews.data.summary.asListedPercent !== undefined && <span className="text-stone"><span className="font-semibold text-ink">{reviews.data.summary.asListedPercent}%</span> got what was listed</span>}
+                    {reviews.data.summary.onTimePercent !== undefined && <span className="text-stone"><span className="font-semibold text-ink">{reviews.data.summary.onTimePercent}%</span> {t('delivered on time')}</span>}
+                    {reviews.data.summary.asListedPercent !== undefined && <span className="text-stone"><span className="font-semibold text-ink">{reviews.data.summary.asListedPercent}%</span> {t('got what was listed')}</span>}
                   </div>
                 )}
-                <p className="mt-1 text-[13px] text-stone">From buyers who received this item, from any Sthiva seller.</p>
+                <p className="mt-1 text-[13px] text-stone">{t('From buyers who received this item, from any Sthiva seller.')}</p>
                 <div className="mt-5">
                   {reviews.status === 'loading' && <div className="skeleton h-20" />}
-                  {reviews.status === 'error' && <p className="text-[15px] text-error">Couldn&apos;t load reviews.</p>}
+                  {reviews.status === 'error' && <p className="text-[15px] text-error">{t("Couldn't load reviews.")}</p>}
                   {reviews.status === 'success' && reviews.data.reviews.length === 0 && (
-                    <p className="text-[15px] text-stone">No reviews yet. Reviews appear here after buyers receive their orders.</p>
+                    <p className="text-[15px] text-stone">{t('No reviews yet. Reviews appear here after buyers receive their orders.')}</p>
                   )}
                   {reviews.status === 'success' && reviews.data.reviews.length > 0 && (
                     <ul className="flex flex-col gap-6">
@@ -501,8 +510,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sand-3 font-semibold">{r.name?.[0] ?? 'B'}</span>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-baseline justify-between gap-3">
-                              <p className="text-[15px] font-semibold">{r.name ?? 'Buyer'}</p>
-                              <span className="font-mono text-[11px] uppercase text-stone">{timeAgo(r.createdAt)}</span>
+                              <p className="text-[15px] font-semibold">{r.name ?? t('Buyer')}</p>
+                              <span className="font-mono text-[11px] uppercase text-stone">{timeAgo(r.createdAt, relativeDate, t)}</span>
                             </div>
                             <div className="mt-1"><Stars value={r.rating} size="text-[14px]" /></div>
                             {r.comment && <p className="mt-2 text-[15px] text-stone">{r.comment}</p>}
@@ -519,7 +528,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
         <Link href="/#categories" className="btn-ghost mt-12">
           <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_back</span>
-          All materials
+          {t('All materials')}
         </Link>
       </main>
       <SiteFooter />

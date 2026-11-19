@@ -1,9 +1,13 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
-import type { CatalogItem } from '@sthiva/web-core';
+import { useT, type CatalogItem } from '@sthiva/web-core';
 
 // A material type in the catalogue (not a supplier listing): what it is, sizes and how it is sold
+// Item names and descriptions stay as written in the catalogue (brand and grade names); labels are translated
 export function MaterialCard({ item }: { item: CatalogItem }) {
+  const t = useT();
   // show the size range on the card (the first group when no group is called Size)
   const sizes = item.variants.find((v) => /size/i.test(v.label)) ?? item.variants[0];
   return (
@@ -16,13 +20,13 @@ export function MaterialCard({ item }: { item: CatalogItem }) {
           <Image src={item.image} alt="" fill sizes="64px" className="object-cover" />
         </div>
         <div className="min-w-0">
-          <p className="eyebrow text-stone">{item.group}</p>
+          <p className="eyebrow text-stone">{t(item.group)}</p>
           <h3 className="mt-1 font-display text-[19px] font-semibold leading-tight tracking-[-0.02em]">{item.name}</h3>
           {item.standard && <p className="mt-1 font-mono text-[11px] text-stone">{item.standard}</p>}
           {item.madeToOrder && (
             <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-ink px-2.5 py-0.5 text-[11px] font-semibold text-sand">
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">straighten</span>
-              Made to order
+              {t('Made to order')}
             </p>
           )}
         </div>
@@ -33,13 +37,13 @@ export function MaterialCard({ item }: { item: CatalogItem }) {
           {sizes.options.slice(0, 5).map((o) => (
             <span key={o} className="rounded-full bg-sand-3 px-2.5 py-1 text-[12px] font-medium">{o}</span>
           ))}
-          {sizes.options.length > 5 && <span className="rounded-full px-2 py-1 text-[12px] text-stone">+{sizes.options.length - 5} more</span>}
+          {sizes.options.length > 5 && <span className="rounded-full px-2 py-1 text-[12px] text-stone">{t('+{n} more', { n: sizes.options.length - 5 })}</span>}
         </div>
       )}
       <div className="mt-auto flex items-end justify-between gap-3 pt-5">
         <p className="text-[13px] text-stone">
-          <span className="font-medium text-ink">Sold </span>
-          {item.soldAs.map((s) => s.label.replace(/^Per /, 'per ')).slice(0, 2).join(' or ')}
+          <span className="font-medium text-ink">{t('Sold')} </span>
+          {item.soldAs.map((s) => t(s.label)).slice(0, 2).join(` ${t('or')} `)}
         </p>
         <span className="material-symbols-outlined text-[22px] text-stone transition-transform duration-300 group-hover:translate-x-1 group-hover:text-ink" aria-hidden="true">
           arrow_forward

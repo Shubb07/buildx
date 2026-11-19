@@ -2,15 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useT } from '@sthiva/web-core';
+import { useT, tx } from '@sthiva/web-core';
 import { useCart } from '../lib/cart';
 
 const TABS = [
-  { href: '/', label: 'Home', icon: 'home' },
-  { href: '/search', label: 'Search', icon: 'search' },
-  { href: '/cart', label: 'Cart', icon: 'shopping_bag' },
-  { href: '/orders', label: 'Orders', icon: 'receipt_long' },
-  { href: '/profile', label: 'Account', icon: 'person' },
+  { href: '/', label: tx('Home'), icon: 'home' },
+  { href: '/search', label: tx('Search'), icon: 'search' },
+  { href: '/cart', label: tx('Cart'), icon: 'shopping_bag' },
+  { href: '/orders', label: tx('Orders'), icon: 'receipt_long' },
+  { href: '/profile', label: tx('Account'), icon: 'person' },
 ] as const;
 
 // Mobile-only tab bar (the same five tabs the mobile app uses). Hidden from md up, where the

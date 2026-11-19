@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ProductHuntBadge } from './ProductHuntBadge';
-import { SthivaLogo, useT } from '@sthiva/web-core';
+import { SthivaLogo, useT, tx } from '@sthiva/web-core';
 import { LanguageSwitcher } from '../i18n/Language';
 import { SITE } from '@/lib/site';
 
@@ -38,30 +38,30 @@ export function SiteFooter() {
         </div>
 
         <FooterCol
-          title="Shop"
+          title={tx('Shop')}
           links={[
-            { href: '/#categories', label: 'All materials' },
-            { href: '/search', label: 'Search' },
-            { href: '/cart', label: 'Cart' },
-            { href: '/orders', label: 'Track orders' },
+            { href: '/#categories', label: tx('All materials') },
+            { href: '/search', label: tx('Search') },
+            { href: '/cart', label: tx('Cart') },
+            { href: '/orders', label: tx('Track orders') },
           ]}
         />
         <FooterCol
-          title="Company"
+          title={tx('Company')}
           links={[
-            { href: '/#how-it-works', label: 'How it works' },
-            { href: '/#suppliers', label: 'Sell on Sthiva' },
-            { href: '/signin', label: 'Sign in' },
+            { href: '/#how-it-works', label: tx('How it works') },
+            { href: '/#suppliers', label: tx('Sell on Sthiva') },
+            { href: '/signin', label: tx('Sign in') },
           ]}
         />
         <FooterCol
-          title="Legal"
+          title={tx('Legal')}
           links={[
-            { href: '/terms', label: 'Terms of service' },
-            { href: '/privacy', label: 'Privacy policy' },
-            { href: '/refunds', label: 'Cancellations and refunds' },
-            { href: '/cookies', label: 'Cookie policy and settings' },
-            { href: '/account-deletion', label: 'Delete your account' },
+            { href: '/terms', label: tx('Terms of service') },
+            { href: '/privacy', label: tx('Privacy policy') },
+            { href: '/refunds', label: tx('Cancellations and refunds') },
+            { href: '/cookies', label: tx('Cookie policy and settings') },
+            { href: '/account-deletion', label: tx('Delete your account') },
           ]}
         />
       </div>

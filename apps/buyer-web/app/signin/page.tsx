@@ -7,7 +7,7 @@ import { useAuth } from '../../components/auth/AuthProvider';
 import { AuthShell } from '../../components/auth/AuthShell';
 import { OtpInput } from '../../components/auth/OtpInput';
 import { safeNext } from '../../lib/safe-next';
-import { useI18n } from '@sthiva/web-core';
+import { tx, useI18n } from '@sthiva/web-core';
 import { LanguageChooser } from '../../components/i18n/Language';
 
 const RESEND_AFTER_S = 30;
@@ -129,14 +129,14 @@ function SignInForm() {
   // Buyers choose their language before creating an account (owner decision 2026-11-20)
   if (!chosen && !otpStep) {
     return (
-      <AuthShell step="Step 1 of 2">
+      <AuthShell step={tx('Step 1 of 2')}>
         <LanguageChooser />
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell step={otpStep ? 'Step 2 of 2' : 'Sign in'} recaptcha={otpStep || PHONE_SIGNIN}>
+    <AuthShell step={otpStep ? tx('Step 2 of 2') : tx('Sign in')} recaptcha={otpStep || PHONE_SIGNIN}>
       {!otpStep ? (
         <div className="animate-fade-up">
           <h1 className="font-display text-[clamp(2.4rem,6vw,3.25rem)] font-bold leading-[0.95] tracking-tightest">

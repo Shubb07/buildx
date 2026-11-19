@@ -54,3 +54,10 @@ export function saveLangCookie(lang: Lang) {
   document.cookie = `${LANG_COOKIE}=${lang}; path=/; max-age=${60 * 60 * 24 * 400}; samesite=lax${domain}${secure}`;
 }
 
+/**
+ * Marks English text kept in a list or constant that is translated later with t(label). It returns
+ * the text unchanged; the translation tests look for tx('...') as well as t('...').
+ */
+export function tx<T extends string>(text: T): T {
+  return text;
+}

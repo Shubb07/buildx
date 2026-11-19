@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useT } from '@sthiva/web-core';
 import { rupees } from '@/lib/format';
 
 // Every size of one product on its page: a row of chips per detail (Thickness, Size...). Each chip
@@ -28,6 +29,7 @@ const byValue = (a: string, b: string) => {
 // customType: the made-to-measure work type for this product, if any, for an "Order any size" chip
 export function VariantPicker({ keys, options, unit, customType }: { keys: string[]; options: VariantOption[]; unit: string; customType?: string }) {
   const router = useRouter();
+  const t = useT();
   const current = options.find((o) => o.current);
   if (!current) return null;
 
@@ -38,20 +40,20 @@ export function VariantPicker({ keys, options, unit, customType }: { keys: strin
     ?? options.find((o) => o.details[key] === value);
 
   return (
-    <section className="flex flex-col gap-4" aria-label="Choose a size">
+    <section className="flex flex-col gap-4" aria-label={t('Choose a size')}>
       {keys.map((key) => {
         const values = [...new Set(options.map((o) => o.details[key]).filter(Boolean))].sort(byValue);
         if (values.length < 2 && keys.length > 1) return null;
         return (
           <div key={key}>
             <p className="text-[14px] font-semibold">
-              {key}: <span className="font-normal text-stone">{current.details[key] ?? 'Not set'}</span>
+              {t(key)}: <span className="font-normal text-stone">{current.details[key] ?? t('Not set')}</span>
             </p>
-            <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={key}>
+            <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={t(key)}>
               {values.map((v) => {
-                const t = target(key, v);
+                const opt = target(key, v);
                 const selected = current.details[key] === v;
-                const available = !!t?.productId;
+                const available = !!opt?.productId;
                 return (
                   <button
                     key={v}
@@ -59,16 +61,16 @@ export function VariantPicker({ keys, options, unit, customType }: { keys: strin
                     role="radio"
                     aria-checked={selected}
                     disabled={!available && !selected}
-                    onClick={() => { if (t?.productId && !t.current) router.push(`/product/${t.productId}`); }}
+                    onClick={() => { if (opt?.productId && !opt.current) router.push(`/product/${opt.productId}`); }}
                     className={`flex min-w-[84px] flex-col items-center rounded-xl border px-3 py-2 text-[14px] transition-colors ${
                       selected ? 'border-ink bg-ink text-sand' : available ? 'border-sand-4 bg-sand-2 hover:border-ink' : 'border-dashed border-sand-4 text-stone opacity-60'
                     }`}
-                    title={available ? undefined : 'Not available near you right now'}
+                    title={available ? undefined : t('Not available near you right now')}
                   >
                     <span className="font-semibold">{v}</span>
-                    {t?.price != null
-                      ? <span className={`text-[12px] tabular-nums ${selected ? 'text-sand/70' : 'text-stone'}`}>{rupees.format(t.price)}/{unit}</span>
-                      : <span className="text-[12px]">Unavailable</span>}
+                    {opt?.price != null
+                      ? <span className={`text-[12px] tabular-nums ${selected ? 'text-sand/70' : 'text-stone'}`}>{rupees.format(opt.price)}/{unit}</span>
+                      : <span className="text-[12px]">{t('Unavailable')}</span>}
                   </button>
                 );
               })}
@@ -85,7 +87,7 @@ export function VariantPicker({ keys, options, unit, customType }: { keys: strin
       {customType && (
         <Link href={`/made-to-measure?type=${customType}`} className="inline-flex items-center gap-1.5 self-start text-[14px] font-semibold text-cobalt hover:underline">
           <span className="material-symbols-outlined text-[18px]" aria-hidden="true">straighten</span>
-          Need a size not shown? Order it made to measure
+          {t('Need a size not shown? Order it made to measure')}
         </Link>
       )}
     </section>

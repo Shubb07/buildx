@@ -4,7 +4,7 @@ import { Suspense, use, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { catalogCategory, catalogItems, useProductsForLocation, useSelectedLocation, type CatalogItem } from '@sthiva/web-core';
+import { catalogCategory, catalogItems, useProductsForLocation, useSelectedLocation, useT, type CatalogItem, tx } from '@sthiva/web-core';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
 import { SiteFooter } from '@/components/layout/SiteFooter';
@@ -17,9 +17,10 @@ import { useCategories } from '@/lib/categories';
 //   computers and in a bottom sheet on phones, then material types and live supplier listings.
 // Filters live in the address (?type=&brand=&opt=Label:Option) so a filtered page can be shared or reloaded.
 
-// Only sort orders the API actually supports, so no option promises a feature that isn't real
+// Only sort orders the API actually supports, so no option promises a feature that isn't real.
+// Price wording stays in English (owner: money text is not translated).
 const SORTS = [
-  { value: undefined, label: 'Popular' },
+  { value: undefined, label: tx('Popular') },
   { value: 'price_asc' as const, label: 'Price: low to high' },
 ] as const;
 
@@ -98,10 +99,11 @@ function itemTerms(item: CatalogItem) {
 
 function OptionButtons({ group, chosen, onToggle }: { group: OptionGroup; chosen: string[]; onToggle: (o: string) => void }) {
   const [all, setAll] = useState(false);
+  const t = useT();
   const shown = all ? group.options : group.options.slice(0, SIZE_LIMIT);
   return (
     <fieldset>
-      <legend className="mb-2 px-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-stone">{group.label}</legend>
+      <legend className="mb-2 px-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-stone">{t(group.label)}</legend>
       <div className="flex flex-wrap gap-2 px-2">
         {shown.map((o) => {
           const on = chosen.includes(o);
@@ -120,7 +122,7 @@ function OptionButtons({ group, chosen, onToggle }: { group: OptionGroup; chosen
       </div>
       {group.options.length > SIZE_LIMIT && (
         <button type="button" onClick={() => setAll((v) => !v)} className="mt-2 px-2 text-[13px] font-semibold text-cobalt hover:underline">
-          {all ? 'Show fewer' : `Show all ${group.options.length}`}
+          {all ? t('Show fewer') : t('Show all {n}', { n: group.options.length })}
         </button>
       )}
     </fieldset>
@@ -142,11 +144,12 @@ function FilterPanel({
   onBrand: (b: string) => void;
   onOpt: (label: string, option: string) => void;
 }) {
+  const t = useT();
   return (
     <div className="flex flex-col gap-6">
       {brands.length > 0 && (
         <fieldset>
-          <legend className="mb-2 px-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-stone">Brand</legend>
+          <legend className="mb-2 px-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-stone">{t('Brand')}</legend>
           <div className="flex flex-col">
             {brands.map((b) => (
               <CheckRow key={b} checked={selBrands.includes(b)} onChange={() => onBrand(b)} label={b} />
@@ -157,7 +160,7 @@ function FilterPanel({
       {groups.map((g) => (
         <OptionButtons key={g.label} group={g} chosen={selOpts.get(g.label) ?? []} onToggle={(o) => onOpt(g.label, o)} />
       ))}
-      {brands.length === 0 && groups.length === 0 && <p className="px-2 text-[14px] text-stone">No brand or size filters for this type.</p>}
+      {brands.length === 0 && groups.length === 0 && <p className="px-2 text-[14px] text-stone">{t('No brand or size filters for this type.')}</p>}
     </div>
   );
 }
@@ -165,6 +168,7 @@ function FilterPanel({
 function MaterialsPage({ slug }: { slug: string }) {
   const categories = useCategories();
   const location = useSelectedLocation();
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -175,7 +179,8 @@ function MaterialsPage({ slug }: { slug: string }) {
   const category = categories.status === 'success' ? categories.data.find((c) => c.slug === slug) : undefined;
   const meta = catalogCategory(slug);
   const items = catalogItems(slug);
-  const name = category?.name ?? meta?.name;
+  const rawName = category?.name ?? meta?.name;
+  const name = rawName ? t(rawName) : undefined;
 
   const type = params.get('type');
   const selBrands = params.getAll('brand');
@@ -184,8 +189,8 @@ function MaterialsPage({ slug }: { slug: string }) {
 
   function setFilters(next: { type?: string | null; brands?: string[]; sizes?: string[] }) {
     const q = new URLSearchParams();
-    const t = next.type !== undefined ? next.type : type;
-    if (t) q.set('type', t);
+    const nextType = next.type !== undefined ? next.type : type;
+    if (nextType) q.set('type', nextType);
     (next.brands ?? selBrands).forEach((b) => q.append('brand', b));
     (next.sizes ?? selSizes).forEach((s) => q.append('opt', s));
     const qs = q.toString();
@@ -207,7 +212,7 @@ function MaterialsPage({ slug }: { slug: string }) {
     return products.data.products.filter((p) => {
       const specs = (p as { specifications?: Record<string, string> }).specifications ?? {};
       const text = `${p.name} ${Object.values(specs).join(' ')}`.toLowerCase();
-      if (typeTerms.length > 0 && !typeTerms.some((t) => text.includes(t))) return false;
+      if (typeTerms.length > 0 && !typeTerms.some((term) => text.includes(term))) return false;
       if (selBrands.length > 0 && !selBrands.some((b) => text.includes(b.toLowerCase()))) return false;
       for (const chosen of selOpts.values()) if (!chosen.some((o) => text.includes(o.toLowerCase()))) return false;
       return true;
@@ -250,18 +255,18 @@ function MaterialsPage({ slug }: { slug: string }) {
         <section className="border-b border-ink/10 bg-sand-2">
           <div className="container-x flex items-center gap-5 py-5 md:py-7">
             <div className="min-w-0 flex-1">
-              <nav aria-label="Breadcrumb" className="text-[13px] text-stone">
-                <Link href="/" className="hover:text-ink">Home</Link> <span aria-hidden="true">›</span>{' '}
-                <Link href="/#categories" className="hover:text-ink">Materials</Link> <span aria-hidden="true">›</span>{' '}
+              <nav aria-label={t('Breadcrumb')} className="text-[13px] text-stone">
+                <Link href="/" className="hover:text-ink">{t('Home')}</Link> <span aria-hidden="true">›</span>{' '}
+                <Link href="/#categories" className="hover:text-ink">{t('Materials')}</Link> <span aria-hidden="true">›</span>{' '}
                 <span className="text-ink">{name}</span>
               </nav>
               <h1 className="mt-2 font-display text-[28px] font-bold leading-tight tracking-[-0.02em] md:text-[40px]">
                 {name ?? <span className="skeleton inline-block h-[0.9em] w-[8ch] align-middle" />}
               </h1>
-              {meta?.tagline && <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-stone">{meta.tagline}</p>}
+              {meta?.tagline && <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-stone">{t(meta.tagline)}</p>}
               <Link href="/order-by-list" className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-semibold text-cobalt hover:underline">
                 <span className="material-symbols-outlined text-[18px]" aria-hidden="true">checklist</span>
-                Buying for a whole job? Order by list
+                {t('Buying for a whole job? Order by list')}
               </Link>
             </div>
             {meta?.photo && (
@@ -275,10 +280,10 @@ function MaterialsPage({ slug }: { slug: string }) {
         {/* catalogue options: the types in this category, always at the top */}
         {meta && meta.groups.length > 1 && (
           <div className="sticky top-[var(--header-h)] z-30 border-b border-ink/10 bg-sand/95 backdrop-blur-xl">
-            <div className="container-x flex items-center gap-2 overflow-x-auto py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Type">
-              <Chip active={!type} onClick={() => setFilters({ type: null, brands: [], sizes: [] })}>All</Chip>
+            <div className="container-x flex items-center gap-2 overflow-x-auto py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label={t('Type')}>
+              <Chip active={!type} onClick={() => setFilters({ type: null, brands: [], sizes: [] })}>{t('All')}</Chip>
               {meta.groups.map((g) => (
-                <Chip key={g} active={type === g} onClick={() => setFilters({ type: g, brands: [], sizes: [] })}>{g}</Chip>
+                <Chip key={g} active={type === g} onClick={() => setFilters({ type: g, brands: [], sizes: [] })}>{t(g)}</Chip>
               ))}
             </div>
           </div>
@@ -286,13 +291,13 @@ function MaterialsPage({ slug }: { slug: string }) {
 
         <div className="container-x pt-6 md:pt-8 lg:grid lg:grid-cols-[240px_1fr] lg:gap-10">
           {/* filters: left column on computers */}
-          <aside className="hidden lg:block" aria-label="Filters">
+          <aside className="hidden lg:block" aria-label={t('Filters')}>
             <div className="sticky top-[calc(var(--header-h)+80px)] max-h-[calc(100vh-var(--header-h)-100px)] overflow-y-auto pb-6">
               <div className="mb-4 flex items-center justify-between px-2">
-                <h2 className="font-display text-[18px] font-semibold">Filters</h2>
+                <h2 className="font-display text-[18px] font-semibold">{t('Filters')}</h2>
                 {filterCount > 0 && (
                   <button type="button" onClick={() => setFilters({ brands: [], sizes: [] })} className="text-[13px] font-semibold text-cobalt hover:underline">
-                    Clear all
+                    {t('Clear all')}
                   </button>
                 )}
               </div>
@@ -304,8 +309,7 @@ function MaterialsPage({ slug }: { slug: string }) {
             {/* results bar */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[14px] text-stone">
-                <span className="font-semibold text-ink">{shown.length}</span> material {shown.length === 1 ? 'type' : 'types'}
-                {type && <> in <span className="font-semibold text-ink">{type}</span></>}
+                {type ? t('{n} material types in {type}', { n: shown.length, type: t(type) }) : t('{n} material types', { n: shown.length })}
               </p>
               <button
                 type="button"
@@ -313,7 +317,7 @@ function MaterialsPage({ slug }: { slug: string }) {
                 className="inline-flex h-10 items-center gap-2 rounded-full border border-ink px-4 text-[14px] font-semibold lg:hidden"
               >
                 <span className="material-symbols-outlined text-[20px]" aria-hidden="true">tune</span>
-                Filters{filterCount > 0 && ` (${filterCount})`}
+                {t('Filters')}{filterCount > 0 && ` (${filterCount})`}
               </button>
             </div>
 
@@ -325,7 +329,7 @@ function MaterialsPage({ slug }: { slug: string }) {
                     type="button"
                     onClick={() => setFilters(kind === 'brand' ? { brands: toggle(selBrands, v) } : { sizes: toggle(selSizes, v) })}
                     className="inline-flex items-center gap-1 rounded-full bg-ink/[0.06] px-3 py-1 text-[13px] font-medium hover:bg-ink/10"
-                    aria-label={`Remove ${kind === 'size' ? v.slice(v.indexOf(':') + 1) : v}`}
+                    aria-label={t('Remove {name}', { name: kind === 'size' ? v.slice(v.indexOf(':') + 1) : v })}
                   >
                     {kind === 'size' ? v.slice(v.indexOf(':') + 1) : v}
                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
@@ -346,8 +350,8 @@ function MaterialsPage({ slug }: { slug: string }) {
             ) : (
               items.length > 0 && (
                 <div className="card mt-5 flex flex-col items-center gap-2 px-6 py-10 text-center">
-                  <p className="font-display text-lg font-semibold">Nothing matches these filters</p>
-                  <button type="button" onClick={() => setFilters({ brands: [], sizes: [] })} className="btn-ghost mt-2">Clear filters</button>
+                  <p className="font-display text-lg font-semibold">{t('Nothing matches these filters')}</p>
+                  <button type="button" onClick={() => setFilters({ brands: [], sizes: [] })} className="btn-ghost mt-2">{t('Clear filters')}</button>
                 </div>
               )
             )}
@@ -357,43 +361,43 @@ function MaterialsPage({ slug }: { slug: string }) {
               <div className="flex flex-col gap-3 border-t border-ink/10 pt-8 md:flex-row md:items-end md:justify-between">
                 <div>
                   <h2 id="listings-title" className="font-display text-[24px] font-bold tracking-[-0.02em] md:text-[28px]">
-                    {location ? <>From suppliers delivering to <span className="font-mono">{location.pincode}</span></> : 'From suppliers'}
+                    {location ? t('From suppliers delivering to {pin}', { pin: location.pincode }) : t('From suppliers')}
                   </h2>
                   {!location && (
                     <p className="mt-1 text-[14px] text-stone">
-                      <Link href="/#site-pin" className="font-semibold text-cobalt hover:underline">Set your site PIN</Link> to see what reaches you, nearby sellers first.
+                      <Link href="/#site-pin" className="font-semibold text-cobalt hover:underline">{t('Set your site PIN')}</Link> {t('to see what reaches you, nearby sellers first.')}
                     </p>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {SORTS.map((s) => (
-                    <Chip key={s.label} active={sort === s.value} onClick={() => setSort(s.value)}>{s.label}</Chip>
+                    <Chip key={s.label} active={sort === s.value} onClick={() => setSort(s.value)}>{s.value ? s.label : t(s.label)}</Chip>
                   ))}
                 </div>
               </div>
 
               <div className="mt-6">
                 {products.status === 'loading' && (
-                  <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Loading products">
+                  <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label={t('Loading products')}>
                     {Array.from({ length: 3 }, (_, i) => <div key={i} className="skeleton h-[360px]" />)}
                   </div>
                 )}
                 {products.status === 'error' && (
                   <div role="alert" className="card flex flex-col items-center gap-3 px-6 py-10 text-center">
-                    <p className="text-[15px] text-stone">Listings are taking longer than usual to load.</p>
-                    <button type="button" onClick={() => window.location.reload()} className="btn-ghost">Try again</button>
+                    <p className="text-[15px] text-stone">{t('Listings are taking longer than usual to load.')}</p>
+                    <button type="button" onClick={() => window.location.reload()} className="btn-ghost">{t('Try again')}</button>
                   </div>
                 )}
                 {products.status === 'success' && listings.length === 0 && (
                   <div className="card flex flex-col items-center gap-2 px-6 py-12 text-center">
                     <span className="material-symbols-outlined text-4xl text-stone" aria-hidden="true">storefront</span>
-                    <p className="font-display text-xl font-semibold">No listings here yet</p>
+                    <p className="font-display text-xl font-semibold">{t('No listings here yet')}</p>
                     <p className="max-w-md text-[15px] text-stone">
                       {products.data.products.length > 0
-                        ? 'No supplier listing matches these choices yet. Clear a filter to see more.'
+                        ? t('No supplier listing matches these choices yet. Clear a filter to see more.')
                         : location
-                          ? `No supplier delivering to ${location.pincode} lists ${name ?? 'this category'} yet.`
-                          : `Suppliers have not listed ${name ?? 'products in this category'} yet.`}
+                          ? t('No supplier delivering to {pin} lists {name} yet.', { pin: location.pincode, name: name ?? t('this category') })
+                          : t('Suppliers have not listed {name} yet.', { name: name ?? t('products in this category') })}
                     </p>
                   </div>
                 )}
@@ -411,21 +415,21 @@ function MaterialsPage({ slug }: { slug: string }) {
       {/* filters: bottom sheet on phones and tablets */}
       {sheetOpen && (
         <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-labelledby="filters-title">
-          <button type="button" className="absolute inset-0 bg-ink/50" aria-label="Close filters" onClick={() => setSheetOpen(false)} />
+          <button type="button" className="absolute inset-0 bg-ink/50" aria-label={t('Close filters')} onClick={() => setSheetOpen(false)} />
           <div className="absolute inset-x-0 bottom-0 flex max-h-[85svh] flex-col rounded-t-3xl bg-sand shadow-[0_-20px_60px_-20px_rgba(11,12,10,0.5)]">
             <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
-              <h2 id="filters-title" className="font-display text-[20px] font-semibold">Filters</h2>
-              <button type="button" onClick={() => setSheetOpen(false)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-ink/5" aria-label="Close">
+              <h2 id="filters-title" className="font-display text-[20px] font-semibold">{t('Filters')}</h2>
+              <button type="button" onClick={() => setSheetOpen(false)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-ink/5" aria-label={t('Close')}>
                 <span className="material-symbols-outlined" aria-hidden="true">close</span>
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-5">{panel}</div>
             <div className="flex gap-3 border-t border-ink/10 px-5 py-4 pb-[max(16px,env(safe-area-inset-bottom))]">
               <button type="button" onClick={() => setFilters({ brands: [], sizes: [] })} className="btn-ghost flex-1" disabled={filterCount === 0}>
-                Clear
+                {t('Clear')}
               </button>
               <button type="button" onClick={() => setSheetOpen(false)} className="btn-ink flex-[2]">
-                Show {shown.length} {shown.length === 1 ? 'type' : 'types'}
+                {t('Show {n} material types', { n: shown.length })}
               </button>
             </div>
           </div>

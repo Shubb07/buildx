@@ -50,6 +50,7 @@ export { HSN_RE, SUGGESTED_HSN } from './catalog/hsn';
 export { downloadFile, hasInvoice, INVOICE_STATUSES } from './api/download';
 
 // Languages: Kannada, Hindi, English (i18n/core.ts has the plain parts, safe on the server)
-export { LANGUAGES, DEFAULT_LANG, LANG_COOKIE, isLang, parseLang, languageInfo, translate, saveLangCookie } from './i18n/core';
+export { LANGUAGES, DEFAULT_LANG, LANG_COOKIE, isLang, parseLang, languageInfo, translate, saveLangCookie, tx } from './i18n/core';
 export type { Lang, Dictionary, Dictionaries, Vars } from './i18n/core';
-export { I18nProvider, useI18n, useT } from './i18n/provider';
+export { I18nProvider, useI18n, useT, reverseTranslate } from './i18n/provider';
+export { locationMessageT } from './location/messages';

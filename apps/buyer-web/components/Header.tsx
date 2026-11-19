@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CATALOG_CATEGORIES, useSelectedLocation, useT } from '@sthiva/web-core';
+import { CATALOG_CATEGORIES, useI18n, useSelectedLocation } from '@sthiva/web-core';
 import { useCart } from '../lib/cart';
 import { useAuth } from './auth/AuthProvider';
 import { Logo } from './brand/Logo';
@@ -21,7 +21,7 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
   const { status } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const t = useT();
+  const { lang, t } = useI18n();
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -75,8 +75,8 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
     >
       <span className="material-symbols-outlined text-[22px] text-ink" aria-hidden="true">location_on</span>
       <span className="flex flex-col leading-tight">
-        <span className="text-[11px] text-stone">{location ? t('Deliver to') : t('Set your')}</span>
-        <span className="font-mono text-[13px] font-semibold text-ink">{location ? location.pincode : t('site PIN')}</span>
+        <span className="whitespace-nowrap text-[11px] text-stone">{location ? t('Deliver to') : t('Set your')}</span>
+        <span className="whitespace-nowrap font-mono text-[13px] font-semibold text-ink">{location ? location.pincode : t('site PIN')}</span>
       </span>
     </Link>
   );
@@ -96,28 +96,28 @@ export function Header(_props: { tone?: 'light' | 'dark'; darkUntilId?: string }
           {status === 'signed-in' ? (
             <Link href="/profile" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 md:flex" aria-label={t('Your account')}>
               <span className="material-symbols-outlined text-[24px]" aria-hidden="true">account_circle</span>
-              <span className="text-[14px] font-semibold">{t('Account')}</span>
+              <span className="whitespace-nowrap text-[14px] font-semibold">{t('Account')}</span>
             </Link>
           ) : (
-            <Link href={`/signin?next=${encodeURIComponent(pathname || '/')}`} className="hidden rounded-lg bg-ink px-4 py-2.5 text-[14px] font-semibold text-sand hover:bg-ink-3 md:inline-flex">
+            <Link href={`/signin?next=${encodeURIComponent(pathname || '/')}`} className="hidden whitespace-nowrap rounded-lg bg-ink px-4 py-2.5 text-[14px] font-semibold text-sand hover:bg-ink-3 md:inline-flex">
               {t('Sign in')}
             </Link>
           )}
-          <Link href="/made-to-measure" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 xl:flex">
+          <Link href="/made-to-measure" className={`hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 ${lang === 'en' ? 'xl:flex' : '2xl:flex'}`}>
             <span className="material-symbols-outlined text-[24px]" aria-hidden="true">straighten</span>
-            <span className="text-[14px] font-semibold">{t('Made to measure')}</span>
+            <span className="whitespace-nowrap text-[14px] font-semibold">{t('Made to measure')}</span>
           </Link>
-          <Link href="/order-by-list" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 lg:flex">
+          <Link href="/order-by-list" className={`hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 ${lang === 'en' ? 'lg:flex' : 'xl:flex'}`}>
             <span className="material-symbols-outlined text-[24px]" aria-hidden="true">checklist</span>
-            <span className="text-[14px] font-semibold">{t('Order by list')}</span>
+            <span className="whitespace-nowrap text-[14px] font-semibold">{t('Order by list')}</span>
           </Link>
           <Link href="/orders" className="hidden items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5 lg:flex">
             <span className="material-symbols-outlined text-[24px]" aria-hidden="true">receipt_long</span>
-            <span className="text-[14px] font-semibold">{t('Orders')}</span>
+            <span className="whitespace-nowrap text-[14px] font-semibold">{t('Orders')}</span>
           </Link>
           <Link href="/cart" className="relative flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-ink/5" aria-label={cartCount > 0 ? t('Cart, {n} items', { n: cartCount }) : t('Cart')}>
             <span className="material-symbols-outlined text-[26px]" aria-hidden="true">shopping_cart</span>
-            <span className="hidden text-[14px] font-semibold md:inline">{t('Cart')}</span>
+            <span className="hidden whitespace-nowrap text-[14px] font-semibold md:inline">{t('Cart')}</span>
             {cartCount > 0 && (
               <span className="absolute left-5 top-0 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-lime px-1 font-mono text-[10px] font-semibold text-ink">
                 {cartCount}

@@ -1,16 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import type { Calculator } from '@sthiva/web-core';
+import { useT, type Calculator, tx } from '@sthiva/web-core';
 import { units } from '@sthiva/web-core';
 const { bagsForKg, bulkFromBrass, bulkFromTonnes, coilsForMetres, round, tmtBarsForKg, tmtKgPerBar, tmtKgPerMetre } = units;
 
 const fmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
 
+// label: English text, translated here
 function NumberField({ label, value, onChange, suffix, step = 'any' }: { label: string; value: string; onChange: (v: string) => void; suffix: string; step?: string }) {
+  const t = useT();
   return (
     <label className="flex flex-col gap-2">
-      <span className="text-[13px] font-medium text-stone">{label}</span>
+      <span className="text-[13px] font-medium text-stone">{t(label)}</span>
       <span className="flex items-center rounded-xl border border-sand-4 bg-sand-2 pr-4 transition-[border-color,box-shadow] focus-within:border-ink focus-within:shadow-[0_0_0_4px_rgba(243,184,6,0.55)]">
         <input
           type="number"
@@ -46,12 +48,13 @@ const num = (v: string) => {
 };
 
 function BulkHelper({ density, material }: { density: number; material: string }) {
+  const t = useT();
   const [mode, setMode] = useState<'tonnes' | 'brass'>('tonnes');
   const [value, setValue] = useState('10');
   const r = mode === 'tonnes' ? bulkFromTonnes(num(value), density) : bulkFromBrass(num(value), density);
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-2" role="radiogroup" aria-label="Enter quantity in">
+      <div className="flex gap-2" role="radiogroup" aria-label={t('Enter quantity in')}>
         {(['tonnes', 'brass'] as const).map((m) => (
           <button
             key={m}
@@ -61,22 +64,21 @@ function BulkHelper({ density, material }: { density: number; material: string }
             onClick={() => setMode(m)}
             className={`h-10 rounded-full px-4 text-[14px] font-medium transition-colors ${mode === m ? 'bg-lime text-ink' : 'bg-white/10 text-sand hover:bg-white/15'}`}
           >
-            I know the {m}
+            {m === 'tonnes' ? t('I know the tonnes') : t('I know the brass')}
           </button>
         ))}
       </div>
-      <NumberField label={mode === 'tonnes' ? 'Quantity in tonnes' : 'Quantity in brass'} value={value} onChange={setValue} suffix={mode === 'tonnes' ? 't' : 'brass'} />
+      <NumberField label={mode === 'tonnes' ? tx('Quantity in tonnes') : tx('Quantity in brass')} value={value} onChange={setValue} suffix={mode === 'tonnes' ? 't' : 'brass'} />
       <Result
         items={[
-          { label: 'Tonnes', value: `≈ ${fmt.format(round(r.tonnes, 1))}` },
-          { label: 'Cubic metres', value: fmt.format(round(r.m3, 2)) },
-          { label: 'Cubic feet', value: fmt.format(Math.round(r.cft)) },
-          { label: 'Brass', value: fmt.format(round(r.brass, 2)) },
+          { label: t('Tonnes'), value: `≈ ${fmt.format(round(r.tonnes, 1))}` },
+          { label: t('Cubic metres'), value: fmt.format(round(r.m3, 2)) },
+          { label: t('Cubic feet'), value: fmt.format(Math.round(r.cft)) },
+          { label: t('Brass'), value: fmt.format(round(r.brass, 2)) },
         ]}
       />
       <p className="text-[13px] leading-relaxed text-stone-light">
-        1 brass = 100 cft = 2.83 m³ exactly. Weight assumes {material} at about {density} t/m³; moisture and grading change it, so
-        confirm the supplier&apos;s unit and how they measure (weighbridge or truck volume).
+        {t("1 brass = 100 cft = 2.83 m³ exactly. Weight assumes {material} at about {density} t/m³; moisture and grading change it, so confirm the supplier's unit and how they measure (weighbridge or truck volume).", { material: t(material), density })}
       </p>
     </div>
   );
@@ -84,11 +86,12 @@ function BulkHelper({ density, material }: { density: number; material: string }
 
 const TMT_SIZES = [8, 10, 12, 16, 20, 25, 32];
 function TmtHelper() {
+  const t = useT();
   const [dia, setDia] = useState(12);
   const [kg, setKg] = useState('1000');
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Bar diameter">
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('Bar diameter')}>
         {TMT_SIZES.map((d) => (
           <button
             key={d}
@@ -102,85 +105,88 @@ function TmtHelper() {
           </button>
         ))}
       </div>
-      <NumberField label="Steel needed" value={kg} onChange={setKg} suffix="kg" />
+      <NumberField label={tx('Steel needed')} value={kg} onChange={setKg} suffix="kg" />
       <Result
         items={[
-          { label: 'kg per metre', value: fmt.format(round(tmtKgPerMetre(dia), 3)) },
-          { label: 'kg per 12 m bar', value: fmt.format(round(tmtKgPerBar(dia), 2)) },
-          { label: '12 m bars', value: `≈ ${fmt.format(Math.ceil(tmtBarsForKg(num(kg), dia)))}` },
-          { label: 'Tonnes', value: fmt.format(round(num(kg) / 1000, 3)) },
+          { label: t('kg per metre'), value: fmt.format(round(tmtKgPerMetre(dia), 3)) },
+          { label: t('kg per 12 m bar'), value: fmt.format(round(tmtKgPerBar(dia), 2)) },
+          { label: t('12 m bars'), value: `≈ ${fmt.format(Math.ceil(tmtBarsForKg(num(kg), dia)))}` },
+          { label: t('Tonnes'), value: fmt.format(round(num(kg) / 1000, 3)) },
         ]}
       />
       <p className="text-[13px] leading-relaxed text-stone-light">
-        Theoretical weight D² ÷ 162 kg per metre (IS 1786 practice). Actual bars vary within the standard&apos;s tolerance, and
-        suppliers bill on weighed weight.
+        {t("Theoretical weight D² ÷ 162 kg per metre (IS 1786 practice). Actual bars vary within the standard's tolerance, and suppliers bill on weighed weight.")}
       </p>
     </div>
   );
 }
 
 function BagsHelper({ kgPerBag }: { kgPerBag: number }) {
+  const t = useT();
   const [bags, setBags] = useState('100');
   const n = Math.ceil(num(bags));
   return (
     <div className="flex flex-col gap-4">
-      <NumberField label="Bags" value={bags} onChange={setBags} suffix="bags" step="1" />
+      <NumberField label={tx('Bags')} value={bags} onChange={setBags} suffix="bags" step="1" />
       <Result
         items={[
-          { label: 'Bags', value: fmt.format(n) },
-          { label: 'Weight', value: `${fmt.format(n * kgPerBag)} kg` },
-          { label: 'Tonnes', value: fmt.format(round((n * kgPerBag) / 1000, 2)) },
-          { label: 'Bags per tonne', value: fmt.format(bagsForKg(1000, kgPerBag)) },
+          { label: t('Bags'), value: fmt.format(n) },
+          { label: t('Weight'), value: `${fmt.format(n * kgPerBag)} kg` },
+          { label: t('Tonnes'), value: fmt.format(round((n * kgPerBag) / 1000, 2)) },
+          { label: t('Bags per tonne'), value: fmt.format(bagsForKg(1000, kgPerBag)) },
         ]}
       />
       <p className="text-[13px] leading-relaxed text-stone-light">
-        Cement is sold in {kgPerBag} kg bags. Check the manufacturing week printed on the bag: fresher cement performs better.
+        {t('Cement is sold in {kg} kg bags. Check the manufacturing week printed on the bag: fresher cement performs better.', { kg: kgPerBag })}
       </p>
     </div>
   );
 }
 
 function CoilHelper({ metresPerCoil }: { metresPerCoil: number }) {
+  const t = useT();
   const [metres, setMetres] = useState('300');
   return (
     <div className="flex flex-col gap-4">
-      <NumberField label="Wire run needed" value={metres} onChange={setMetres} suffix="m" />
+      <NumberField label={tx('Wire run needed')} value={metres} onChange={setMetres} suffix="m" />
       <Result
         items={[
-          { label: 'Coils', value: fmt.format(coilsForMetres(num(metres), metresPerCoil)) },
-          { label: 'Per coil', value: `${metresPerCoil} m` },
-          { label: 'Total wire', value: `${fmt.format(coilsForMetres(num(metres), metresPerCoil) * metresPerCoil)} m` },
-          { label: 'Spare', value: `${fmt.format(coilsForMetres(num(metres), metresPerCoil) * metresPerCoil - num(metres))} m` },
+          { label: t('Coils'), value: fmt.format(coilsForMetres(num(metres), metresPerCoil)) },
+          { label: t('Per coil'), value: `${metresPerCoil} m` },
+          { label: t('Total wire'), value: `${fmt.format(coilsForMetres(num(metres), metresPerCoil) * metresPerCoil)} m` },
+          { label: t('Spare'), value: `${fmt.format(coilsForMetres(num(metres), metresPerCoil) * metresPerCoil - num(metres))} m` },
         ]}
       />
-      <p className="text-[13px] leading-relaxed text-stone-light">Buy each colour separately: phase, neutral and earth runs are counted on their own.</p>
+      <p className="text-[13px] leading-relaxed text-stone-light">{t('Buy each colour separately: phase, neutral and earth runs are counted on their own.')}</p>
     </div>
   );
 }
 
 function CountHelper({ per, perLabel }: { per: number; perLabel: string }) {
+  const t = useT();
   const [count, setCount] = useState('5000');
   return (
     <div className="flex flex-col gap-4">
-      <NumberField label="Number of pieces" value={count} onChange={setCount} suffix="nos" step="1" />
+      <NumberField label={tx('Number of pieces')} value={count} onChange={setCount} suffix="nos" step="1" />
       <Result
         items={[
-          { label: 'Pieces', value: fmt.format(Math.ceil(num(count))) },
-          { label: `Per ${perLabel}`, value: fmt.format(per) },
-          { label: `Lots of ${fmt.format(per)}`, value: fmt.format(round(num(count) / per, 2)) },
-          { label: 'Add 5% breakage', value: fmt.format(Math.ceil(num(count) * 1.05)) },
+          { label: t('Pieces'), value: fmt.format(Math.ceil(num(count))) },
+          { label: t('Per {unit}', { unit: t(perLabel) }), value: fmt.format(per) },
+          { label: t('Lots of {n}', { n: fmt.format(per) }), value: fmt.format(round(num(count) / per, 2)) },
+          { label: t('Add 5% breakage'), value: fmt.format(Math.ceil(num(count) * 1.05)) },
         ]}
       />
-      <p className="text-[13px] leading-relaxed text-stone-light">Bricks are priced per 1,000. Many builders order a few percent extra for breakage in transport and cutting.</p>
+      <p className="text-[13px] leading-relaxed text-stone-light">{t('Bricks are priced per 1,000. Many builders order a few percent extra for breakage in transport and cutting.')}</p>
     </div>
   );
 }
 
 export function QuantityHelper({ calculator }: { calculator: Calculator }) {
+  const t = useT();
   return (
     <section className="rounded-3xl bg-ink p-5 text-sand sm:p-7">
-      <p className="eyebrow text-lime">Quantity helper</p>
-      <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight">How much to order</h2>
+      <p className="eyebrow text-lime">{t('Quantity helper')}</p>
+      <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight">{t('How much to order')}</h2>
       <div className="mt-5">
         {calculator.kind === 'bulk' && <BulkHelper density={calculator.densityTPerM3} material={calculator.material} />}
         {calculator.kind === 'tmt' && <TmtHelper />}

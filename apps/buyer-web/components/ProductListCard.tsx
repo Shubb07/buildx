@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { buyerDeliveryRange, deliveryTimeLabel, type ProductSummary } from '@sthiva/web-core';
 import { illustrationFor } from '@/lib/illustrations';
+import { pricePerSqFt } from '@/lib/sheet-area';
 
 type ProductExtras = {
   images?: { url: string; isPrimary?: boolean }[];
@@ -13,6 +14,8 @@ type ProductExtras = {
   distanceKm?: number | null;
   avgRating?: number;
   totalReviews?: number;
+  bulkPricing?: { minQty: number; price: number }[];
+  specifications?: Record<string, string>;
 };
 
 const rupees = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
@@ -32,6 +35,11 @@ export function ProductListCard({ product }: { product: ProductSummary }) {
   const rated = (extra.totalReviews ?? 0) > 0 && extra.avgRating !== undefined;
   const delivery = deliveryLabel(extra);
   const km = typeof extra.distanceKm === 'number' ? extra.distanceKm : null;
+  // Best bulk price (the tier with the lowest price), with every tier in the hover text
+  const tiers = [...(extra.bulkPricing ?? [])].sort((a, b) => a.minQty - b.minQty);
+  const best = tiers.length ? tiers.reduce((a, b) => (b.price < a.price ? b : a)) : null;
+  const tierText = tiers.map((t) => `${t.minQty}+ at ${rupees.format(t.price)}`).join(', ');
+  const perSqFt = pricePerSqFt(product.unit, product.basePrice, product.name, extra.specifications);
 
   return (
     <Link
@@ -82,6 +90,13 @@ export function ProductListCard({ product }: { product: ProductSummary }) {
               {rupees.format(product.basePrice)}
               <span className="ml-1 text-[14px] font-medium text-stone">/ {product.unit.toLowerCase()}</span>
             </p>
+            {perSqFt !== null && <p className="text-[13px] text-stone">{rupees.format(perSqFt)} per sq ft</p>}
+            {best && (
+              <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-[#E7F1FB] px-2.5 py-1 text-[12px] font-semibold text-cobalt" title={`Bulk prices: ${tierText}`}>
+                Bulk price {rupees.format(best.price)}
+                <span className="font-normal">({best.minQty}+)</span>
+              </p>
+            )}
             {delivery && (
               <p className="mt-1 flex items-center gap-1 text-[13px] text-stone">
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>

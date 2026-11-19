@@ -9,6 +9,7 @@ import { SiteFooter } from '@/components/layout/SiteFooter';
 import { useCategories } from '@/lib/categories';
 import { addToCart, useCart } from '@/lib/cart';
 import { rupees } from '@/lib/format';
+import { pricePerSqFt } from '@/lib/sheet-area';
 
 // Order by list: a carpenter, mason or contractor enters a whole job's material in one go, like
 // picking items in a laundry app. Pick a category, set a quantity on each item with - and +, switch
@@ -186,6 +187,7 @@ export default function OrderByListPage() {
                           <span className="font-semibold text-ink tabular-nums">{rupees.format(priceFor(row, Math.max(qty, 1)))}</span> per {unitWord(row.unit, 1)}
                           {tiers.length > 0 && ` · ${tiers[tiers.length - 1].minQty}+ at ${rupees.format(tiers[tiers.length - 1].price)}`}
                           {(row.minOrderQuantity ?? 1) > 1 && ` · min ${row.minOrderQuantity}`}
+                          {(() => { const sq = pricePerSqFt(row.unit, priceFor(row, Math.max(qty, 1)), row.name, (row as { specifications?: Record<string, string> }).specifications); return sq !== null ? ` · ${rupees.format(sq)}/sq ft` : ''; })()}
                         </p>
                       </div>
                     </div>

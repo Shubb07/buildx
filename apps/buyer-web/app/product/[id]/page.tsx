@@ -10,6 +10,7 @@ import { ProductGallery } from '@/components/ProductGallery';
 import { DeliveryCheck } from '@/components/catalog/DeliveryCheck';
 import { QuantityHelper } from '@/components/catalog/QuantityHelper';
 import { VariantPicker } from '@/components/catalog/VariantPicker';
+import { pricePerSqFt } from '@/lib/sheet-area';
 import { useProduct } from '@/lib/products';
 import { useProductReviews } from '@/lib/reviews';
 import { addToCart } from '@/lib/cart';
@@ -255,6 +256,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       </span>
                     )}
                   </div>
+                  {(() => {
+                    // Boards sold by the sheet: the trade compares price per square foot
+                    const sq = pricePerSqFt(data.unit, unitPrice, data.name, data.specifications);
+                    return sq !== null ? <p className="mt-1 text-[15px] text-sand/85"><span className="font-semibold tabular-nums">{rupees.format(sq)}</span> per sq ft</p> : null;
+                  })()}
                   <p className="mt-1 text-[13px] text-stone-light">Excluding GST and delivery, which are shown at checkout.</p>
                   {tiers.length > 0 && (
                     <div className="mt-4 border-t border-white/10 pt-4">

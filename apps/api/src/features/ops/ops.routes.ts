@@ -16,6 +16,7 @@ import { opsList, opsGet, opsCreate, opsUpdate, opsMerge } from '../catalog/cata
 import { opsDocuments, reviewDocument } from '../suppliers/documents';
 import { opsPayoutAccount, reviewPayoutAccount, payoutReviewSchema } from '../suppliers/payout-account';
 import { z } from 'zod';
+import { opsListWallets, opsGetWallet, opsAdjustWallet, adjustSchema } from '../wallet/wallet.controller';
 
 const documentReviewSchema = z.object({
   status: z.enum(['ACCEPTED', 'REJECTED']),
@@ -51,6 +52,11 @@ router.post('/orders/:id/cod', validate(opsCodSchema), recordCod);
 router.post('/orders/:id/notes', validate(opsNoteSchema), addNote);
 // Supplier allocation for orders still waiting for a supplier
 router.get('/orders/:id/supplier-options', supplierOptions);
+
+// Seller balances (features/wallet). Only an admin may add or take balance by hand.
+router.get('/wallets', opsListWallets);
+router.get('/wallets/:supplierId', opsGetWallet);
+router.post('/wallets/:supplierId/adjust', requireRole('ADMIN'), validate(adjustSchema), opsAdjustWallet);
 router.post('/orders/:id/offer', validate(opsOfferSchema), offerToSupplier);
 router.post('/orders/:id/next-supplier', validate(opsReasonSchema), nextSupplier);
 router.post('/orders/:id/deliver', validate(opsReasonSchema), markDelivered);

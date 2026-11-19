@@ -23,7 +23,7 @@ import { toPaise, paiseToRupees } from '../orders/pricing';
 type LeanOrder = IOrder & { _id: Types.ObjectId };
 
 const PAID_STATES = ['CAPTURED', 'PARTIAL'];
-const ORDER_FIELDS = 'orderNumber supplierId driverId deliveryMode deliveredAt total items deliveryCharge delivery paymentMethod paymentStatus codAmountCollected codCollectedBy codCollectedByRole supplierSettlementId driverSettlementId';
+const ORDER_FIELDS = 'orderNumber supplierId driverId deliveryMode deliveredAt total items deliveryCharge delivery paymentMethod paymentStatus codAmountCollected codCollectedBy codCollectedByRole supplierSettlementId driverSettlementId walletCommissionPaise';
 
 function modeOf(o: Pick<LeanOrder, 'deliveryMode' | 'driverId'>): 'PLATFORM' | 'SUPPLIER' {
   if (o.deliveryMode) return o.deliveryMode;
@@ -45,7 +45,9 @@ function cashHeldBy(o: LeanOrder, party: SettlementParty): number {
 export function orderAmounts(o: LeanOrder) {
   const mode = modeOf(o);
   const e = supplierEarnings({ ...o, deliveryMode: mode });
-  const supplier = { earned: toPaise(e.expectedPayout ?? 0), cashHeld: cashHeldBy(o, 'SUPPLIER') };
+  // Commission the seller already paid from their Sthiva balance (features/wallet) is not taken again:
+  // they earn the full line (plus the delivery charge when they delivered)
+  const supplier = { earned: toPaise(e.expectedPayout ?? 0) + (o.walletCommissionPaise ?? 0), cashHeld: cashHeldBy(o, 'SUPPLIER') };
   const driver = mode === 'PLATFORM' && o.driverId
     ? { earned: toPaise(e.driverPayout ?? 0), cashHeld: cashHeldBy(o, 'DRIVER') }
     : null;

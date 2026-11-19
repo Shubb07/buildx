@@ -21,7 +21,9 @@ export type ErrorCode =
   // Delivery pricing (features/delivery/delivery-pricing.ts)
   | 'DELIVERY_NOT_PRICED'
   // Seller verification (features/suppliers/verification.ts)
-  | 'GSTIN_TAKEN';
+  | 'GSTIN_TAKEN'
+  // Seller balance (features/wallet): not enough to cover an order's commission
+  | 'INSUFFICIENT_BALANCE';
 
 export class AppError extends Error {
   public readonly statusCode: number;

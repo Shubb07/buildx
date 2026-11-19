@@ -28,6 +28,7 @@ import { myGoLive, acceptAgreement, agreementSchema } from './go-live';
 import { quickAddList, quickAddSave, quickAddSchema } from './quick-add';
 import { sellerQuoteRoutes } from '../quotes/quote.routes';
 import { sellerProblemRoutes } from '../problems/problem.routes';
+import { getMyWallet, createTopUp, verifyTopUp, topUpSchema, topUpVerifySchema } from '../wallet/wallet.controller';
 
 // Strings are format-checked per item in the controller so each bad entry gets its own reason
 const addPincodesSchema = z.object({
@@ -163,6 +164,10 @@ router.post('/me/bulk', bulkUpload, uploadSheet);
 router.post('/me/weekly', validate(weeklyConfirmSchema), confirmWeekly);
 router.post('/me/documents', documentUpload, uploadDocument);
 // Where Sthiva sends this seller's money (features/suppliers/payout-account.ts); same upload rules as documents
+// Sthiva balance: commission is taken from it when an order is accepted (features/wallet)
+router.get('/me/wallet', getMyWallet);
+router.post('/me/wallet/topups', validate(topUpSchema), createTopUp);
+router.post('/me/wallet/topups/verify', validate(topUpVerifySchema), verifyTopUp);
 router.get('/me/payout-account', myPayoutAccount);
 router.put('/me/payout-account', documentUpload, savePayoutAccount);
 

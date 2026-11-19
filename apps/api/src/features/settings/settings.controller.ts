@@ -3,7 +3,23 @@ import { isValidObjectId, Types } from 'mongoose';
 import { ok } from '@sthiva/shared';
 import { Category } from '../../infrastructure/database/models/Category.model';
 import { VehicleType } from '../../infrastructure/database/models/VehicleType.model';
-import { PlatformSettings, getPlatformSettings } from '../../infrastructure/database/models/PlatformSettings.model';
+import { PlatformSettings, getPlatformSettings, type IPlatformSettings } from '../../infrastructure/database/models/PlatformSettings.model';
+import { razorpayReady } from '../../shared/services/razorpay';
+
+/** The general settings as ops sees them. paymentsReady: Razorpay keys are set on the server. */
+type General = Partial<Pick<IPlatformSettings, 'offerTimeoutMinutes' | 'driverSharePercent' | 'driverOfferTimeoutMinutes' | 'sellerWalletEnabled' | 'minTopUpRupees' | 'onlinePaymentsEnabled' | 'prepayDeliveryDiscountPercent'>>;
+function generalView(g: General | null | undefined) {
+  return {
+    offerTimeoutMinutes: g?.offerTimeoutMinutes ?? null,
+    driverSharePercent: g?.driverSharePercent ?? null,
+    driverOfferTimeoutMinutes: g?.driverOfferTimeoutMinutes ?? null,
+    sellerWalletEnabled: g?.sellerWalletEnabled ?? false,
+    minTopUpRupees: g?.minTopUpRupees ?? 1000,
+    onlinePaymentsEnabled: g?.onlinePaymentsEnabled ?? false,
+    prepayDeliveryDiscountPercent: g?.prepayDeliveryDiscountPercent ?? 25,
+    paymentsReady: razorpayReady(),
+  };
+}
 import { AppError } from '../../shared/errors/AppError';
 import { logger } from '../../shared/logger/logger';
 import { slugify } from '../catalog/catalog.service';
@@ -41,9 +57,7 @@ export async function getSettings(_req: Request, res: Response, next: NextFuncti
         supplierDeliveryPercent: c.commission?.supplierDeliveryPercent ?? null,
       })),
       vehicles,
-      offerTimeoutMinutes: general?.offerTimeoutMinutes ?? null,
-      driverSharePercent: general?.driverSharePercent ?? null,
-      driverOfferTimeoutMinutes: general?.driverOfferTimeoutMinutes ?? null,
+      ...generalView(general),
     }));
   } catch (err) { next(err); }
 }
@@ -124,13 +138,13 @@ export async function updateVehicle(req: Request, res: Response, next: NextFunct
 // PATCH /ops/settings/general
 export async function updateGeneral(req: Request, res: Response, next: NextFunction) {
   try {
-    const changes = req.body as { offerTimeoutMinutes?: number | null; driverSharePercent?: number | null; driverOfferTimeoutMinutes?: number | null };
+    const changes = req.body as Partial<Pick<IPlatformSettings, 'offerTimeoutMinutes' | 'driverSharePercent' | 'driverOfferTimeoutMinutes' | 'sellerWalletEnabled' | 'minTopUpRupees' | 'onlinePaymentsEnabled' | 'prepayDeliveryDiscountPercent'>>;
     const settings = await PlatformSettings.findOneAndUpdate(
       { key: 'default' },
       { $set: { ...changes, updatedBy: new Types.ObjectId(req.auth!.userId) } },
       { upsert: true, new: true, runValidators: true }
     ).lean();
     audit(req, 'general', changes);
-    res.json(ok({ offerTimeoutMinutes: settings!.offerTimeoutMinutes ?? null, driverSharePercent: settings!.driverSharePercent ?? null, driverOfferTimeoutMinutes: settings!.driverOfferTimeoutMinutes ?? null }));
+    res.json(ok(generalView(settings)));
   } catch (err) { next(err); }
 }

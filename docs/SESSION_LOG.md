@@ -15,7 +15,8 @@ Times are IST.
   bulk quotes, made to measure, returns per product), product page guidance, Report a problem (#129).
 - LANGUAGES LIVE (21 Nov, #131-#135): sthiva.com and seller.sthiva.com in Kannada, Hindi and English, chosen before
   sign-up (cookie sthiva_lang shared, User.preferredLanguage). Money and legal text stay English. CI runs both sites'
-  translation tests. Catalogue item names/descriptions and the ops site are still English.
+  translation tests. Catalogue descriptions/uses/notes/specs translated too (#137); product names, brands,
+  measurements and the ops site stay English.
 - Vercel: previews off; production skip rule diffs against VERCEL_GIT_PREVIOUS_SHA so missed builds catch up.
 - No real sellers or products yet. Seller agreement, refunds and returns pages need a lawyer/CA review before
   real sellers and buyers rely on them.
@@ -23,14 +24,15 @@ Times are IST.
   https://claude.ai/artifact/DdJ7uHqit36Xz5KLmFGDjN · Market study https://claude.ai/artifact/8cyNnKtSeu9BRhcEMb7MZt
 
 ## NEXT STEPS
-0. (Claude) Make sure all three websites are live on the latest main (Vercel redeploy if a build was rate limited;
-   untick "Use project's Ignore Build Step"). Then check the new pages on the live sites.
+0. DONE 21 Nov: all three sites live on latest main; languages and catalogue checked live in kn/hi.
 Waiting on the owner:
 1. Exact launch area in Chitradurga (unblocks area pages, launch PINs, PDFs).
 2. Sign the first real sellers on seller.sthiva.com; verify their documents in ops.
 3. Ops Settings: commission per category, answer times, driver share, vehicles; support phone.
 4. Lawyer/CA review of the seller agreement, refunds and returns pages.
-5. Cloudflare keep-alive cron (see 2026-11-07 notes), Vultr server, Vercel 2FA, new MongoDB credentials.
+5. Vultr server, new MongoDB credentials. (Keep-alive cron verified working 21 Nov: 284 runs/24 h, 0 errors.
+   Vercel 2FA already on.)
+6. Native-speaker review of Kannada and Hindi (seller site and material descriptions first).
 
 ## DOMAIN PLAN: sthiva.com (brand renamed BuildX -> Sthiva on 2026-11-05)
 BOUGHT 2026-11-05 on Cloudflare Registrar (account harishrs21082006, nameservers jillian/sean.ns.cloudflare.com).
@@ -730,3 +732,6 @@ Original plan:
 - 2026-11-21 IST: Languages part 5 (branch feat/languages-5): rest of the seller site (products list and pause, product form, quick add, stock, weekly check, quotes, problems, business setup, Excel sheet, verification documents, photo uploader). Done with scripts (autowrap.py: JSX text and placeholder/aria-label/title; passb.py: ternaries, error fallbacks, label maps, alt) then manual review; money (prices, bulk prices, Buyers pay, GST/HSN, payouts) kept English; Field/Choice/Step translate their own label/hint/error with tx() at call sites. 25 texts reused + 299 new. Seller 7 tests, build OK. FOUND: #132/#133 never reached the live shop (rate limited, then #134 build was skipped because ignoreCommand only diffed HEAD^). Fix: ignoreCommand diffs against VERCEL_GIT_PREVIOUS_SHA (last successful deploy) in all three vercel.json; this PR touches buyer-web/vercel.json so merging rebuilds the shop with parts 2-3.
 - 2026-11-21 IST: #135 merged; all three sites deployed (80f113d). Verified live with curl: kn/hi cookies give lang=kn-IN/hi-IN and translated text on sthiva.com cart/category and seller sign-in; first-visit sign-in shows Choose your language. NEXT: owner to pick: catalogue content translation, native-speaker review, or other plan items; area pages still wait on the exact Chitradurga area.
 - 2026-11-21 IST: Owner chose catalogue translation next. Branch feat/catalogue-languages: 411 catalogue texts (115 material descriptions, 229 uses, notes, spec labels, wordy spec values, selling notes) in Kannada and Hindi in buyer-web lib/i18n; material page, product page and MaterialCard translate them. Product names, brands and pure measurements stay English. New test fails if a future catalogue text lacks kn/hi. Shop 33 tests, build OK. NEXT: PR, merge, verify live material page in kn/hi.
+- 2026-11-21 IST: #137 merged and live (OPC 53 page shows kn/hi description and uses). Checked Cloudflare worker sthiva-api-keepalive: 5-min cron present, 284 invocations in 24 h, all 2xx to api.sthiva.com; API /health 0.25-0.45 s. NEXT STEPS refreshed: remaining items need the owner.
+- 2026-11-21 IST: Owner decided: Razorpay. (a) Sellers keep a prepaid Sthiva balance, topped up through Razorpay; commission is taken from it when they accept an order; too little balance = can't accept, shown how much to top up. (b) Buyers who pay online get a delivery discount. Owner choices: 25% off delivery for prepaid (Sthiva pays it; driver/seller shares on the full charge), Sthiva pays the Razorpay fee on top-ups, commission taken on accept and returned on buyer/ops cancel (seller cancel keeps it), minimum top-up Rs 1,000. Plan: part 1 API wallet (this branch feat/seller-wallet), part 2 seller site balance page + accept screen, part 3 buyer online payment + discount + refunds, part 4 ops screens. Both switches stay OFF (ops settings) until the owner's Razorpay account is live. Closed docs PR #138; its notes are in this branch.
+- 2026-11-21 IST: Part 1 done: WalletEntry ledger (unique key per money movement), WalletTopUp, SupplierProfile.walletBalancePaise, Order.walletCommissionPaise/deliveryDiscount, shared/services/razorpay.ts (REST, no SDK; checkout + webhook signatures; capture if only authorized), features/wallet (accept in one transaction with the charge; self-delivery difference returned on dispatch/delivery; cancel return inside the cancel transaction), settlements add walletCommissionPaise back to supplier earned, ops /ops/wallets (+ admin adjust), settings sellerWalletEnabled/minTopUpRupees/onlinePaymentsEnabled/prepayDeliveryDiscountPercent. 14 new tests; API 502 tests pass.

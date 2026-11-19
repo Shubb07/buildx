@@ -24,7 +24,7 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().default(''),
   CLOUDINARY_API_SECRET: z.string().default(''),
 
-  // Razorpay — required in production, optional for local dev
+  // Razorpay (shared/services/razorpay.ts): optional. Without keys, top-ups and online payment say "not set up yet"
   RAZORPAY_KEY_ID: z.string().default(''),
   RAZORPAY_KEY_SECRET: z.string().default(''),
   RAZORPAY_WEBHOOK_SECRET: z.string().default(''),
@@ -80,4 +80,4 @@ if (parsed.data.NODE_ENV === 'production') {
 }
 
 export const env = parsed.data;
-export type Env = typeof env;
+export type Env = typeof env;

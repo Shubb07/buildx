@@ -39,6 +39,11 @@ export const generalSettingsSchema = z
     // Share of the delivery charge a Sthiva driver earns
     driverSharePercent: percent,
     driverOfferTimeoutMinutes: z.number().int().min(1).max(1440).nullable(),
+    // Seller balance and online payment (features/wallet, features/payments)
+    sellerWalletEnabled: z.boolean(),
+    minTopUpRupees: z.number().int().min(1).max(1_00_000),
+    onlinePaymentsEnabled: z.boolean(),
+    prepayDeliveryDiscountPercent: z.number().finite().min(0).max(100).multipleOf(0.01, 'Use at most 2 decimals'),
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, 'Nothing to change');

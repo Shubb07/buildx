@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomInt } from 'crypto';
+import { returnSelfDeliveryDifferenceInBackground, returnCommissionOnCancel } from '../wallet/wallet.service';
 import { deliveryWindow } from './delivery-window';
 import mongoose, { ClientSession, Types } from 'mongoose';
 import { Product, IProduct } from '../../infrastructure/database/models/Product.model';
@@ -646,6 +647,8 @@ export async function transitionOrder(params: {
   if (order) {
     // Goods have left the supplier: the GST invoice is issued now (once; never blocks the delivery)
     if ((DISPATCHED as readonly string[]).includes(to)) issueInvoiceInBackground(order._id);
+    // Seller delivers with their own vehicle: the lower commission rate applies (features/wallet; once)
+    if (order.deliveryMode === 'SUPPLIER' && order.walletCommissionPaise !== undefined) returnSelfDeliveryDifferenceInBackground(order._id);
     return { order, changed: true };
   }
   return { order: await resolveFailedTransition(filter, to, mode), changed: false };
@@ -689,6 +692,8 @@ export async function cancelOrder(params: {
     ).lean<LeanOrder>();
     if (!before) return null;
     const order = (await Order.findById(before._id).session(session).lean<LeanOrder>())!;
+    // Commission taken from the seller's balance comes back unless the seller cancelled (features/wallet)
+    await returnCommissionOnCancel(order, actor, session);
 
     // NONE: the order was waiting for a supplier, so nobody holds stock for it
     if (restock && before.inventoryState !== 'NONE' && order.items.length > 0) {

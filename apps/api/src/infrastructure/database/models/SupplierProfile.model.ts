@@ -48,6 +48,9 @@ export interface ISupplierProfile extends Document {
     note?: string;
   }[];
   // Weekly availability check (features/suppliers/weekly.ts)
+  // Sthiva balance in paise (features/wallet): topped up through Razorpay, commission taken on accept.
+  // Changed only by wallet.service.ts, always together with a WalletEntry.
+  walletBalancePaise: number;
   // Where Sthiva sends this seller's money (features/suppliers/payout-account.ts). The full account
   // number or UPI ID is encrypted (shared/secret-box.ts); it and the proof file are never selected
   // unless asked for with "+payoutAccount.secret".
@@ -128,6 +131,7 @@ const supplierProfileSchema = new Schema<ISupplierProfile>(
       }],
       default: [],
     },
+    walletBalancePaise: { type: Number, default: 0, min: 0 },
     payoutAccount: {
       type: new Schema({
         method: { type: String, enum: ['BANK', 'UPI'], required: true },

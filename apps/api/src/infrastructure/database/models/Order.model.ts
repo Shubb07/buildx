@@ -114,7 +114,13 @@ export interface IOrder extends Document {
   paymentStatus: 'PENDING' | 'PARTIAL' | 'CAPTURED' | 'RELEASED' | 'REFUNDED';
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
-  paymentMethod?: 'UPI' | 'CARD' | 'COD';
+  paymentMethod?: 'UPI' | 'CARD' | 'COD' | 'ONLINE';
+  // Commission currently taken from the seller's Sthiva balance for this order, in paise (features/wallet).
+  // Absent on orders accepted while the balance rule was off: those settle commission the old way.
+  walletCommissionPaise?: number;
+  // Rupees taken off the delivery charge because the buyer paid online. Sthiva pays it: the driver's
+  // share and the seller's delivery money are worked out on the full deliveryCharge.
+  deliveryDiscount?: number;
   notes?: string;
   // Buyer asked for a GST invoice (optional): the seller bills this GSTIN so the buyer can claim input credit
   buyerGst?: { gstin: string; businessName: string };
@@ -271,7 +277,9 @@ const orderSchema = new Schema<IOrder>(
     },
     razorpayOrderId: String,
     razorpayPaymentId: String,
-    paymentMethod: { type: String, enum: ['UPI', 'CARD', 'COD'] },
+    paymentMethod: { type: String, enum: ['UPI', 'CARD', 'COD', 'ONLINE'] },
+    walletCommissionPaise: { type: Number, min: 0 },
+    deliveryDiscount: { type: Number, min: 0 },
     notes: String,
     buyerGst: { _id: false, gstin: { type: String, uppercase: true }, businessName: { type: String, trim: true, maxlength: 120 } },
     confirmedAt: Date,

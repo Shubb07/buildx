@@ -33,6 +33,7 @@ import { checkDeliveryDate, deliveryWindow } from './delivery-window';
 import { deliveryPoint, distanceKm } from '../delivery/delivery-pricing';
 import { orderable } from '../products/availability';
 import { slotDaysAhead, slotLabel, slotLeadDays } from './delivery-slots';
+import { walletEnabled, takeCommissionOnAccept } from '../wallet/wallet.service';
 
 type LeanOrder = IOrder & { _id: Types.ObjectId };
 type Outcome = 'REJECTED' | 'EXPIRED' | 'WITHDRAWN';
@@ -285,7 +286,7 @@ export async function acceptOffer(params: { orderId: string; supplierProfileId: 
     const problem = checkDeliveryDate(deliveryDate, now);
     if (problem) throw AppError.badRequest(problem);
   }
-  const order = await Order.findOneAndUpdate(
+  const confirm = (session: ClientSession | null) => Order.findOneAndUpdate(
     { _id: orderId, status: 'PENDING', ...offeredTo(supplierProfileId) },
     {
       $set: {
@@ -295,8 +296,20 @@ export async function acceptOffer(params: { orderId: string; supplierProfileId: 
       $unset: { 'allocation.expiresAt': '' },
       $push: { statusHistory: { status: 'CONFIRMED', at: now, byRole: 'SUPPLIER', byUserId: new Types.ObjectId(userId) } },
     },
-    { new: true, arrayFilters: [{ 'open.supplierId': new Types.ObjectId(supplierProfileId), 'open.outcome': { $exists: false } }] }
+    { new: true, session, arrayFilters: [{ 'open.supplierId': new Types.ObjectId(supplierProfileId), 'open.outcome': { $exists: false } }] }
   ).lean<LeanOrder>();
+  // Seller balance on: the commission is taken in the same transaction, so a short balance
+  // (INSUFFICIENT_BALANCE) leaves the offer open and untouched (features/wallet)
+  const order = (await walletEnabled())
+    ? await inTransaction(async (session) => {
+        const confirmed = await confirm(session);
+        if (confirmed) {
+          await takeCommissionOnAccept(confirmed, userId, session);
+          confirmed.walletCommissionPaise = (await Order.findById(confirmed._id).select('walletCommissionPaise').session(session).lean())?.walletCommissionPaise;
+        }
+        return confirmed;
+      })
+    : await confirm(null);
   if (order) {
     notifyUser(order.buyerId.toString(), {
       title: 'Order confirmed',

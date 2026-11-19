@@ -54,14 +54,16 @@ export async function syncAuth(client: ApiClient): Promise<SyncedUser> {
 
 export async function onboardSupplier(
   client: ApiClient,
-  input: { name: string; businessName: string; whatsappNumber: string }
+  input: { name: string; businessName: string; whatsappNumber: string },
+  // The language chosen before creating the account (Kannada, Hindi or English)
+  preferredLanguage?: string
 ): Promise<SyncedUser> {
   return client.request('/auth/onboard', {
     method: 'POST',
     auth: true,
     envelope: true,
     schema: syncedUserSchema,
-    body: { ...input, role: 'SUPPLIER' },
+    body: { ...input, role: 'SUPPLIER', ...(preferredLanguage ? { preferredLanguage } : {}) },
   });
 }
 

@@ -74,12 +74,12 @@ const config: Config = {
         '3xl': '2rem',
       },
       fontFamily: {
-        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
-        headline: ['var(--font-display)', 'system-ui', 'sans-serif'],
-        body: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-        label: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-        serif: ['var(--font-serif)', 'Georgia', 'serif'],
+        display: ['var(--font-display)', 'var(--font-kn)', 'var(--font-hi)', 'system-ui', 'sans-serif'],
+        headline: ['var(--font-display)', 'var(--font-kn)', 'var(--font-hi)', 'system-ui', 'sans-serif'],
+        body: ['var(--font-sans)', 'var(--font-kn)', 'var(--font-hi)', 'system-ui', 'sans-serif'],
+        label: ['var(--font-sans)', 'var(--font-kn)', 'var(--font-hi)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-sans)', 'var(--font-kn)', 'var(--font-hi)', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-serif)', 'var(--font-kn)', 'var(--font-hi)', 'Georgia', 'serif'],
         mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
       letterSpacing: {

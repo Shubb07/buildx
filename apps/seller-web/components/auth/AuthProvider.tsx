@@ -11,7 +11,7 @@ import {
   signOut as firebaseSignOut,
   type ConfirmationResult,
 } from 'firebase/auth';
-import { ApiClientError, useApiClient } from '@sthiva/web-core';
+import { ApiClientError, useApiClient, tx, useI18n } from '@sthiva/web-core';
 import { getFirebaseAuth } from '../../lib/firebase';
 import { syncAuth, onboardSupplier, type SyncedUser } from '../../lib/auth';
 
@@ -54,33 +54,34 @@ function describeAuthError(err: unknown): string {
   const code = (err as { code?: string } | null)?.code;
   switch (code) {
     case 'auth/invalid-phone-number':
-      return 'Enter a valid 10-digit mobile number.';
+      return tx('Enter a valid 10-digit mobile number.');
     case 'auth/too-many-requests':
-      return 'Too many attempts. Try again in a few minutes.';
+      return tx('Too many attempts. Try again in a few minutes.');
     case 'auth/invalid-verification-code':
-      return 'That code is incorrect. Check the SMS and try again.';
+      return tx('That code is incorrect. Check the SMS and try again.');
     case 'app/send-timeout':
-      return 'Sending the code took too long. Check your connection and try again.';
+      return tx('Sending the code took too long. Check your connection and try again.');
     case 'auth/operation-not-allowed':
     case 'auth/unauthorized-domain':
-      return 'Google sign-in is not available on this site yet. Please try again later.';
+      return tx('Google sign-in is not available on this site yet. Please try again later.');
     case 'auth/network-request-failed':
-      return 'No internet connection. Check your connection and try again.';
+      return tx('No internet connection. Check your connection and try again.');
     case 'auth/account-exists-with-different-credential':
-      return 'This email is already used with another sign-in method. Contact Sthiva support.';
+      return tx('This email is already used with another sign-in method. Contact Sthiva support.');
     case 'auth/code-expired':
-      return 'That code expired. Request a new one.';
+      return tx('That code expired. Request a new one.');
     // Project-side SMS problems (Firebase billing off, daily SMS quota used up): not the user's fault
     case 'auth/billing-not-enabled':
     case 'auth/quota-exceeded':
-      return 'We cannot send codes right now. Please try again later.';
+      return tx('We cannot send codes right now. Please try again later.');
     default:
-      return 'Something went wrong. Please try again.';
+      return tx('Something went wrong. Please try again.');
   }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const client = useApiClient();
+  const { lang } = useI18n();
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<SyncedUser | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       auth = getFirebaseAuth();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Firebase is not configured');
+      setError(err instanceof Error ? err.message : tx('Firebase is not configured'));
       setStatus('config-error');
       return;
     }
@@ -114,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         // 401/403/409 carry a message meant for the user (suspended, already linked); otherwise it was the network
         const known = err instanceof ApiClientError && (err.status === 401 || err.status === 403 || err.status === 409);
-        setError(known ? err.message : 'Could not reach Sthiva. Check your connection and try again.');
+        setError(known ? err.message : tx('Could not reach Sthiva. Check your connection and try again.'));
         if (known) await firebaseSignOut(getFirebaseAuth()).catch(() => undefined);
         setStatus('signed-out');
       }
@@ -173,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const confirmOtp = useCallback(async (code: string) => {
     if (!confirmationRef.current) {
-      setError('Request a new code and try again.');
+      setError(tx('Request a new code and try again.'));
       return;
     }
     setError(null);
@@ -189,14 +190,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (input: { name: string; businessName: string; whatsappNumber: string }) => {
       setError(null);
       try {
-        const synced = await onboardSupplier(client, input);
+        const synced = await onboardSupplier(client, input, lang);
         setUser(synced);
         setStatus('signed-in');
       } catch {
-        setError('Could not complete onboarding. Please try again.');
+        setError(tx('Could not complete onboarding. Please try again.'));
       }
     },
-    [client]
+    [client, lang]
   );
 
   const resetOtp = useCallback(() => {

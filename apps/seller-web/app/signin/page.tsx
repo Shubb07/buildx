@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/auth/AuthProvider';
 import { AuthShell } from '../../components/auth/AuthShell';
 import { OtpInput } from '../../components/auth/OtpInput';
+import { LanguageChooser } from '../../components/i18n/Language';
+import { tx, useI18n } from '@sthiva/web-core';
 
 const RESEND_SECONDS = 30;
 // SMS codes need Firebase's paid plan, so sellers sign in with Google. The phone form stays for the
@@ -38,10 +40,11 @@ export default function SignInPage() {
 
   useEffect(() => {
     if (resendIn <= 0) return;
-    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
   }, [resendIn]);
 
+  const { chosen, t } = useI18n();
   const validPhone = /^[6-9]\d{9}$/.test(phone);
 
   async function handleSendOtp(e?: React.FormEvent) {
@@ -68,11 +71,11 @@ export default function SignInPage() {
 
   if (status === 'otp-sent') {
     return (
-      <AuthShell step="Step 2 of 2" recaptcha>
-        <h1 className="font-display text-[clamp(2.25rem,5vw,3rem)] font-bold leading-[0.95] tracking-tightest">Enter the code</h1>
+      <AuthShell step={tx('Step 2 of 2')} recaptcha>
+        <h1 className="font-display text-[clamp(2.25rem,5vw,3rem)] font-bold leading-[0.95] tracking-tightest">{t('Enter the code')}</h1>
         <p className="mt-4 text-[16px] text-stone">
-          We sent a 6-digit code to <span className="font-mono text-ink">{phoneInFlight}</span>.{' '}
-          <button type="button" onClick={() => { resetOtp(); setCode(''); }} className="font-medium text-cobalt hover:underline">Change number</button>
+          {t('We sent a 6-digit code to')} <span className="font-mono text-ink">{phoneInFlight}</span>.{' '}
+          <button type="button" onClick={() => { resetOtp(); setCode(''); }} className="font-medium text-cobalt hover:underline">{t('Change number')}</button>
         </p>
         <form onSubmit={(e) => { e.preventDefault(); verify(code); }} className="mt-8 flex flex-col gap-5">
           <OtpInput
@@ -81,15 +84,15 @@ export default function SignInPage() {
             invalid={!!error}
             disabled={submitting}
           />
-          {error && <p role="alert" className="text-[14px] text-error">{error}</p>}
+          {error && <p role="alert" className="text-[14px] text-error">{t(error)}</p>}
           <button type="submit" disabled={submitting || code.length !== 6} className="btn-ink h-14 w-full text-[16px]">
-            {submitting ? 'Verifying' : 'Verify and continue'}
+            {submitting ? t('Verifying') : t('Verify and continue')}
           </button>
           <p className="text-center text-[14px] text-stone">
             {resendIn > 0 ? (
-              <>Resend code in <span className="font-mono text-ink">0:{String(resendIn).padStart(2, '0')}</span></>
+              <>{t('Resend code in')} <span className="font-mono text-ink">0:{String(resendIn).padStart(2, '0')}</span></>
             ) : (
-              <button type="button" onClick={() => handleSendOtp()} className="font-medium text-cobalt hover:underline">Resend code</button>
+              <button type="button" onClick={() => handleSendOtp()} className="font-medium text-cobalt hover:underline">{t('Resend code')}</button>
             )}
           </p>
         </form>
@@ -100,10 +103,19 @@ export default function SignInPage() {
   // While Firebase finishes signing in and Sthiva loads the account, keep the button busy
   const signingIn = googleBusy || status === 'loading';
 
+  // Sellers choose their language before creating an account (owner decision 2026-11-20)
+  if (!chosen) {
+    return (
+      <AuthShell step={tx('Step 1 of 2')}>
+        <LanguageChooser />
+      </AuthShell>
+    );
+  }
+
   return (
-    <AuthShell step="Sign in" recaptcha={PHONE_SIGNIN}>
-      <h1 className="font-display text-[clamp(2.25rem,5vw,3rem)] font-bold leading-[0.95] tracking-tightest">Supplier sign in</h1>
-      <p className="mt-4 text-[16px] text-stone">Sign in with your Google account. New suppliers create an account the same way, it takes a few seconds and costs nothing.</p>
+    <AuthShell step={tx('Sign in')} recaptcha={PHONE_SIGNIN}>
+      <h1 className="font-display text-[clamp(2.25rem,5vw,3rem)] font-bold leading-[0.95] tracking-tightest">{t('Supplier sign in')}</h1>
+      <p className="mt-4 text-[16px] text-stone">{t('Sign in with your Google account. New suppliers create an account the same way, it takes a few seconds and costs nothing.')}</p>
       <div className="mt-8 flex flex-col gap-5">
         <button
           type="button"
@@ -112,19 +124,19 @@ export default function SignInPage() {
           className="flex h-14 w-full items-center justify-center gap-3 rounded-xl border border-sand-4 bg-white text-[16px] font-semibold text-ink transition-[border-color,box-shadow] hover:border-ink focus-visible:shadow-[0_0_0_4px_rgba(243,184,6,0.55)] focus-visible:outline-none disabled:opacity-60"
         >
           <GoogleMark />
-          {signingIn ? 'Signing in' : 'Continue with Google'}
+          {signingIn ? t('Signing in') : t('Continue with Google')}
         </button>
-        {error && <p role="alert" className="text-[14px] text-error">{error}</p>}
-        <p className="text-[13px] text-stone">We only use your name and email to set up your seller account. You add your WhatsApp number in the next step for order updates.</p>
+        {error && <p role="alert" className="text-[14px] text-error">{t(error)}</p>}
+        <p className="text-[13px] text-stone">{t('We only use your name and email to set up your seller account. You add your WhatsApp number in the next step for order updates.')}</p>
       </div>
       {PHONE_SIGNIN && (
         <>
           <div className="my-8 flex items-center gap-3 text-[13px] text-stone">
-            <span className="h-px flex-1 bg-sand-4" />or use your mobile number<span className="h-px flex-1 bg-sand-4" />
+            <span className="h-px flex-1 bg-sand-4" />{t('or use your mobile number')}<span className="h-px flex-1 bg-sand-4" />
           </div>
           <form onSubmit={handleSendOtp} className="flex flex-col gap-5">
             <label className="flex flex-col gap-2">
-              <span className="text-[14px] font-semibold">Mobile number</span>
+              <span className="text-[14px] font-semibold">{t('Mobile number')}</span>
               <span className="flex items-center gap-3 rounded-xl border border-sand-4 bg-sand-2 pl-4 transition-[border-color,box-shadow] focus-within:border-ink focus-within:shadow-[0_0_0_4px_rgba(243,184,6,0.55)]">
                 <span className="flex items-center gap-2 border-r border-sand-4 pr-3 font-mono text-[15px]">
                   <span className="rounded bg-ink px-1.5 py-0.5 text-[10px] font-semibold text-lime">IN</span>+91
@@ -141,10 +153,10 @@ export default function SignInPage() {
                   className="h-14 w-full bg-transparent pr-4 font-mono text-[18px] tracking-wide outline-none"
                 />
               </span>
-              <span className="text-[13px] text-stone">Indian mobile numbers starting with 6, 7, 8 or 9.</span>
+              <span className="text-[13px] text-stone">{t('Indian mobile numbers starting with 6, 7, 8 or 9.')}</span>
             </label>
             <button type="submit" disabled={submitting || !validPhone} className="btn-ink h-14 w-full text-[16px]">
-              {submitting ? 'Sending code' : 'Send code'}
+              {submitting ? t('Sending code') : t('Send code')}
               {!submitting && <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_forward</span>}
             </button>
           </form>

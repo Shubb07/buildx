@@ -80,7 +80,7 @@ jobs:
         run: npm test --workspace=packages/web-core
 
   typecheck-web-apps:
-    name: Web Apps Type Check (buyer-web, seller-web)
+    name: Web Apps Type Check and Tests (buyer-web, seller-web)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -97,6 +97,13 @@ jobs:
 
       - name: Type check seller-web
         run: npm run typecheck --workspace=apps/seller-web
+
+      # Includes the translation check: every text on the sites has Kannada and Hindi
+      - name: Test buyer-web
+        run: npm test --workspace=apps/buyer-web
+
+      - name: Test seller-web
+        run: npm test --workspace=apps/seller-web
 
   test-api:
     name: API Tests

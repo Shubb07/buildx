@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useApiClient } from '@sthiva/web-core';
+import { useApiClient, useT } from '@sthiva/web-core';
 import { fetchSupplierOrders, type SupplierOrder } from '../lib/orders';
 
 // New orders must not go unseen: an offer that is not answered in time moves to another supplier.
@@ -47,6 +47,7 @@ const isLiveOffer = (o: SupplierOrder) =>
 
 export function NewOrderWatcher() {
   const client = useApiClient();
+  const t = useT();
   const [offers, setOffers] = useState<SupplierOrder[]>([]);
   const [soundOn, setSoundOn] = useState(true);
   const [audioReady, setAudioReady] = useState(false);
@@ -91,7 +92,7 @@ export function NewOrderWatcher() {
           if (fresh.length) {
             play();
             if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-              new Notification('New Sthiva order', { body: `${fresh.length === 1 ? 'An order is' : `${fresh.length} orders are`} waiting for your answer.`, tag: 'sthiva-offer' });
+              new Notification(t('New Sthiva order'), { body: fresh.length === 1 ? t('An order is waiting for your answer.') : t('{n} orders are waiting for your answer.', { n: fresh.length }), tag: 'sthiva-offer' });
             }
           }
         })
@@ -100,7 +101,7 @@ export function NewOrderWatcher() {
     check();
     const id = setInterval(check, EVERY_MS);
     return () => { live = false; clearInterval(id); };
-  }, [client, play]);
+  }, [client, play, t]);
 
   // Keep ringing while anything waits; refresh the minutes shown
   useEffect(() => {
@@ -127,18 +128,18 @@ export function NewOrderWatcher() {
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
         <span className="material-symbols-outlined text-[24px]" aria-hidden="true">notifications_active</span>
         <p className="text-[15px] font-semibold">
-          {offers.length === 1 ? '1 new order is waiting' : `${offers.length} new orders are waiting`}
-          {minutes !== null && <span className="font-normal"> · answer within {minutes} min or it goes to another seller</span>}
+          {offers.length === 1 ? t('1 new order is waiting') : t('{n} new orders are waiting', { n: offers.length })}
+          {minutes !== null && <span className="font-normal"> · {t('answer within {m} min or it goes to another seller', { m: minutes })}</span>}
         </p>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {soundOn && !audioReady && <span className="text-[13px]">Tap anywhere to allow the ring</span>}
+          {soundOn && !audioReady && <span className="text-[13px]">{t('Tap anywhere to allow the ring')}</span>}
           <button type="button" onClick={toggleSound} aria-pressed={soundOn} className="rounded-full border border-ink px-3 py-1.5 text-[13px] font-medium">
-            {soundOn ? 'Sound on' : 'Sound off'}
+            {soundOn ? t('Sound on') : t('Sound off')}
           </button>
           {'Notification' in globalThis && typeof Notification !== 'undefined' && Notification.permission === 'default' && (
-            <button type="button" onClick={askNotifications} className="rounded-full border border-ink px-3 py-1.5 text-[13px] font-medium">Alert me in other tabs</button>
+            <button type="button" onClick={askNotifications} className="rounded-full border border-ink px-3 py-1.5 text-[13px] font-medium">{t('Alert me in other tabs')}</button>
           )}
-          <Link href="/orders" className="rounded-full bg-ink px-4 py-1.5 text-[14px] font-semibold text-lime">Answer now</Link>
+          <Link href="/orders" className="rounded-full bg-ink px-4 py-1.5 text-[14px] font-semibold text-lime">{t('Answer now')}</Link>
         </div>
       </div>
     </div>

@@ -1,12 +1,13 @@
 'use client';
 
-import { formatDeliveryDate, istDate } from '@sthiva/web-core';
+import { formatDeliveryDate, istDate, useT } from '@sthiva/web-core';
 
 // The supplier commits to a delivery date: quick picks around their usual time, or any date in the
 // next six months. Dates are calendar days in India (YYYY-MM-DD).
 export function DeliveryDatePicker({
   value, onChange, expected,
 }: { value: string; onChange: (date: string) => void; expected?: { minDays: number; maxDays: number } }) {
+  const t = useT();
   const lo = expected?.minDays ?? 0;
   const hi = Math.max(lo, expected?.maxDays ?? lo);
   const span = hi - lo;
@@ -19,7 +20,7 @@ export function DeliveryDatePicker({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Delivery date">
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('Delivery date')}>
         {picks.map(({ d, date }) => (
           <button
             key={date}
@@ -31,13 +32,13 @@ export function DeliveryDatePicker({
               value === date ? 'border-ink bg-ink text-sand' : 'border-sand-4 bg-sand-2 hover:border-ink'
             }`}
           >
-            <span className="text-[14px] font-semibold">{d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : formatDeliveryDate(date)}</span>
+            <span className="text-[14px] font-semibold">{d === 0 ? t('Today') : d === 1 ? t('Tomorrow') : formatDeliveryDate(date)}</span>
             {d > 1 && <span className={`text-[12px] ${value === date ? 'text-sand/70' : 'text-stone'}`}>in {d} days</span>}
           </button>
         ))}
       </div>
       <label className="flex flex-wrap items-center gap-3 text-[14px]">
-        <span className="text-stone">Or pick a date</span>
+        <span className="text-stone">{t('Or pick a date')}</span>
         <input
           type="date"
           value={value}

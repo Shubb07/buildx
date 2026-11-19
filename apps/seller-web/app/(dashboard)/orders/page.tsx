@@ -12,6 +12,8 @@ import { productErrorText } from '../../../lib/products';
 import { Chip, ChipRow, EmptyState, ErrorNote, ORDER_STATUS, PageHead, Pager, Pill, rupees, shortDate, unitLabel } from '../../../components/ui';
 import { DeliveryDatePicker } from '../../../components/DeliveryDatePicker';
 import { OFFERS_CHANGED } from '../../../components/NewOrderWatcher';
+import Link from 'next/link';
+import { offerCheck, useWallet, walletChanged, type Wallet } from '../../../lib/wallet';
 
 // Tabs follow what the seller has to do next, not the raw status names.
 // Money stays in English (owner): prices, totals, earnings and commission, cash, GST invoice.
@@ -49,7 +51,7 @@ function timeLeft(t: (text: string, vars?: Vars) => string, iso?: string) {
   return m <= 0 ? t('Time is up') : m < 60 ? t('{m} min left to answer', { m }) : t('{h} h {m} min left to answer', { h: Math.floor(m / 60), m: m % 60 });
 }
 
-function OrderCard({ order, onDone }: { order: SupplierOrder; onDone: () => void }) {
+function OrderCard({ order, onDone, wallet }: { order: SupplierOrder; onDone: () => void; wallet: Wallet | null }) {
   const client = useApiClient();
   const t = useT();
   const [busy, setBusy] = useState(false);
@@ -73,6 +75,9 @@ function OrderCard({ order, onDone }: { order: SupplierOrder; onDone: () => void
   const canCancel = order.status === 'CONFIRMED' || canTakeOver;
   const isOffer = order.status === 'PENDING' && order.allocation?.state === 'OFFERED';
   const left = isOffer ? timeLeft(t, order.allocation?.expiresAt) : null;
+  // Seller balance on: the commission (Sthiva-driver rate) is taken from it when they accept
+  const balance = isOffer ? offerCheck(wallet, order.earnings?.commissionIfSthivaDelivers) : null;
+  const blocked = !!balance && !balance.enough;
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -80,6 +85,7 @@ function OrderCard({ order, onDone }: { order: SupplierOrder; onDone: () => void
     try {
       await fn();
       setConfirming(null);
+      walletChanged();
       onDone();
     } catch (err) {
       setError(productErrorText(err, t('Could not update the order. Try again.')));
@@ -192,10 +198,23 @@ function OrderCard({ order, onDone }: { order: SupplierOrder; onDone: () => void
                   <span>{t('The buyer booked a delivery slot:')} <span className="font-semibold">{slotText(order.deliverySlot, t)}</span>. {t('Accept only if you can deliver in that window.')}</span>
                 </p>
               )}
+              {balance && (
+                <div className={`rounded-lg px-3 py-2 text-[14px] ${blocked ? 'bg-error-container text-error' : 'bg-sand-3'}`}>
+                  {blocked ? (
+                    <p>
+                      <span className="font-semibold">Insufficient balance.</span> Commission {rupees.format(balance.commission)}, your balance {rupees.format(balance.balance)}.{' '}
+                      Top up at least {rupees.format(balance.shortBy)} to accept.{' '}
+                      <Link href={`/balance?need=${balance.shortBy}`} className="font-semibold underline">Top up now</Link>
+                    </p>
+                  ) : (
+                    <p>Commission {rupees.format(balance.commission)} will be taken from your Sthiva balance ({rupees.format(balance.balance)}) when you accept.</p>
+                  )}
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || blocked}
                   onClick={() => (order.deliverySlot ? run(() => acceptSupplierOrder(client, order._id, order.deliverySlot!.date)) : setConfirming('accept'))}
                   className="btn-lime"
                 >
@@ -385,6 +404,7 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState<Tab>(TABS[0]);
   const list = useSupplierOrders(page, tab.status, tab.cashPending);
+  const { wallet } = useWallet();
   const t = useT();
   // The new order banner (components/NewOrderWatcher.tsx) says when offers change: refresh in place
   const { refresh } = list;
@@ -418,7 +438,7 @@ export default function OrdersPage() {
             <EmptyState icon="receipt_long" title="Nothing here right now" body={tab.empty} />
           ) : (
             <div className="flex flex-col gap-4">
-              {list.orders.map((o) => <OrderCard key={o._id} order={o} onDone={list.reload} />)}
+              {list.orders.map((o) => <OrderCard key={o._id} order={o} onDone={list.reload} wallet={wallet} />)}
             </div>
           )}
           <Pager page={list.meta.page} totalPages={list.meta.totalPages} hasPrev={list.meta.hasPrev} hasNext={list.meta.hasNext} onPage={setPage} />

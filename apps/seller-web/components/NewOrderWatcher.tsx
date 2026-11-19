@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useApiClient, useT } from '@sthiva/web-core';
 import { fetchSupplierOrders, type SupplierOrder } from '../lib/orders';
+import { useWallet } from '../lib/wallet';
+import { rupees } from './ui';
 
 // New orders must not go unseen: an offer that is not answered in time moves to another supplier.
 // While the seller website is open (any page), this checks for new offers every 20 seconds and:
@@ -54,6 +56,7 @@ export function NewOrderWatcher() {
   const [, tick] = useState(0);
   const ctx = useRef<AudioContext | null>(null);
   const known = useRef<Set<string> | null>(null);
+  const { wallet } = useWallet();
 
   useEffect(() => setSoundOn(readSound()), []);
 
@@ -121,6 +124,10 @@ export function NewOrderWatcher() {
   const soonest = Math.min(...offers.map((o) => (o.allocation?.expiresAt ? Date.parse(o.allocation.expiresAt) : Infinity)));
   const minutes = Number.isFinite(soonest) ? Math.max(1, Math.round((soonest - Date.now()) / 60000)) : null;
   const toggleSound = () => { const next = !soundOn; setSoundOn(next); saveSound(next); };
+  // Seller balance on: what the waiting offers will take, and whether the balance covers the biggest one
+  const commissions = offers.map((o) => o.earnings?.commissionIfSthivaDelivers).filter((c): c is number => typeof c === 'number');
+  const biggest = commissions.length ? Math.max(...commissions) : null;
+  const shortBy = wallet?.enabled && biggest !== null ? Math.max(0, Math.round((biggest - wallet.balance) * 100) / 100) : 0;
   const askNotifications = () => { if ('Notification' in window) void Notification.requestPermission().then(() => tick((n) => n + 1)); };
 
   return (
@@ -130,6 +137,12 @@ export function NewOrderWatcher() {
         <p className="text-[15px] font-semibold">
           {offers.length === 1 ? t('1 new order is waiting') : t('{n} new orders are waiting', { n: offers.length })}
           {minutes !== null && <span className="font-normal"> · {t('answer within {m} min or it goes to another seller', { m: minutes })}</span>}
+          {wallet?.enabled && biggest !== null && (
+            <span className="block text-[14px] font-normal">
+              {offers.length === 1 ? <>Commission {rupees.format(biggest)}</> : <>Commission up to {rupees.format(biggest)} each</>} · your balance {rupees.format(wallet.balance)}
+              {shortBy > 0 && <> · <Link href={`/balance?need=${shortBy}`} className="font-semibold underline">Insufficient balance: top up {rupees.format(shortBy)}</Link></>}
+            </span>
+          )}
         </p>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {soundOn && !audioReady && <span className="text-[13px]">{t('Tap anywhere to allow the ring')}</span>}

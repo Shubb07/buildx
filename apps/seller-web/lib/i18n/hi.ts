@@ -830,4 +830,10 @@ export const hi: Dictionary = {
   "Valid until (if printed on it)": "कब तक मान्य (अगर छपा हो)",
   "Replace": "बदलें",
   "Upload": "अपलोड करें",
+
+  // ── Sthiva balance (money text stays English) ──
+  "Balance": "बैलेंस",
+  "Sthiva balance": "Sthiva बैलेंस",
+  "Nothing yet": "अभी कुछ नहीं",
+  "Top-ups and commission for your orders will show here.": "टॉप-अप और आपके ऑर्डर का कमीशन यहां दिखेगा।",
 };

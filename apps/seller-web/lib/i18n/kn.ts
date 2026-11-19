@@ -830,4 +830,10 @@ export const kn: Dictionary = {
   "Valid until (if printed on it)": "ಮಾನ್ಯತೆ ಅವಧಿ (ಮುದ್ರಿಸಿದ್ದರೆ)",
   "Replace": "ಬದಲಿಸಿ",
   "Upload": "ಅಪ್‌ಲೋಡ್ ಮಾಡಿ",
+
+  // ── Sthiva balance (money text stays English) ──
+  "Balance": "ಬ್ಯಾಲೆನ್ಸ್",
+  "Sthiva balance": "Sthiva ಬ್ಯಾಲೆನ್ಸ್",
+  "Nothing yet": "ಇನ್ನೂ ಏನೂ ಇಲ್ಲ",
+  "Top-ups and commission for your orders will show here.": "ಟಾಪ್-ಅಪ್ ಮತ್ತು ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳ ಕಮಿಷನ್ ಇಲ್ಲಿ ಕಾಣುತ್ತದೆ.",
 };

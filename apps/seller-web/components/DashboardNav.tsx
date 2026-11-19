@@ -15,6 +15,7 @@ const TABS = [
   { href: '/products', label: tx('Products'), icon: 'inventory_2' },
   { href: '/stock', label: tx('Stock'), icon: 'stacks' },
   { href: '/weekly', label: tx('Weekly check'), icon: 'event_available' },
+  { href: '/balance', label: tx('Balance'), icon: 'account_balance_wallet' },
   { href: '/payouts', label: tx('Payouts'), icon: 'payments' },
   { href: '/setup', label: tx('Business'), icon: 'storefront' },
 ] as const;

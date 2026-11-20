@@ -225,7 +225,7 @@ function VehicleRow({ v, canEdit, onSaved }: { v: Vehicle; canEdit: boolean; onS
 }
 
 function GeneralNumber({ field, value, canEdit, onSaved, unit, label, min, max, step, placeholder, invalid }: {
-  field: 'offerTimeoutMinutes' | 'driverSharePercent' | 'driverOfferTimeoutMinutes';
+  field: 'offerTimeoutMinutes' | 'driverSharePercent' | 'driverOfferTimeoutMinutes' | 'minTopUpRupees' | 'prepayDeliveryDiscountPercent';
   value: number | null | undefined; canEdit: boolean; onSaved: () => void;
   unit: string; label: string; min: number; max: number; step: number | string; placeholder: string; invalid: string;
 }) {
@@ -247,6 +247,48 @@ function GeneralNumber({ field, value, canEdit, onSaved, unit, label, min, max, 
       <span className="text-stone">{unit}</span>
       {canEdit && v !== show(value) && <button type="button" disabled={busy} onClick={save} className="btn-lime px-4">Save</button>}
       {error && <p className="w-full text-[13px] text-error">{error}</p>}
+    </div>
+  );
+}
+
+// On/off switch for a general setting; turning one on asks first, because it changes what sellers or buyers can do
+function GeneralSwitch({ field, on, canEdit, onSaved, label, confirmOn, disabledReason }: {
+  field: 'sellerWalletEnabled' | 'onlinePaymentsEnabled'; on: boolean; canEdit: boolean; onSaved: () => void;
+  label: string; confirmOn: string; disabledReason?: string;
+}) {
+  const client = useApiClient();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function set(next: boolean) {
+    setBusy(true); setError(null);
+    try { await settingsApi.setGeneral(client, { [field]: next }); setAsking(false); onSaved(); }
+    catch (err) { setError(errorText(err, 'Could not change it. Try again.')); }
+    finally { setBusy(false); }
+  }
+  const blocked = !on && !!disabledReason;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <Pill tone={on ? 'done' : 'wait'}>{on ? 'On' : 'Off'}</Pill>
+        <span className="text-[15px] font-medium">{label}</span>
+        {canEdit && !asking && (
+          <button type="button" disabled={busy || blocked} onClick={() => (on ? set(false) : setAsking(true))} className={on ? 'btn-ghost px-4' : 'btn-lime px-4'}>
+            {on ? 'Turn off' : 'Turn on'}
+          </button>
+        )}
+      </div>
+      {blocked && <p className="text-[13px] text-stone">{disabledReason}</p>}
+      {asking && (
+        <div role="dialog" aria-label={`Turn on: ${label}`} className="flex flex-col gap-2 rounded-xl bg-black/[0.03] p-4">
+          <p className="text-[14px]">{confirmOn}</p>
+          <div className="flex gap-2">
+            <button type="button" disabled={busy} onClick={() => set(true)} className="btn-lime px-4">Yes, turn on</button>
+            <button type="button" disabled={busy} onClick={() => setAsking(false)} className="btn-ghost px-4">Not now</button>
+          </div>
+        </div>
+      )}
+      {error && <p className="text-[13px] text-error">{error}</p>}
     </div>
   );
 }
@@ -323,6 +365,31 @@ export default function SettingsPage() {
           <Section title="Driver answer time" hint="How long a driver has to accept a delivery job before Sthiva offers it to the next driver. Leave empty to turn it off; then the job waits until the driver answers or the ops team assigns someone.">
             <GeneralNumber key={show(state.data.driverOfferTimeoutMinutes)} field="driverOfferTimeoutMinutes" value={state.data.driverOfferTimeoutMinutes} canEdit={canEdit} onSaved={reload}
               unit="minutes" label="Minutes a driver has to accept a job" min={1} max={1440} step={1} placeholder="Off" invalid="Use whole minutes from 1 to 1440." />
+          </Section>
+
+          <Section title="Payments (Razorpay)" hint="Seller balances and online payment by buyers. Both stay off until Sthiva's Razorpay account is live and its keys are set on the API server.">
+            <p className={`text-[14px] ${state.data.paymentsReady ? 'text-tertiary' : 'text-error'}`}>
+              {state.data.paymentsReady ? 'Razorpay keys are set on the server.' : 'Razorpay keys are not set on the server yet: sellers can’t top up and buyers can’t pay online.'}
+            </p>
+            <GeneralSwitch field="sellerWalletEnabled" on={!!state.data.sellerWalletEnabled} canEdit={canEdit} onSaved={reload}
+              label="Take commission from seller balances"
+              confirmOn="From now on a seller needs enough balance to accept an order, and the commission is taken when they accept. Sellers with too little balance can’t accept new orders until they top up. Tell sellers before turning this on."
+              disabledReason={state.data.paymentsReady ? undefined : 'Set the Razorpay keys first, so sellers can top up.'} />
+            <div className="flex flex-col gap-1">
+              <p className="text-[14px] font-medium">Smallest top-up</p>
+              <GeneralNumber key={`min-${state.data.minTopUpRupees}`} field="minTopUpRupees" value={state.data.minTopUpRupees ?? 1000} canEdit={canEdit} onSaved={reload}
+                unit="rupees" label="Smallest top-up a seller can make" min={1} max={100000} step={1} placeholder="1000" invalid="Use whole rupees from 1 to 1,00,000." />
+            </div>
+            <GeneralSwitch field="onlinePaymentsEnabled" on={!!state.data.onlinePaymentsEnabled} canEdit={canEdit} onSaved={reload}
+              label="Buyers can pay online at checkout"
+              confirmOn="Buyers will see “Pay online now and save” at checkout. Their payments come to Sthiva’s Razorpay account, and cancelled online orders are refunded automatically."
+              disabledReason={state.data.paymentsReady ? undefined : 'Set the Razorpay keys first.'} />
+            <div className="flex flex-col gap-1">
+              <p className="text-[14px] font-medium">Delivery saving for paying online</p>
+              <GeneralNumber key={`disc-${state.data.prepayDeliveryDiscountPercent}`} field="prepayDeliveryDiscountPercent" value={state.data.prepayDeliveryDiscountPercent ?? 25} canEdit={canEdit} onSaved={reload}
+                unit="% off delivery" label="Percent off the delivery charge when the buyer pays online" min={0} max={100} step="0.01" placeholder="25" invalid="Use a number from 0 to 100." />
+              <p className="text-[13px] text-stone">Sthiva pays this saving: drivers and sellers still get their share of the full delivery charge.</p>
+            </div>
           </Section>
 
           <Section title="Driver share of the delivery charge" hint="What a Sthiva delivery partner earns from each delivery charge; Sthiva keeps the rest. When a supplier delivers with their own vehicle, they get the whole delivery charge.">

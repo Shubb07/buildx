@@ -187,4 +187,25 @@ describe('pay online and save on delivery', () => {
     expect((await start()).status).toBe(409);
     expect(await OnlinePayment.countDocuments()).toBe(0);
   });
+
+  it('ops sees failed refunds; only an admin retries, and a good retry clears it', async () => {
+    await switchOn();
+    refundsFail = true;
+    const s = await start();
+    const c = await complete(pay(s.body.data.razorpayOrderId));
+    const id = c.body.data.orderId;
+    await request(app).post(api(`/orders/${id}/cancel`)).set(buyer.headers).send({ reason: 'Changed plans' });
+    await waitFor(async () => (await Order.findById(id).lean())!.refund?.status === 'FAILED');
+    const operator = await seedUser('operator', { role: 'OPERATOR' });
+    const admin = await seedUser('admin', { role: 'ADMIN' });
+    const list = await request(app).get(api('/ops/refunds')).set(operator.headers);
+    expect(list.body.data.orders).toEqual([expect.objectContaining({ orderId: id, amount: 4150, status: 'FAILED' })]);
+    expect((await request(app).post(api(`/ops/orders/${id}/refund-retry`)).set(operator.headers)).status).toBe(403);
+    refundsFail = false;
+    const retry = await request(app).post(api(`/ops/orders/${id}/refund-retry`)).set(admin.headers);
+    expect(retry.body.data).toMatchObject({ ok: true, refund: { status: 'DONE' } });
+    expect(refunds).toHaveLength(1);
+    expect((await request(app).get(api('/ops/refunds')).set(operator.headers)).body.data.orders).toEqual([]);
+    expect((await request(app).post(api(`/ops/orders/${id}/refund-retry`)).set(admin.headers)).status).toBe(409);
+  });
 });

@@ -234,7 +234,17 @@ export const settingsSchema = z.object({
   offerTimeoutMinutes: z.number().nullable(),
   driverSharePercent: z.number().nullable().optional(),
   driverOfferTimeoutMinutes: z.number().nullable().optional(),
+  // Payments (Razorpay). paymentsReady: the keys are set on the API server.
+  sellerWalletEnabled: z.boolean().optional(),
+  minTopUpRupees: z.number().optional(),
+  onlinePaymentsEnabled: z.boolean().optional(),
+  prepayDeliveryDiscountPercent: z.number().optional(),
+  paymentsReady: z.boolean().optional(),
 });
+export type GeneralSettings = Partial<{
+  offerTimeoutMinutes: number | null; driverSharePercent: number | null; driverOfferTimeoutMinutes: number | null;
+  sellerWalletEnabled: boolean; minTopUpRupees: number; onlinePaymentsEnabled: boolean; prepayDeliveryDiscountPercent: number;
+}>;
 export type PlatformSettings = z.infer<typeof settingsSchema>;
 export type VehicleInput = Omit<Vehicle, '_id'>;
 
@@ -248,7 +258,7 @@ export const settingsApi = {
     send(c, 'PATCH', `/ops/settings/categories/${id}`, body, z.unknown()),
   addVehicle: (c: ApiClient, body: VehicleInput) => send(c, 'POST', '/ops/settings/vehicles', body, vehicleSchema),
   updateVehicle: (c: ApiClient, id: string, body: Partial<Omit<VehicleInput, 'code'>>) => send(c, 'PATCH', `/ops/settings/vehicles/${id}`, body, vehicleSchema),
-  setGeneral: (c: ApiClient, body: { offerTimeoutMinutes?: number | null; driverSharePercent?: number | null; driverOfferTimeoutMinutes?: number | null }) =>
+  setGeneral: (c: ApiClient, body: GeneralSettings) =>
     send(c, 'PATCH', '/ops/settings/general', body, z.unknown()),
 };
 
@@ -408,3 +418,35 @@ export function ago(iso: string) {
   if (h < 48) return `${h} h ago`;
   return `${Math.floor(h / 24)} days ago`;
 }
+
+// Seller Sthiva balances (apps/api features/wallet) and online-payment refunds (features/payments)
+export const walletEntrySchema = z.object({
+  id: z.string(), type: z.enum(['TOPUP', 'COMMISSION', 'COMMISSION_RETURN', 'ADJUSTMENT']), amount: z.number(), balanceAfter: z.number(),
+  orderId: z.string().optional(), orderNumber: z.string().optional(), note: z.string().optional(), at: z.string(),
+});
+export type WalletEntry = z.infer<typeof walletEntrySchema>;
+export const walletSchema = z.object({
+  balance: z.number(), enabled: z.boolean(), canTopUp: z.boolean(), minTopUp: z.number(), maxTopUp: z.number(),
+  entries: z.array(walletEntrySchema), page: z.number(), limit: z.number(), total: z.number(),
+});
+export type SellerWallet = z.infer<typeof walletSchema>;
+const walletRowSchema = z.object({ supplierId: z.string(), businessName: z.string(), balance: z.number(), verificationStatus: z.string().optional() });
+export type WalletRow = z.infer<typeof walletRowSchema>;
+
+export const walletApi = {
+  list: (c: ApiClient) => get(c, '/ops/wallets', z.array(walletRowSchema)),
+  get: (c: ApiClient, supplierId: string, page = 1) => get(c, `/ops/wallets/${supplierId}?page=${page}`, walletSchema),
+  adjust: (c: ApiClient, supplierId: string, body: { amount: number; note: string }) => send(c, 'POST', `/ops/wallets/${supplierId}/adjust`, body, walletSchema),
+};
+
+const refundOrderSchema = z.object({
+  orderId: z.string(), orderNumber: z.string(), amount: z.number(), status: z.string().optional(), error: z.string().optional(),
+  at: z.string().optional(), razorpayPaymentId: z.string().optional(),
+});
+const refundCheckoutSchema = z.object({
+  razorpayOrderId: z.string(), razorpayPaymentId: z.string().optional(), amount: z.number(), reason: z.string().optional(), error: z.string().optional(), at: z.string(),
+});
+export const refundsApi = {
+  list: (c: ApiClient) => get(c, '/ops/refunds', z.object({ orders: z.array(refundOrderSchema), checkouts: z.array(refundCheckoutSchema) })),
+  retry: (c: ApiClient, orderId: string) => send(c, 'POST', `/ops/orders/${orderId}/refund-retry`, {}, z.object({ ok: z.boolean() }).passthrough()),
+};

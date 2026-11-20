@@ -17,6 +17,7 @@ import { opsDocuments, reviewDocument } from '../suppliers/documents';
 import { opsPayoutAccount, reviewPayoutAccount, payoutReviewSchema } from '../suppliers/payout-account';
 import { z } from 'zod';
 import { opsListWallets, opsGetWallet, opsAdjustWallet, adjustSchema } from '../wallet/wallet.controller';
+import { opsRefunds, opsRetryRefund } from '../payments/online.controller';
 
 const documentReviewSchema = z.object({
   status: z.enum(['ACCEPTED', 'REJECTED']),
@@ -57,6 +58,9 @@ router.get('/orders/:id/supplier-options', supplierOptions);
 router.get('/wallets', opsListWallets);
 router.get('/wallets/:supplierId', opsGetWallet);
 router.post('/wallets/:supplierId/adjust', requireRole('ADMIN'), validate(adjustSchema), opsAdjustWallet);
+// Refunds of online payments that failed (features/payments)
+router.get('/refunds', opsRefunds);
+router.post('/orders/:id/refund-retry', requireRole('ADMIN'), opsRetryRefund);
 router.post('/orders/:id/offer', validate(opsOfferSchema), offerToSupplier);
 router.post('/orders/:id/next-supplier', validate(opsReasonSchema), nextSupplier);
 router.post('/orders/:id/deliver', validate(opsReasonSchema), markDelivered);

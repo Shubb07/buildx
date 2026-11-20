@@ -14,6 +14,7 @@ const TABS = [
   { href: '/catalog', label: 'Catalog', icon: 'inventory_2' },
   { href: '/problems', label: 'Problems', icon: 'report' },
   { href: '/payouts', label: 'Payouts', icon: 'payments' },
+  { href: '/balances', label: 'Balances', icon: 'account_balance_wallet' },
   { href: '/insights', label: 'Insights', icon: 'monitoring' },
   { href: '/settings', label: 'Settings', icon: 'tune' },
 ] as const;

@@ -12,7 +12,7 @@ export default function RefundsPage() {
     <LegalPage
       path="/refunds"
       title="Cancellations and refunds"
-      intro="Because you pay cash on delivery, there is usually nothing to refund. Here is how cancellations and delivery problems are handled."
+      intro="You can pay cash on delivery or, where it is offered, pay online in advance. Here is how cancellations, refunds and delivery problems are handled."
     >
       <Section title="Cancelling an order">
         <ul>
@@ -21,16 +21,24 @@ export default function RefundsPage() {
             dispatches it. The cancel option disappears once cancellation is no longer possible.
           </li>
           <li>Cancelling a cash on delivery order costs nothing, since you have not paid.</li>
+          <li>
+            If you paid online, cancelling gives you the full amount you paid back to where it came from (your UPI, card or bank
+            account). The refund starts straight away and usually reaches you in 5 to 7 working days, depending on your bank.
+          </li>
+          <li>
+            If you paid online but your order could not be placed (for example the last stock sold out while you were paying), the
+            whole amount is refunded automatically in the same way.
+          </li>
           <li>A supplier may cancel an order if materials become unavailable. The updated status appears on your order.</li>
         </ul>
       </Section>
 
       <Section title="At delivery">
         <ul>
-          <li>Check quantity, brand, grade and condition before you pay.</li>
+          <li>Check quantity, brand, grade and condition before you pay, or before you accept the delivery if you paid online.</li>
           <li>
             If something is damaged, short or different from what you ordered, you may refuse that item, or the whole delivery, and
-            pay only for what you accept.
+            pay only for what you accept. If you paid online, report it on your order page and the refused part is refunded.
           </li>
         </ul>
       </Section>
@@ -56,8 +64,8 @@ export default function RefundsPage() {
 
       <Section title="Refunds">
         <p>
-          When a refund is approved, Sthiva pays it to your UPI ID or bank account within 3 working days. Refunds are paid as money,
-          not as store credit or coupons.
+          When a refund for a problem is approved, Sthiva pays it to your UPI ID or bank account within 3 working days, or back to
+          your online payment if you paid online. Refunds are paid as money, not as store credit or coupons.
         </p>
       </Section>
 

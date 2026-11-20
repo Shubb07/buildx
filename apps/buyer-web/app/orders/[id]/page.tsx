@@ -77,7 +77,18 @@ function OrderDetail({ id }: { id: string }) {
           <div className="sm:text-right">
             <p className="eyebrow text-stone-light">Total</p>
             <p className="mt-2 font-display text-4xl font-bold tabular-nums">{rupees.format(order.total)}</p>
-            <p className="mt-1 text-[13px] text-stone-light">Cash on delivery</p>
+            <p className="mt-1 text-[13px] text-stone-light">
+              {order.paymentMethod === 'ONLINE'
+                ? `Paid online${order.deliveryDiscount ? ` · saved ${rupees.format(order.deliveryDiscount)} on delivery` : ''}`
+                : 'Cash on delivery'}
+            </p>
+            {order.refund && (
+              <p className="mt-1 text-[13px] font-medium text-lime">
+                {order.refund.status === 'DONE'
+                  ? `Refund of ${rupees.format(order.refund.amount)} started. It usually reaches you in 5 to 7 working days.`
+                  : `Refund of ${rupees.format(order.refund.amount)} is being processed. Sthiva will make sure it reaches you.`}
+              </p>
+            )}
           </div>
         </div>
       </section>

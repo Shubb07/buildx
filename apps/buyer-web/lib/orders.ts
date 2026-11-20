@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ApiClient, PaginationMeta } from '@sthiva/web-core';
+import { loadRazorpayCheckout, openRazorpayCheckout, type ApiClient, type PaginationMeta } from '@sthiva/web-core';
 
 const quoteLineSchema = z.object({
   productId: z.string(),
@@ -30,6 +30,9 @@ export const quoteSchema = z.object({
     vehicle: z.string().optional(), weightKg: z.number().optional(), distanceKm: z.number().optional(), message: z.string().optional(),
   }).passthrough().optional(),
   total: z.number(),
+  // Pay online now and save on delivery (null: only cash on delivery). available false: delivery is
+  // confirmed later, so this order can only be paid on delivery.
+  payOnline: z.object({ discountPercent: z.number(), deliveryDiscount: z.number(), total: z.number(), available: z.boolean() }).nullable().optional(),
   // Usual delivery time of the listings (days after the supplier accepts)
   expectedDelivery: z.object({ minDays: z.number(), maxDays: z.number() }).optional(),
   // In process until confirmed: something is ordered from the company / made, or no supplier serves the PIN yet
@@ -105,6 +108,32 @@ export async function placeOrder(
   });
 }
 
+const payStartSchema = z.object({
+  keyId: z.string(), razorpayOrderId: z.string(), amount: z.number(), currency: z.string(), name: z.string(), description: z.string(),
+  total: z.number(), deliveryDiscount: z.number(), contact: z.string().optional(),
+});
+
+/**
+ * Pays online first, then the order is placed (apps/api features/payments/online.service.ts): the server
+ * prices the checkout, Razorpay Checkout takes the payment, the server confirms it with Razorpay and makes
+ * the order. If the order can't be made after paying, the server refunds it and the error says so.
+ * Rejects with PaymentClosed (from @sthiva/web-core) if the buyer closes the payment window.
+ */
+export async function payOnlineAndPlace(
+  client: ApiClient,
+  input: Parameters<typeof placeOrder>[1],
+  prefill: { name?: string; email?: string }
+): Promise<PlaceOrderResult> {
+  void loadRazorpayCheckout().catch(() => undefined); // start loading while the server prices the order
+  const order = await client.request('/orders/pay-online', { method: 'POST', auth: true, envelope: true, schema: payStartSchema, body: input });
+  const paid = await openRazorpayCheckout(order, { ...prefill, contact: order.contact });
+  return client.request('/orders/pay-online/complete', {
+    method: 'POST', auth: true, envelope: true,
+    schema: placeOrderResultSchema.partial({ subtotal: true, gstAmount: true }),
+    body: paid,
+  }) as Promise<PlaceOrderResult>;
+}
+
 const orderItemSchema = z.object({ name: z.string(), unit: z.string(), quantity: z.number(), lineTotal: z.number() }).passthrough();
 
 export const orderStatusSchema = z.enum([
@@ -142,6 +171,11 @@ export const orderSchema = z
     onOrder: z.boolean().optional(),
     outOfArea: z.boolean().optional(),
     buyerGst: z.object({ gstin: z.string(), businessName: z.string() }).optional(),
+    // How it is paid; ONLINE orders are paid already, with any delivery saving shown
+    paymentMethod: z.string().optional(),
+    paymentStatus: z.string().optional(),
+    deliveryDiscount: z.number().optional(),
+    refund: z.object({ status: z.enum(['PENDING', 'DONE', 'FAILED']), amount: z.number() }).passthrough().optional(),
     createdAt: z.string(),
   })
   .passthrough();

@@ -1,4 +1,6 @@
 import { createHash, randomBytes, randomInt } from 'crypto';
+import { refundCancelledOrderInBackground } from '../payments/refunds';
+import { razorpayReady } from '../../shared/services/razorpay';
 import { returnSelfDeliveryDifferenceInBackground, returnCommissionOnCancel } from '../wallet/wallet.service';
 import { deliveryWindow } from './delivery-window';
 import mongoose, { ClientSession, Types } from 'mongoose';
@@ -320,6 +322,25 @@ async function slotOptions(items: CartItemsInput, pincode?: string) {
   return { available: true as const, earliest: istDayPlus(lead), latest: istDayPlus(SLOT_MAX_DAYS_AHEAD), windows: SLOT_KEYS };
 }
 
+// ─── Paying online (features/payments) ───────────────────────────────────────
+
+/** Rupees off a delivery charge when the buyer pays online: percent of it, rounded half-up to the paisa. */
+export function prepayDiscountPaise(chargePaise: number, percent: number): number {
+  if (chargePaise <= 0 || percent <= 0) return 0;
+  const bp = BigInt(Math.round(Math.min(percent, 100) * 100));
+  return Number((2n * BigInt(chargePaise) * bp + 10000n) / 20000n);
+}
+
+/** The online-payment offer, or null when buyers can't pay online right now. */
+export async function onlineOffer(): Promise<{ discountPercent: number } | null> {
+  const settings = await getPlatformSettings();
+  if (!settings?.onlinePaymentsEnabled || !razorpayReady()) return null;
+  return { discountPercent: settings.prepayDeliveryDiscountPercent ?? 25 };
+}
+
+/** A payment Razorpay has confirmed; createOrder records it on every part. */
+export type OnlinePaymentInfo = { razorpayOrderId: string; razorpayPaymentId: string; paidPaise: number; discountPercent: number };
+
 // POST /orders/quote — same pricing as order creation, no writes
 export async function quoteOrder(items: CartItemsInput, deliveryPincode?: string, point?: { lat?: number; lng?: number }, slot?: DeliverySlot) {
   if (slot) {
@@ -343,6 +364,9 @@ export async function quoteOrder(items: CartItemsInput, deliveryPincode?: string
   const unpriced = views.find((v) => v.delivery.status === 'UNPRICED')?.delivery;
   const chargePaise = views.reduce((sum, v) => sum + deliveryPaise(v.delivery), 0);
   const goodsPaise = parts.reduce((sum, p) => sum + p.priced.totalPaise, 0);
+  // Pay online and save on delivery (owner decision 2026-11-21); per part, the same way createOrder does it
+  const offer = await onlineOffer();
+  const discountPaise = offer ? views.reduce((sum, v) => sum + prepayDiscountPaise(deliveryPaise(v.delivery), offer.discountPercent), 0) : 0;
   // Cart lines in the buyer's order, each priced by the part (seller) that covers it
   const lineFor = (idx: number) => {
     const part = parts.find((p) => p.lines.includes(idx))!;
@@ -370,6 +394,14 @@ export async function quoteOrder(items: CartItemsInput, deliveryPincode?: string
     // How delivery was priced: OFF (no vehicles set up), PRICED, or UNPRICED with a reason to show
     deliveryPricing: unpriced ?? (parts.length === 1 ? pricingView(views[0].delivery) : { status: views.some((v) => v.delivery.status === 'PRICED') ? 'PRICED' : 'OFF' }),
     total: paiseToRupees(goodsPaise + chargePaise),
+    // null: only cash on delivery. Otherwise what paying online now saves and costs.
+    payOnline: offer ? {
+      discountPercent: offer.discountPercent,
+      deliveryDiscount: paiseToRupees(discountPaise),
+      total: paiseToRupees(goodsPaise + chargePaise - discountPaise),
+      // Delivery not priced yet (out of area or no vehicles): the order can't be paid for in advance
+      available: !unpriced && !outOfArea,
+    } : null,
     // More than one seller is needed: one order per part, each delivered separately
     ...(parts.length > 1 ? {
       parts: views.map(({ part, delivery }, i) => ({
@@ -414,8 +446,10 @@ export async function createOrder(params: {
   buyerId: string;
   input: CreateOrderInput;
   idempotencyKey: string;
+  /** Paid online already (features/payments): totals must add up to exactly what was paid */
+  payment?: OnlinePaymentInfo;
 }): Promise<{ orders: LeanOrder[]; replayed: boolean }> {
-  const { buyerId, input, idempotencyKey } = params;
+  const { buyerId, input, idempotencyKey, payment } = params;
   const requestHash = hashRequest(input);
 
   const replay = await findReplay(buyerId, idempotencyKey, requestHash);
@@ -442,9 +476,14 @@ export async function createOrder(params: {
         const { outOfArea } = await coverage(part.supplierId, destination, session);
         const delivery = outOfArea && part.delivery.status === 'UNPRICED' ? { status: 'OFF' as const } : part.delivery;
         if (delivery.status === 'UNPRICED') throw new AppError(delivery.message, 'DELIVERY_NOT_PRICED', 409);
-        return { part, outOfArea, delivery, chargePaise: deliveryPaise(delivery) };
+        const chargePaise = deliveryPaise(delivery);
+        if (payment && outOfArea) throw AppError.conflict('This order needs Sthiva to find a seller first, so it can only be paid on delivery.');
+        return { part, outOfArea, delivery, chargePaise, discountPaise: payment ? prepayDiscountPaise(chargePaise, payment.discountPercent) : 0 };
       }));
-      const totalPaise = priced.reduce((sum, x) => sum + x.part.priced.totalPaise + x.chargePaise, 0);
+      const totalPaise = priced.reduce((sum, x) => sum + x.part.priced.totalPaise + x.chargePaise - x.discountPaise, 0);
+      if (payment && totalPaise !== payment.paidPaise) {
+        throw AppError.conflict('Prices changed after you paid.');
+      }
       if (input.expectedTotal !== undefined && toPaise(input.expectedTotal) !== totalPaise) {
         throw AppError.conflict('Prices changed since you reviewed your order. Please check the new total.');
       }
@@ -453,7 +492,7 @@ export async function createOrder(params: {
       const expiresAt = await offerExpiry(now);
       const groupId = parts.length > 1 ? `G-${generateOrderNumber()}` : null;
       const made: LeanOrder[] = [];
-      for (const [n, { part, outOfArea, delivery, chargePaise }] of priced.entries()) {
+      for (const [n, { part, outOfArea, delivery, chargePaise, discountPaise }] of priced.entries()) {
         const { supplierId, products, priced: partPriced, supplierPriced, rates } = part;
         // Out of area: no supplier holds stock yet; the one Sthiva finds takes it when offered
         for (const [i, p] of (outOfArea ? [] : products).entries()) {
@@ -504,13 +543,15 @@ export async function createOrder(params: {
               } : {}),
               subtotal: paiseToRupees(partPriced.subtotalPaise),
               gstAmount: paiseToRupees(partPriced.gstPaise),
-              total: paiseToRupees(partPriced.totalPaise + chargePaise),
+              total: paiseToRupees(partPriced.totalPaise + chargePaise - discountPaise),
+              ...(discountPaise > 0 ? { deliveryDiscount: paiseToRupees(discountPaise) } : {}),
               notes: input.notes,
               ...(input.buyerGst ? { buyerGst: input.buyerGst } : {}),
               // Split across sellers: every part knows its group (buyer sees them together)
               ...(groupId ? { orderGroup: { id: groupId, part: n + 1, parts: parts.length } } : {}),
-              paymentMethod: 'COD',
-              paymentStatus: 'PENDING',
+              ...(payment
+                ? { paymentMethod: 'ONLINE', paymentStatus: 'CAPTURED', razorpayOrderId: payment.razorpayOrderId, razorpayPaymentId: payment.razorpayPaymentId }
+                : { paymentMethod: 'COD', paymentStatus: 'PENDING' }),
               // Waits for the supplier to accept (allocation.service.ts)
               status: 'PENDING',
               allocation: outOfArea
@@ -710,7 +751,11 @@ export async function cancelOrder(params: {
     return order;
   });
 
-  if (cancelled) return { order: cancelled, changed: true };
+  if (cancelled) {
+    // Paid online: the buyer gets their money back (features/payments/refunds.ts; once, never blocks the cancel)
+    if (cancelled.paymentMethod === 'ONLINE' && cancelled.paymentStatus === 'CAPTURED') refundCancelledOrderInBackground(cancelled._id);
+    return { order: cancelled, changed: true };
+  }
   return { order: await resolveFailedTransition(filter, 'CANCELLED'), changed: false };
 }
 

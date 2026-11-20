@@ -19,12 +19,13 @@ export default function PrivacyPage() {
           <li><strong>Phone number</strong>, to sign you in with a one-time code and to contact you about orders.</li>
           <li><strong>Name</strong>, which you provide when you create your account.</li>
           <li><strong>Delivery addresses and PIN codes</strong>, to check which suppliers can serve your site and to deliver orders.</li>
-          <li><strong>Order details</strong>: products, quantities, prices, status history and payment method (cash on delivery).</li>
+          <li><strong>Order details</strong>: products, quantities, prices, status history and payment method (cash on delivery, or online). For online payments we keep the payment reference Razorpay gives us, not your card, UPI or bank details.</li>
           <li><strong>Reviews</strong> you choose to write about suppliers.</li>
           <li><strong>Technical data</strong> such as IP address and browser type, used for security, abuse prevention and fixing errors.</li>
         </ul>
         <p>
-          We do not collect card or bank details. We do not store your precise GPS position: if you use &ldquo;current
+          We do not collect card or bank details: if you pay online, you enter them on Razorpay&apos;s secure payment window, not
+          on Sthiva. We do not store your precise GPS position: if you use &ldquo;current
           location&rdquo;, it is used once to suggest a PIN code and then discarded.
         </p>
       </Section>
@@ -47,6 +48,10 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Google Firebase</strong> for phone sign-in, and <strong>Google reCAPTCHA</strong> to block automated abuse of sign-in.
+          </li>
+          <li>
+            <strong>Razorpay</strong>, if you pay online: the amount, your phone number and name to take the payment and to send any
+            refund back to you.
           </li>
           <li>
             <strong>Hosting and infrastructure providers</strong> that store and serve our app, database and product images (for

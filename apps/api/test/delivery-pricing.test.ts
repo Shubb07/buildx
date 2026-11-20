@@ -72,7 +72,7 @@ describe('delivery pricing', () => {
     expect(quote.body.data.deliveryPricing).toMatchObject({ status: 'PRICED', weightKg: 500, vehicle: 'Auto', distanceKm: km });
     expect(quote.body.data.deliveryCharge).toBe(Math.round((200 + 10 * km) * 100) / 100);
 
-    await PlatformSettings.create({ key: 'default', driverSharePercent: 80 });
+    await PlatformSettings.updateOne({ key: 'default' }, { $set: { driverSharePercent: 80 } }, { upsert: true });
     const res = await place(p._id.toString(), 10);
     expect(res.status).toBe(201);
     const o = (await Order.findById(res.body.data.orderId).lean())!;

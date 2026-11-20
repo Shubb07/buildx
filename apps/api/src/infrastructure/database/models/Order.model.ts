@@ -121,6 +121,8 @@ export interface IOrder extends Document {
   // Rupees taken off the delivery charge because the buyer paid online. Sthiva pays it: the driver's
   // share and the seller's delivery money are worked out on the full deliveryCharge.
   deliveryDiscount?: number;
+  // Money back to the buyer for a cancelled online order (features/payments/refunds.ts)
+  refund?: { status: 'PENDING' | 'DONE' | 'FAILED'; amount: number; at: Date; razorpayRefundId?: string; error?: string };
   notes?: string;
   // Buyer asked for a GST invoice (optional): the seller bills this GSTIN so the buyer can claim input credit
   buyerGst?: { gstin: string; businessName: string };
@@ -280,6 +282,14 @@ const orderSchema = new Schema<IOrder>(
     paymentMethod: { type: String, enum: ['UPI', 'CARD', 'COD', 'ONLINE'] },
     walletCommissionPaise: { type: Number, min: 0 },
     deliveryDiscount: { type: Number, min: 0 },
+    refund: {
+      _id: false,
+      status: { type: String, enum: ['PENDING', 'DONE', 'FAILED'] },
+      amount: Number,
+      at: Date,
+      razorpayRefundId: String,
+      error: String,
+    },
     notes: String,
     buyerGst: { _id: false, gstin: { type: String, uppercase: true }, businessName: { type: String, trim: true, maxlength: 120 } },
     confirmedAt: Date,

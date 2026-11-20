@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { buyerDeliveryPhrase, checkGstin, locationMessageT, tx, useApiClient, useLocationSelector, useSelectedLocation, useT } from '@sthiva/web-core';
+import { buyerDeliveryPhrase, checkGstin, locationMessageT, PaymentClosed, tx, useApiClient, useLocationSelector, useSelectedLocation, useT } from '@sthiva/web-core';
 import { deliveryPhraseT } from '@/lib/i18n/delivery';
 import { Header } from '@/components/Header';
 import { BottomNav } from '@/components/BottomNav';
@@ -11,7 +11,7 @@ import { RequireAuth } from '@/components/auth/RequireAuth';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { EmptyState, ErrorNote, PageHead, SummaryRow } from '@/components/account/AccountUI';
 import { useCart, clearCart } from '@/lib/cart';
-import { checkoutPrefill, forgetAddress, quoteCart, placeOrder, type Quote, type SavedAddress } from '@/lib/orders';
+import { checkoutPrefill, forgetAddress, quoteCart, placeOrder, payOnlineAndPlace, type Quote, type SavedAddress } from '@/lib/orders';
 import { rupees } from '@/lib/format';
 import { SlotPicker, slotText, type DeliverySlot, type SlotOptions } from '@/components/checkout/SlotPicker';
 
@@ -41,6 +41,22 @@ function Step({ n, title, open, done, summary, onEdit, children }: {
   );
 }
 
+function PayOption({ checked, onSelect, icon, title, body }: { checked: boolean; onSelect: () => void; icon: string; title: string; body: string }) {
+  return (
+    <button type="button" role="radio" aria-checked={checked} onClick={onSelect}
+      className={`flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-colors ${checked ? 'border-ink bg-sand' : 'border-sand-4 bg-sand-2 hover:border-ink/40'}`}>
+      <span className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ${checked ? 'bg-lime text-ink' : 'bg-sand-3 text-stone'}`}>
+        <span className="material-symbols-outlined" aria-hidden="true">{icon}</span>
+      </span>
+      <span className="flex flex-col">
+        <span className="font-semibold">{title}</span>
+        <span className="text-[14px] text-stone">{body}</span>
+      </span>
+      <span className={`material-symbols-outlined ml-auto text-[22px] ${checked ? 'text-ink' : 'text-sand-4'}`} aria-hidden="true">{checked ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
+    </button>
+  );
+}
+
 function CheckoutForm() {
   const client = useApiClient();
   const { user } = useAuth();
@@ -55,6 +71,8 @@ function CheckoutForm() {
   const [contactPhone, setContactPhone] = useState(user?.phone?.replace(/\D/g, '').slice(-10) ?? '');
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
+  // Pay online now (saves on delivery) or cash on delivery; online is picked when it is on offer
+  const [payWay, setPayWay] = useState<'ONLINE' | 'COD'>('ONLINE');
   // Optional GST invoice (business buyers claim input credit); prefilled from the last one used
   const [wantGst, setWantGst] = useState(false);
   const [gstin, setGstin] = useState('');
@@ -154,6 +172,13 @@ function CheckoutForm() {
   const canPlace =
     !placing && quote.status === 'success' && !notServiceable && quote.data.deliveryPricing?.status !== 'UNPRICED' && addressReady && gstReady;
 
+  const online = quote.status === 'success' && quote.data.payOnline?.available ? quote.data.payOnline : null;
+  const payingOnline = !!online && payWay === 'ONLINE';
+  const payable = quote.status === 'success' ? (payingOnline ? online!.total : quote.data.total) : null;
+  const buttonText = placing
+    ? (payingOnline ? 'Waiting for payment' : 'Placing order')
+    : payingOnline ? `Pay ${rupees.format(payable!)} and place order` : `Place order${payable !== null ? ` · ${rupees.format(payable)}` : ''}`;
+
   async function handlePlaceOrder(e: React.FormEvent) {
     e.preventDefault();
     // Enter in an earlier step's field must not place the order
@@ -161,22 +186,22 @@ function CheckoutForm() {
     setPlaceError(null);
     setPlacing(true);
     try {
-      const result = await placeOrder(
-        client,
-        {
-          items,
-          deliveryAddress: { label, fullAddress, pincode: location?.pincode, contactPhone },
-          expectedTotal: quote.data.total,
-          ...(wantGst ? { buyerGst: { gstin, businessName: gstName.trim() } } : {}),
-          ...(slot ? { deliverySlot: slot } : {}),
-        },
-        idempotencyKey
-      );
+      const input = {
+        items,
+        deliveryAddress: { label, fullAddress, pincode: location?.pincode, contactPhone },
+        expectedTotal: payable!,
+        ...(wantGst ? { buyerGst: { gstin, businessName: gstName.trim() } } : {}),
+        ...(slot ? { deliverySlot: slot } : {}),
+      };
+      const result = payingOnline
+        ? await payOnlineAndPlace(client, input, { name: user?.name })
+        : await placeOrder(client, input, idempotencyKey);
       clearCart();
       // Split across sellers: the orders list shows every part together
       router.push(result.orders && result.orders.length > 1 ? '/orders' : `/orders/${result.orderId}`);
     } catch (err) {
-      setPlaceError(err instanceof Error ? err.message : 'Could not place the order. Please try again.');
+      if (err instanceof PaymentClosed) setPlaceError('Payment not completed, so nothing was charged. You can try again or choose cash on delivery.');
+      else setPlaceError(err instanceof Error ? err.message : 'Could not place the order. Please try again.');
     } finally {
       setPlacing(false);
     }
@@ -411,19 +436,24 @@ function CheckoutForm() {
         </Step>
 
         <Step n={3} title="Pay and place order" open={step === 3} done={false} onEdit={() => setStep(3)}>
-          <div className="flex items-center gap-4 rounded-xl border-2 border-ink bg-sand p-4">
-            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-lime text-ink">
-              <span className="material-symbols-outlined" aria-hidden="true">payments</span>
-            </span>
-            <div>
-              <p className="font-semibold">Cash on delivery</p>
-              <p className="text-[14px] text-stone">Pay when the materials reach your site.</p>
-            </div>
+          {/* Money text stays in English (owner rule) */}
+          <div className="flex flex-col gap-3" role="radiogroup" aria-label="How you pay">
+            {online && (
+              <PayOption
+                checked={payWay === 'ONLINE'} onSelect={() => setPayWay('ONLINE')} icon="bolt"
+                title={online.deliveryDiscount > 0 ? `Pay online now and save ${rupees.format(online.deliveryDiscount)}` : 'Pay online now'}
+                body={`UPI, card or net banking through Razorpay.${online.deliveryDiscount > 0 ? ` ${online.discountPercent}% off delivery.` : ''} If the order is cancelled, the money comes back to you.`}
+              />
+            )}
+            <PayOption
+              checked={!payingOnline} onSelect={() => setPayWay('COD')} icon="payments"
+              title="Cash on delivery" body="Pay when the materials reach your site."
+            />
           </div>
           {/* Phones: the summary sits below, so the button is here too */}
           {placeError && <p role="alert" className="mt-4 text-[14px] text-error lg:hidden">{placeError}</p>}
           <button type="submit" disabled={!canPlace} className="btn-lime mt-5 w-full py-4 text-[16px] lg:hidden">
-            {placing ? 'Placing order' : `Place order${quote.status === 'success' ? ` · ${rupees.format(quote.data.total)}` : ''}`}
+            {buttonText}
           </button>
         </Step>
       </div>
@@ -465,7 +495,8 @@ function CheckoutForm() {
                   <p className="text-[13px] text-stone-light">{quote.data.deliveryPricing.vehicle}, {quote.data.deliveryPricing.weightKg} kg, about {quote.data.deliveryPricing.distanceKm} km</p>
                 )}
                 <div className="mt-2 border-t border-white/10 pt-3">
-                  <SummaryRow strong label="Total" value={rupees.format(quote.data.total)} />
+                  {payingOnline && online!.deliveryDiscount > 0 && <SummaryRow onDark label="Paying online" value={`− ${rupees.format(online!.deliveryDiscount)}`} />}
+                  <SummaryRow strong label="Total" value={rupees.format(payable ?? quote.data.total)} />
                 </div>
               </div>
               {(quote.data.outOfArea || quote.data.onOrder) ? (
@@ -509,16 +540,8 @@ function CheckoutForm() {
           {step !== 3 && <p className="mt-6 hidden text-center text-[14px] text-stone-light lg:block">{t('Finish the steps on the left to place your order.')}</p>}
 
           <button type="submit" disabled={!canPlace || step !== 3} className="btn-lime mt-6 hidden w-full py-4 text-[16px] lg:inline-flex">
-            {placing ? (
-              <>
-                <span className="material-symbols-outlined animate-spin text-[20px]" aria-hidden="true">progress_activity</span>
-                Placing order
-              </>
-            ) : (
-              <>
-                Place order{quote.status === 'success' && ` · ${rupees.format(quote.data.total)}`}
-              </>
-            )}
+            {placing && <span className="material-symbols-outlined animate-spin text-[20px]" aria-hidden="true">progress_activity</span>}
+            {buttonText}
           </button>
           <p className="mt-3 text-center text-[12px] text-stone-light">{t('The supplier confirms the order before it is dispatched.')}</p>
         </div>

@@ -54,3 +54,7 @@ export { LANGUAGES, DEFAULT_LANG, LANG_COOKIE, isLang, parseLang, languageInfo, 
 export type { Lang, Dictionary, Dictionaries, Vars } from './i18n/core';
 export { I18nProvider, useI18n, useT, reverseTranslate } from './i18n/provider';
 export { locationMessageT } from './location/messages';
+
+// Razorpay Checkout: opens the payment window; the server creates and verifies payments
+export { loadRazorpayCheckout, openRazorpayCheckout, PaymentClosed } from './payments/checkout';
+export type { CheckoutOrder, CheckoutResult } from './payments/checkout';

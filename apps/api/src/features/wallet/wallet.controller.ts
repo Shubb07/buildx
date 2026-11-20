@@ -9,6 +9,7 @@ import { WalletTopUp } from '../../infrastructure/database/models/WalletTopUp.mo
 import { SupplierProfile } from '../../infrastructure/database/models/SupplierProfile.model';
 import { myWallet, startTopUp, completeTopUp, walletSummary, adjustBalance, MAX_TOPUP_RUPEES } from './wallet.service';
 import { paiseToRupees } from '../orders/pricing';
+import { isBuyerPayment, completeOnlinePayment } from '../payments/online.service';
 
 export const topUpSchema = z.object({
   amount: z.number().finite().positive().max(MAX_TOPUP_RUPEES).multipleOf(1, 'Top up in whole rupees'),
@@ -92,6 +93,12 @@ export async function razorpayWebhook(req: Request, res: Response) {
     try {
       if (await WalletTopUp.exists({ razorpayOrderId: payment.order_id })) {
         await completeTopUp({ razorpayOrderId: payment.order_id, razorpayPaymentId: payment.id });
+      } else if (await isBuyerPayment(payment.order_id)) {
+        // The buyer paid but their browser never came back: make the order (or refund) now
+        await completeOnlinePayment({ razorpayOrderId: payment.order_id, razorpayPaymentId: payment.id }).catch((err: AppError) => {
+          // A refunded checkout is finished business; anything else Razorpay should retry
+          if (!(err instanceof AppError && err.code === 'CONFLICT')) throw err;
+        });
       }
     } catch (err) {
       // 500 makes Razorpay try again later

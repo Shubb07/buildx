@@ -30,7 +30,7 @@ async function getVerifiedDriver(userId: string) {
 export async function listAvailableOrders(req: Request, res: Response, next: NextFunction) {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-    const limit = Math.min(20, parseInt(req.query.limit as string, 10) || 10);
+    const limit = Math.max(1, Math.min(20, parseInt(req.query.limit as string, 10) || 10));
     await getVerifiedDriver(req.auth!.userId);
 
     const [orders, total] = await Promise.all([
@@ -90,7 +90,7 @@ export async function assignOrder(req: Request, res: Response, next: NextFunctio
 export async function listMyOrders(req: Request, res: Response, next: NextFunction) {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-    const limit = Math.min(20, parseInt(req.query.limit as string, 10) || 10);
+    const limit = Math.max(1, Math.min(20, parseInt(req.query.limit as string, 10) || 10));
     const status = req.query.status as string | undefined;
 
     const filter: Record<string, unknown> = { driverId: req.auth!.userId };

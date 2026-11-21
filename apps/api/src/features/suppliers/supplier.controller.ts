@@ -166,7 +166,7 @@ export async function listSupplierOrders(req: Request, res: Response, next: Next
   try {
     const profile = await getSupplierProfile(req.auth!.userId);
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-    const limit = Math.min(20, parseInt(req.query.limit as string, 10) || 10);
+    const limit = Math.max(1, Math.min(20, parseInt(req.query.limit as string, 10) || 10));
     // status may be a comma list (e.g. READY_FOR_PICKUP,ASSIGNED); cashPending=1 lists own-vehicle
     // deliveries whose cash the supplier still has to confirm
     const statuses = String(req.query.status ?? '').split(',').filter((s) => ORDER_STATUSES.includes(s as never));
@@ -285,7 +285,7 @@ export async function listSupplierProducts(req: Request, res: Response, next: Ne
   try {
     const profile = await getSupplierProfile(req.auth!.userId);
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-    const limit = Math.min(20, parseInt(req.query.limit as string, 10) || 10);
+    const limit = Math.max(1, Math.min(20, parseInt(req.query.limit as string, 10) || 10));
     const status = req.query.status as string | undefined;
     // q: name search; lowStock=1: still in stock but at or below the supplier's own alert level
     const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 60) : '';

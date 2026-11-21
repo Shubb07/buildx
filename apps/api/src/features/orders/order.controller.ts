@@ -104,7 +104,7 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
 export async function listOrders(req: Request, res: Response, next: NextFunction) {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-    const limit = Math.min(20, parseInt(req.query.limit as string, 10) || 10);
+    const limit = Math.max(1, Math.min(20, parseInt(req.query.limit as string, 10) || 10));
 
     const [orders, total] = await Promise.all([
       Order.find({ buyerId: req.auth!.userId })

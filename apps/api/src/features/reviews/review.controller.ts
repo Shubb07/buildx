@@ -119,7 +119,7 @@ async function summary(match: Record<string, unknown>) {
 
 async function page(req: Request, match: Record<string, unknown>) {
   const pageNo = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-  const limit = Math.min(20, parseInt(req.query.limit as string, 10) || 10);
+  const limit = Math.max(1, Math.min(20, parseInt(req.query.limit as string, 10) || 10));
   const [rows, total] = await Promise.all([
     Review.find(match).sort({ createdAt: -1 }).skip((pageNo - 1) * limit).limit(limit).populate('reviewerId', 'name').lean(),
     Review.countDocuments(match),

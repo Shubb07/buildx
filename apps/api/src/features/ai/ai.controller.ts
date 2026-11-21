@@ -201,7 +201,7 @@ Return ONLY valid JSON array.`,
             totalBeforeGst: qty ? Math.round(beforeGst * 100) / 100 : 0,
             gstAmount: Math.round(gstAmt * 100) / 100,
             totalWithGst: qty ? Math.round((beforeGst + gstAmt) * 100) / 100 : 0,
-            inStock: p.stockQuantity > (qty ?? 0),
+            inStock: qty ? p.stockQuantity >= qty : p.stockQuantity > 0,
             stockQuantity: p.stockQuantity,
             deliveryDays: p.deliveryDays,
           }];
